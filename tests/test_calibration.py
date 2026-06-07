@@ -17,7 +17,9 @@ from littleboy.calibration import (
     ScoringCorpus,
     ScoringCorpusEntry,
     default_corpus,
+    default_generated_scoring_corpus,
     default_scoring_corpus,
+    generate_scoring_corpus,
     golden_payload,
     run_corpus,
     run_scoring_corpus,
@@ -223,3 +225,50 @@ def test_stricter_policy_shifts_the_false_alarm_rate():
 
     # Lower coercion thresholds flag more borderline cases: precautionary >= standard.
     assert coercion_fa("precautionary") >= coercion_fa("standard")
+
+
+# --- generated, independently-labelled corpus at scale (v0.12) ---------------
+
+
+GENERATED_GOLDEN = Path(__file__).resolve().parent / "golden" / "scoring_generated.golden.json"
+
+
+def test_generator_is_deterministic():
+    a = scoring_golden_payload(run_scoring_corpus(generate_scoring_corpus(n=50, seed=7)))
+    b = scoring_golden_payload(run_scoring_corpus(generate_scoring_corpus(n=50, seed=7)))
+    assert a == b
+
+
+def test_generated_labels_are_independent_of_the_heuristics():
+    # Labels come from latent parameters, so the heuristic detector genuinely disagrees
+    # with some of them -- a real, measured miss/false-alarm rate (not a tautological 0).
+    report = run_scoring_corpus(default_generated_scoring_corpus())
+    coercion = next(layer for layer in report.layers if layer.layer == "coercion")
+    assert coercion.n_labelled == 120
+    assert (coercion.false_alarm_rate > 0.0) or (coercion.miss_rate > 0.0)
+
+
+def test_confidence_intervals_tighten_with_more_data():
+    def fa_width(n: int) -> float:
+        report = run_scoring_corpus(generate_scoring_corpus(n=n, seed=0))
+        layer = next(x for x in report.layers if x.layer == "coercion")
+        return layer.false_alarm_rate_ci.high - layer.false_alarm_rate_ci.low
+
+    assert fa_width(320) < fa_width(40)
+
+
+def test_generated_golden_regression():
+    payload = scoring_golden_payload(run_scoring_corpus(default_generated_scoring_corpus()))
+    if os.environ.get("LITTLEBOY_UPDATE_GOLDEN"):
+        GENERATED_GOLDEN.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n")
+    expected = json.loads(GENERATED_GOLDEN.read_text())
+    assert payload == expected, (
+        "generated-corpus calibration drifted; "
+        "re-run with LITTLEBOY_UPDATE_GOLDEN=1 if the change is intended"
+    )
+
+
+def test_cli_calibrate_generated_works():
+    result = runner.invoke(app, ["calibrate", "--scope", "scoring", "--generated", "--n", "40"])
+    assert result.exit_code == 0
+    assert "CALIBRATION (scoring)" in result.stdout

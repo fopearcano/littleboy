@@ -26,6 +26,7 @@ from littleboy.audit.report import render_audit_json, render_audit_text
 from littleboy.calibration import (
     default_corpus,
     default_scoring_corpus,
+    generate_scoring_corpus,
     load_corpus,
     run_corpus,
     run_scoring_corpus,
@@ -230,6 +231,11 @@ def build_case(
     seed: Path | None = typer.Option(
         None, "--from", help="Seed the minimal-intake loop from this JSON ActionCase."
     ),
+    strategy: str = typer.Option(
+        "greedy",
+        "--strategy",
+        help="Intake strategy: 'greedy' (cheapest-first) or 'lookahead' (min expected cost).",
+    ),
 ) -> None:
     """Interactively build an ActionCase, then show its completeness (and optionally evaluate)."""
     policy_mode = _resolve_policy(policy)
@@ -237,6 +243,9 @@ def build_case(
     if minimal:
         if seed is None:
             typer.echo("--minimal requires --from <case.json> to seed the loop.", err=True)
+            raise typer.Exit(code=2)
+        if strategy not in {"greedy", "lookahead"}:
+            typer.echo(f"Unknown strategy '{strategy}'; use 'greedy' or 'lookahead'.", err=True)
             raise typer.Exit(code=2)
         case = _load_case(seed)
         typer.echo(
@@ -248,7 +257,9 @@ def build_case(
             label = f"[{question.priority}, cost {question.cost:g}] {question.question}"
             return typer.prompt(label, default="", show_default=False)
 
-        transcript, final_case = run_minimal_intake(case, _answer, policy=policy_mode)
+        transcript, final_case = run_minimal_intake(
+            case, _answer, policy=policy_mode, strategy=strategy
+        )
         typer.echo("\n" + render_intake_text(transcript))
         if output is not None:
             payload = final_case.model_dump(mode="json", exclude_none=True)
@@ -481,6 +492,14 @@ def calibrate(
     scope: str = typer.Option(
         "all", "--scope", "-s", help="Which corpora to run: 'audit', 'scoring', or 'all'."
     ),
+    generated: bool = typer.Option(
+        False,
+        "--generated",
+        "-g",
+        help="Use the large generated (independently-labelled) corpus for the scoring scope.",
+    ),
+    n: int = typer.Option(120, "--n", help="Number of generated cases (with --generated)."),
+    seed: int = typer.Option(0, "--seed", help="Seed for the generated corpus (with --generated)."),
 ) -> None:
     """Run the calibration corpora and report per-layer miss / false-alarm rates."""
     if output_format not in {"json", "text"}:
@@ -496,7 +515,10 @@ def calibrate(
         corpus = load_corpus(corpus_path) if corpus_path is not None else default_corpus()
         audit_report = run_corpus(corpus)
     if scope in {"scoring", "all"}:
-        scoring_report = run_scoring_corpus(default_scoring_corpus())
+        scoring_corpus = (
+            generate_scoring_corpus(n=n, seed=seed) if generated else default_scoring_corpus()
+        )
+        scoring_report = run_scoring_corpus(scoring_corpus)
 
     if output_format == "json":
         payload: dict = {}

@@ -541,6 +541,27 @@ class CaseCompletenessReport(_Base):
 # =============================================================================
 
 
+class IntakeHints(_Base):
+    """Domain-supplied guidance for the minimal-intake planner (v0.12).
+
+    Lets a case declare how expensive each question is to answer
+    (``question_costs``) and which resolution values are plausible for it
+    (``answer_values``), so a specific domain can drive the value-of-information
+    planner instead of the built-in defaults. Keys are probe field names (e.g.
+    ``"consent"``, ``"coercion.reversibility"``); answer values are strings parsed
+    per field (e.g. ``"given"``, ``"0.8"``, ``"worse"``). Both are optional and
+    fall back to the engine defaults.
+    """
+
+    question_costs: dict[str, float] = Field(
+        default_factory=dict, description="field name -> relative cost to answer."
+    )
+    answer_values: dict[str, list[str]] = Field(
+        default_factory=dict,
+        description="field name -> the plausible answer strings the planner should try.",
+    )
+
+
 class ActionCase(_Base):
     """The input to an ethical evaluation: a single action to be judged.
 
@@ -599,6 +620,10 @@ class ActionCase(_Base):
     is_inaction: bool = Field(
         default=False,
         description="True if this 'action' is an inaction (so it can be judged as non-neutral).",
+    )
+    intake_hints: IntakeHints | None = Field(
+        default=None,
+        description="Domain-supplied question costs and plausible answers for minimal intake.",
     )
     context_notes: str = ""
 

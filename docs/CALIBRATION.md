@@ -120,15 +120,44 @@ change shows up as a miss or false alarm on the relevant layer (with shifted
 confidence intervals and per-policy rates), or as a verdict mismatch, and fails the
 golden test.
 
+### Independently-labelled corpus at scale (v0.12)
+
+The packaged corpus is small and its labels were written by the same hands as the
+heuristics. To calibrate *at scale* with **independent** labels, `generate_scoring_corpus`
+synthesises many cases from latent parameters and labels each **from those latent
+parameters, never from the evaluator**: a latent severity `s` gives ground-truth
+`coercive = s >= 0.5`; a latent adequacy `d` gives `adequate_data = d >= 0.5`. The
+observed coercion and data profiles are built from `s`/`d`, and the heuristic
+detectors then predict over them — so agreement is a genuine measurement, not a
+tautology. Generation is fully deterministic given the seed (a fixed
+`random.Random(seed)`), so nothing is stored on disk and the corpus is
+reproducible.
+
+On the default generated corpus (n=120, seed=0) the coercion detector shows a
+**false-alarm rate around 0.43** against the latent labels — it flags "coercive"
+far more readily than the `s >= 0.5` definition (by design, the engine leans toward
+flagging coercion) — while data-sufficiency shows a **miss rate around 0.20**.
+These are exactly the kind of honest, quantified findings a small hand-labelled
+corpus cannot give. Each rate carries its Wilson interval, and the intervals
+**tighten as n grows** (`width ~ 1/sqrt(n)`): the coercion false-alarm interval is
+~0.38 wide at n=40 and ~0.16 wide at n=320. A golden file
+(`tests/golden/scoring_generated.golden.json`) pins the n=120/seed=0 metrics, so
+heuristic drift is caught at scale too.
+
+```bash
+littleboy calibrate --scope scoring --generated --n 200    # large, independently-labelled run
+```
+
 ## Limitations
 
-- The corpus is **small and hand-labelled**: the rates are calibration indicators
-  over a curated set, not population statistics, and the labels encode the
-  maintainers' judgement of what *should* fire.
+- The **audit corpus** is small and hand-labelled: its rates are calibration
+  indicators over a curated set, not population statistics.
+- The **generated corpus** gives labels independent of the heuristics, but they are
+  still *synthetic* — drawn from a latent model the maintainers chose, not from the
+  real world. It measures whether the heuristics recover that latent model, which
+  is a strong internal check but not external validity.
 - Golden-file pinning catches drift but does not *validate* correctness — a wrong
   expectation, once frozen, stays wrong until a human revisits it.
-- The scoring-layer detectors are deliberately coarse (a coercion band, the
-  data gate, a rising trend); they measure whether each layer behaves as labelled,
-  not whether the underlying heuristic is *well-calibrated against the world*.
-- Both corpora are small; expanding them (more adversarial patterns, more clean
-  and labelled cases) is the main lever for making the rates meaningful.
+- The scoring-layer detectors are deliberately coarse (a coercion band, the data
+  gate, a rising trend); they measure agreement with the labels, not whether the
+  heuristic is well-calibrated against real outcomes.

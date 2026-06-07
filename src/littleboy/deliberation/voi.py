@@ -173,6 +173,137 @@ _JUSTIFICATION_CONDITIONS = (
     "reversibility",
 )
 
+_POOR_DATA = DataQualityProfile(
+    completeness=0.2,
+    source_reliability=0.2,
+    specificity=0.2,
+    recency=0.3,
+    corroboration=0.1,
+    ambiguity=0.8,
+)
+_CONSENT_WORDS = {
+    "given": ConsentStatus.GIVEN,
+    "yes": ConsentStatus.GIVEN,
+    "refused": ConsentStatus.REFUSED,
+    "no": ConsentStatus.REFUSED,
+    "coerced": ConsentStatus.COERCED,
+    "disputed": ConsentStatus.DISPUTED,
+    "not_applicable": ConsentStatus.NOT_APPLICABLE,
+    "na": ConsentStatus.NOT_APPLICABLE,
+    "unknown": ConsentStatus.UNKNOWN,
+}
+_TYPE_II_WORDS = {"type_ii", "typeii", "type 2", "type ii", "ii", "2", "type2"}
+_TYPE_I_WORDS = {"type_i", "typei", "type 1", "type i", "i", "1", "type1"}
+_YES_WORDS = {"yes", "y", "true", "exists", "available"}
+_NO_WORDS = {"no", "n", "false", "none"}
+
+# Default relative cost of obtaining each answer. Cheap facts a single person can
+# state cost less than facts that require investigation. Operational defaults,
+# overridable per call or per case (via ``ActionCase.intake_hints.question_costs``).
+DEFAULT_QUESTION_COSTS = {
+    "consent": 1.0,
+    "acting_agent.agent_type": 1.0,
+    "coercion.reversibility": 1.0,
+    "justification": 2.0,
+    "available_alternatives": 2.0,
+    "consequences": 3.0,
+    "data_quality": 3.0,
+}
+
+
+def apply_field_answer(case: ActionCase, field: str, answer: str) -> ActionCase:
+    """Apply a free-text answer for one probe field, returning an updated case.
+
+    The canonical per-field parser, used both to build case-supplied probe
+    resolutions and to drive the interactive intake loop. Unparseable or empty
+    answers leave the case unchanged.
+    """
+    a = answer.strip().lower()
+    if not a:
+        return case
+    if field == "consent":
+        status = _CONSENT_WORDS.get(a)
+        return _set_consent(case, status) if status is not None else case
+    if field == "acting_agent.agent_type":
+        if a in _TYPE_II_WORDS:
+            return _set_agent_type(case, AgentType.TYPE_II)
+        if a in _TYPE_I_WORDS:
+            return _set_agent_type(case, AgentType.TYPE_I)
+        return case
+    if field == "coercion.reversibility":
+        try:
+            value = max(0.0, min(1.0, float(a)))
+        except ValueError:
+            return case
+        return _set_reversibility(case, value)
+    if field == "available_alternatives":
+        if a in _YES_WORDS:
+            return _set_alternatives(case, [_FEASIBLE_ALT])
+        if a in _NO_WORDS:
+            return _set_alternatives(case, [])
+        return case
+    if field == "data_quality":
+        if a in {"good", "high", "strong"}:
+            return _set_data_quality(case, _GOOD_DATA)
+        if a in {"poor", "low", "weak", "bad"}:
+            return _set_data_quality(case, _POOR_DATA)
+        return case
+    if field == "justification":
+        if case.justification is None:
+            return case
+        if a in {"established", "yes", "justified", "confirmed"}:
+            updates = {c: EpistemicStatus.CONFIRMED for c in _JUSTIFICATION_CONDITIONS}
+            if (
+                case.justification.expected_total_coercion_reduction is None
+                or case.justification.expected_total_coercion_reduction <= 0
+            ):
+                updates["expected_total_coercion_reduction"] = 0.6
+            return _set_justification(case, **updates)
+        if a in {"failed", "no", "refuted", "unjustified"}:
+            return _set_justification(
+                case,
+                necessity=EpistemicStatus.DISPUTED,
+                no_less_coercive_alternative_available=EpistemicStatus.DISPUTED,
+                expected_total_coercion_reduction=-0.2,
+            )
+        return case
+    if field == "consequences":
+        if a in {"worse", "worsen", "bad", "rising"}:
+            return _set_consequences(case, _WORSE_FUTURE)
+        if a in {"benign", "better", "good", "none", "neutral"}:
+            return _set_consequences(case, _BENIGN_FUTURE)
+        return case
+    return case
+
+
+def question_cost(field: str, cost_model: dict[str, float] | None = None) -> float:
+    """Return the cost of answering ``field`` (override map falls back to the defaults)."""
+    if cost_model is not None and field in cost_model:
+        return cost_model[field]
+    return DEFAULT_QUESTION_COSTS.get(field, 1.0)
+
+
+def effective_costs(
+    case: ActionCase, cost_model: dict[str, float] | None = None
+) -> dict[str, float]:
+    """Merge costs: built-in defaults < case-supplied hints < explicit ``cost_model``."""
+    merged = dict(DEFAULT_QUESTION_COSTS)
+    if case.intake_hints is not None and case.intake_hints.question_costs:
+        merged.update(case.intake_hints.question_costs)
+    if cost_model:
+        merged.update(cost_model)
+    return merged
+
+
+def _with_hint_resolutions(spec: ProbeSpec, values: list[str] | None) -> ProbeSpec:
+    """Replace a probe's default resolutions with case-supplied plausible answers."""
+    if not values:
+        return spec
+    resolutions = tuple(
+        (v, (lambda c, field=spec.field, val=v: apply_field_answer(c, field, val))) for v in values
+    )
+    return ProbeSpec(spec.field, spec.question, spec.why, spec.axioms, resolutions)
+
 
 def build_probe_specs(case: ActionCase) -> list[ProbeSpec]:
     """Return the applicable counterfactual probes for a case's genuine unknowns."""
@@ -313,6 +444,10 @@ def build_probe_specs(case: ActionCase) -> list[ProbeSpec]:
             )
         )
 
+    # Let a domain override the plausible answers per field (v0.12).
+    hints = case.intake_hints
+    if hints is not None and hints.answer_values:
+        specs = [_with_hint_resolutions(s, hints.answer_values.get(s.field)) for s in specs]
     return specs
 
 
@@ -489,6 +624,71 @@ def cheapest_flip_set(
     if best is None:
         return None
     return best[1], best[2]
+
+
+# =============================================================================
+# Expected-cost lookahead: which first question minimises expected total cost?
+# =============================================================================
+
+
+def _expected_cost_to_settle(
+    case: ActionCase,
+    evaluator: EthicalEvaluator,
+    costs: dict[str, float],
+    depth: int,
+    max_size: int,
+) -> tuple[float, str | None]:
+    """Expected total answer cost to settle, and the best first field to ask.
+
+    Settled = no resolvable combination (up to ``max_size``) flips the verdict.
+    Answers are assumed uniform over each probe's plausible resolutions (a domain
+    can narrow them via ``intake_hints.answer_values``). When depth runs out, the
+    remaining cost is estimated by the cheapest sufficient set.
+    """
+    _flip_sets, smallest = minimal_flip_sets(case, evaluator, max_size=max_size)
+    if smallest is None:
+        return 0.0, None  # already settled
+    specs = build_probe_specs(case)
+    if not specs or depth <= 0:
+        cheapest = cheapest_flip_set(case, evaluator, cost=costs, max_size=max_size)
+        return (cheapest[1] if cheapest is not None else 0.0), None
+
+    best: tuple[float, str] | None = None
+    for spec in specs:
+        q_cost = costs.get(spec.field, DEFAULT_QUESTION_COSTS.get(spec.field, 1.0))
+        continuation = 0.0
+        for _label, transform in spec.resolutions:
+            sub_cost, _ = _expected_cost_to_settle(
+                transform(case), evaluator, costs, depth - 1, max_size
+            )
+            continuation += sub_cost
+        continuation /= len(spec.resolutions)
+        total = q_cost + continuation
+        if best is None or total < best[0]:
+            best = (total, spec.field)
+    return best if best is not None else (0.0, None)
+
+
+def expected_cost_first_question(
+    case: ActionCase,
+    evaluator: EthicalEvaluator,
+    *,
+    cost: dict[str, float] | None = None,
+    max_depth: int = 4,
+    max_size: int = 2,
+) -> tuple[str, float] | None:
+    """Return ``(field, expected_total_cost)`` for the first question a cost-minimising
+    questioner should ask, looking ahead over uncertain (uniform) answers.
+
+    Unlike the greedy cheapest-first rule, this accounts for follow-up questions: a
+    slightly costlier first question can be preferred if it settles the verdict in
+    fewer expected follow-ups. Returns ``None`` if the verdict is already settled.
+    """
+    costs = cost if cost is not None else effective_costs(case, None)
+    total, field = _expected_cost_to_settle(case, evaluator, costs, max_depth, max_size)
+    if field is None:
+        return None
+    return field, round(total, 4)
 
 
 # =============================================================================

@@ -16,6 +16,7 @@ from littleboy import (
     ConsequenceSet,
     DataQualityProfile,
     Deliberator,
+    IntakeHints,
     MoralAgent,
     TimeHorizon,
     Verdict,
@@ -27,6 +28,7 @@ from littleboy.deliberation.intake import apply_intake_answer, run_minimal_intak
 from littleboy.deliberation.minimal_case import DEFAULT_QUESTION_COSTS, plan_minimal_questions
 from littleboy.deliberation.voi import (
     cheapest_flip_set,
+    expected_cost_first_question,
     minimal_flip_sets,
     value_of_information,
     verdict_distance,
@@ -417,3 +419,55 @@ def test_intake_loop_terminates_when_no_answer_progress():
     transcript, _ = run_minimal_intake(case, lambda q: "", policy="standard", max_steps=5)
     assert transcript.questions_asked <= 1
     assert transcript.final_verdict is not None
+
+
+# --- case-supplied cost / answer models (v0.12) ------------------------------
+
+
+def test_case_supplied_costs_change_the_cheapest_set():
+    base = _three_unknown_case()
+    # By default the cheapest set is the two cheap questions {consent, reversibility} (cost 2),
+    # beating the single but expensive data_quality (cost 3).
+    default_plan = plan_minimal_questions(base, _OrEvaluator())
+    assert set(default_plan.cheapest_set) == {"consent", "coercion.reversibility"}
+    # A domain that declares data_quality cheap flips the cheapest set to {data_quality}.
+    hinted = base.model_copy(
+        update={"intake_hints": IntakeHints(question_costs={"data_quality": 0.5})}
+    )
+    hinted_plan = plan_minimal_questions(hinted, _OrEvaluator())
+    assert hinted_plan.cheapest_set == ["data_quality"]
+
+
+def test_case_supplied_answers_restrict_the_probe():
+    # If the domain says consent could only ever be GIVEN, resolving it cannot flip the
+    # verdict (only REFUSED would), so the plan is empty and the verdict is robust.
+    case = _load("voi_consent_pivotal.json").model_copy(
+        update={"intake_hints": IntakeHints(answer_values={"consent": ["given"]})}
+    )
+    plan = Deliberator("standard").question_plan(case)
+    assert plan.questions == []
+    assert plan.verdict_robust is True
+
+
+# --- expected-cost lookahead -------------------------------------------------
+
+
+def test_lookahead_minimizes_expected_total_cost():
+    case = _three_unknown_case()
+    # The pair {consent, reversibility} settles in expected cost 2; data_quality alone costs 3.
+    result = expected_cost_first_question(case, _OrEvaluator(), cost=DEFAULT_QUESTION_COSTS)
+    assert result is not None
+    field, expected_total = result
+    assert field in {"consent", "coercion.reversibility"}
+    assert expected_total == 2.0
+
+
+def test_intake_lookahead_strategy_settles():
+    case = _load("voi_consent_pivotal.json")
+    answers = {"consent": "refused"}
+    transcript, _ = run_minimal_intake(
+        case, lambda q: answers.get(q.field, ""), policy="standard", strategy="lookahead"
+    )
+    assert transcript.settled is True
+    assert transcript.final_verdict == Verdict.ETHICALLY_SUSPICIOUS
+    assert "strategy: lookahead" in transcript.notes

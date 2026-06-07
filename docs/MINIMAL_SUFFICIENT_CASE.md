@@ -94,6 +94,36 @@ callback), so it is deterministic and testable; the CLI supplies a prompt, tests
 supply a script. Each step records the answer and the verdict after it, and the
 transcript says why it stopped.
 
+## Case-supplied costs and answers (v0.12)
+
+A domain knows its own costs and possibilities better than the engine's defaults.
+An `ActionCase` may carry `intake_hints`:
+
+- **`question_costs`** — `field -> cost`, merged over the defaults
+  (defaults < case hints < an explicit `cost_model` argument), so a domain can say
+  "for us, gathering evidence is cheap but consent is expensive to re-confirm";
+- **`answer_values`** — `field -> [plausible answer strings]`, which *replace* the
+  probe's default counterfactual resolutions. If a domain says consent here can
+  only be `given`, the planner stops pretending `refused` is on the table — and if
+  the only plausible answer cannot flip the verdict, the question simply drops out
+  of the plan.
+
+Both flow through the same `apply_field_answer` parser used by the interactive
+loop, so a hint-supplied resolution and a typed answer mean the same thing.
+
+## Expected-cost lookahead (v0.12)
+
+The greedy loop asks the cheapest verdict-relevant question now. But when answers
+are *uncertain*, a slightly costlier first question can settle the verdict in fewer
+expected follow-ups. `expected_cost_first_question` is an expectimax over the
+probes: assuming answers are uniform over each probe's plausible resolutions, it
+computes, for each candidate first question, `cost(q) + average over answers of
+(expected cost to settle the rest)`, and returns the minimiser. Pass
+`strategy="lookahead"` to `run_minimal_intake` (or `build-case --minimal
+--strategy lookahead`) to use it instead of greedy. It is depth- and
+breadth-bounded, deterministic given the uniform-answer assumption, and reduces to
+the greedy choice when no question needs a follow-up.
+
 ## How it connects to the case builder
 
 `CaseBuilder.minimal_questions(case)` delegates to the planner (lazily, to avoid

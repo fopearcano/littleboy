@@ -32,6 +32,7 @@ from littleboy.calibration import (
     ScoringCorpus,
     default_corpus,
     default_scoring_corpus,
+    generate_scoring_corpus,
     run_corpus,
     run_scoring_corpus,
 )
@@ -95,6 +96,7 @@ from littleboy.core.models import (
     DataQualityProfile,
     EvaluationReport,
     ExperimentSummary,
+    IntakeHints,
     JustificationResult,
     MoralAgent,
     Question,
@@ -157,7 +159,7 @@ from littleboy.temporal import (
     score_reversibility,
 )
 
-__version__ = "0.11.0"
+__version__ = "0.12.0"
 
 __all__ = [
     "AuditCorpus",
@@ -167,6 +169,7 @@ __all__ = [
     "DeliberationReport",
     "Deliberator",
     "InformationValue",
+    "IntakeHints",
     "IntakeTranscript",
     "MinimalFlipSet",
     "MinimalQuestionPlan",
@@ -176,6 +179,7 @@ __all__ = [
     "comparison_value_of_information",
     "default_corpus",
     "default_scoring_corpus",
+    "generate_scoring_corpus",
     "minimal_flip_sets",
     "plan_minimal_questions",
     "run_corpus",

@@ -14,6 +14,10 @@ from littleboy.calibration.corpus import (
     load_corpus,
     run_corpus,
 )
+from littleboy.calibration.generator import (
+    default_generated_scoring_corpus,
+    generate_scoring_corpus,
+)
 from littleboy.calibration.metrics import aggregate, score_entry
 from littleboy.calibration.models import (
     AuditCorpus,
@@ -52,7 +56,9 @@ __all__ = [
     "ScoringCorpusEntry",
     "aggregate",
     "default_corpus",
+    "default_generated_scoring_corpus",
     "default_scoring_corpus",
+    "generate_scoring_corpus",
     "golden_payload",
     "load_corpus",
     "load_scoring_corpus",

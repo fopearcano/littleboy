@@ -16,14 +16,20 @@ from typing import TYPE_CHECKING
 
 from littleboy.deliberation.models import MinimalQuestionPlan, PlannedQuestion
 from littleboy.deliberation.voi import (
+    DEFAULT_QUESTION_COSTS,
     cheapest_flip_set,
+    effective_costs,
     minimal_flip_sets,
+    question_cost,
     value_of_information,
 )
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from littleboy.core.evaluator import EthicalEvaluator
     from littleboy.core.models import ActionCase
+
+# Re-exported for backwards compatibility (the canonical definitions live in voi).
+__all__ = ["DEFAULT_QUESTION_COSTS", "plan_minimal_questions", "question_cost"]
 
 # Probe field -> case-builder question category (matches QuestionCategory values).
 _FIELD_CATEGORY = {
@@ -36,28 +42,7 @@ _FIELD_CATEGORY = {
     "consequences": "consequences",
 }
 
-# Default relative cost of obtaining each answer. Cheap facts a single person can
-# state (consent, agent type, reversibility) cost less than facts that require
-# investigation (gathering data, forecasting consequences). These are operational
-# defaults, not moral weights; override per call.
-DEFAULT_QUESTION_COSTS = {
-    "consent": 1.0,
-    "acting_agent.agent_type": 1.0,
-    "coercion.reversibility": 1.0,
-    "justification": 2.0,
-    "available_alternatives": 2.0,
-    "consequences": 3.0,
-    "data_quality": 3.0,
-}
-
 _PRIORITY_RANK = {"critical": 0, "high": 1, "medium": 2}
-
-
-def question_cost(field: str, cost_model: dict[str, float] | None = None) -> float:
-    """Return the cost of answering ``field`` (override map falls back to the defaults)."""
-    if cost_model is not None and field in cost_model:
-        return cost_model[field]
-    return DEFAULT_QUESTION_COSTS.get(field, 1.0)
 
 
 def plan_minimal_questions(
@@ -75,9 +60,9 @@ def plan_minimal_questions(
     questions over one expensive one).
     """
     base = evaluator.evaluate(case)
-    # Effective costs: defaults, overridden by any caller-supplied map. Used for both the
-    # per-question cost and the cheapest-set search, so they stay consistent.
-    effective_cost = {**DEFAULT_QUESTION_COSTS, **(cost_model or {})}
+    # Effective costs: built-in defaults < case-supplied hints < caller-supplied map. Used
+    # for both the per-question cost and the cheapest-set search, so they stay consistent.
+    effective_cost = effective_costs(case, cost_model)
 
     ivs = value_of_information(case, evaluator)
     flip_sets, smallest = minimal_flip_sets(case, evaluator, max_size=max_size)

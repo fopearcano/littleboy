@@ -1,0 +1,300 @@
+{
+  "n_cases": 120,
+  "verdict_labelled": 0,
+  "verdict_correct": 0,
+  "verdict_accuracy": 0.0,
+  "layers": [
+    {
+      "layer": "coercion",
+      "n_labelled": 120,
+      "true_positive": 67,
+      "false_positive": 23,
+      "false_negative": 0,
+      "true_negative": 30,
+      "miss_rate": 0.0,
+      "miss_rate_ci": {
+        "low": 0.0,
+        "high": 0.0542
+      },
+      "false_alarm_rate": 0.434,
+      "false_alarm_rate_ci": {
+        "low": 0.3095,
+        "high": 0.5673
+      }
+    },
+    {
+      "layer": "data_sufficiency",
+      "n_labelled": 120,
+      "true_positive": 47,
+      "false_positive": 0,
+      "false_negative": 12,
+      "true_negative": 61,
+      "miss_rate": 0.2034,
+      "miss_rate_ci": {
+        "low": 0.1204,
+        "high": 0.3227
+      },
+      "false_alarm_rate": 0.0,
+      "false_alarm_rate_ci": {
+        "low": 0.0,
+        "high": 0.0592
+      }
+    },
+    {
+      "layer": "temporal",
+      "n_labelled": 0,
+      "true_positive": 0,
+      "false_positive": 0,
+      "false_negative": 0,
+      "true_negative": 0,
+      "miss_rate": 0.0,
+      "miss_rate_ci": {
+        "low": 0.0,
+        "high": 1.0
+      },
+      "false_alarm_rate": 0.0,
+      "false_alarm_rate_ci": {
+        "low": 0.0,
+        "high": 1.0
+      }
+    }
+  ],
+  "per_policy": [
+    {
+      "policy": "permissive",
+      "layers": [
+        {
+          "layer": "coercion",
+          "n_labelled": 120,
+          "true_positive": 67,
+          "false_positive": 15,
+          "false_negative": 0,
+          "true_negative": 38,
+          "miss_rate": 0.0,
+          "miss_rate_ci": {
+            "low": 0.0,
+            "high": 0.0542
+          },
+          "false_alarm_rate": 0.283,
+          "false_alarm_rate_ci": {
+            "low": 0.1797,
+            "high": 0.4157
+          }
+        },
+        {
+          "layer": "data_sufficiency",
+          "n_labelled": 120,
+          "true_positive": 58,
+          "false_positive": 0,
+          "false_negative": 1,
+          "true_negative": 61,
+          "miss_rate": 0.0169,
+          "miss_rate_ci": {
+            "low": 0.003,
+            "high": 0.09
+          },
+          "false_alarm_rate": 0.0,
+          "false_alarm_rate_ci": {
+            "low": 0.0,
+            "high": 0.0592
+          }
+        },
+        {
+          "layer": "temporal",
+          "n_labelled": 0,
+          "true_positive": 0,
+          "false_positive": 0,
+          "false_negative": 0,
+          "true_negative": 0,
+          "miss_rate": 0.0,
+          "miss_rate_ci": {
+            "low": 0.0,
+            "high": 1.0
+          },
+          "false_alarm_rate": 0.0,
+          "false_alarm_rate_ci": {
+            "low": 0.0,
+            "high": 1.0
+          }
+        }
+      ]
+    },
+    {
+      "policy": "standard",
+      "layers": [
+        {
+          "layer": "coercion",
+          "n_labelled": 120,
+          "true_positive": 67,
+          "false_positive": 23,
+          "false_negative": 0,
+          "true_negative": 30,
+          "miss_rate": 0.0,
+          "miss_rate_ci": {
+            "low": 0.0,
+            "high": 0.0542
+          },
+          "false_alarm_rate": 0.434,
+          "false_alarm_rate_ci": {
+            "low": 0.3095,
+            "high": 0.5673
+          }
+        },
+        {
+          "layer": "data_sufficiency",
+          "n_labelled": 120,
+          "true_positive": 47,
+          "false_positive": 0,
+          "false_negative": 12,
+          "true_negative": 61,
+          "miss_rate": 0.2034,
+          "miss_rate_ci": {
+            "low": 0.1204,
+            "high": 0.3227
+          },
+          "false_alarm_rate": 0.0,
+          "false_alarm_rate_ci": {
+            "low": 0.0,
+            "high": 0.0592
+          }
+        },
+        {
+          "layer": "temporal",
+          "n_labelled": 0,
+          "true_positive": 0,
+          "false_positive": 0,
+          "false_negative": 0,
+          "true_negative": 0,
+          "miss_rate": 0.0,
+          "miss_rate_ci": {
+            "low": 0.0,
+            "high": 1.0
+          },
+          "false_alarm_rate": 0.0,
+          "false_alarm_rate_ci": {
+            "low": 0.0,
+            "high": 1.0
+          }
+        }
+      ]
+    },
+    {
+      "policy": "strict",
+      "layers": [
+        {
+          "layer": "coercion",
+          "n_labelled": 120,
+          "true_positive": 67,
+          "false_positive": 34,
+          "false_negative": 0,
+          "true_negative": 19,
+          "miss_rate": 0.0,
+          "miss_rate_ci": {
+            "low": 0.0,
+            "high": 0.0542
+          },
+          "false_alarm_rate": 0.6415,
+          "false_alarm_rate_ci": {
+            "low": 0.5069,
+            "high": 0.757
+          }
+        },
+        {
+          "layer": "data_sufficiency",
+          "n_labelled": 120,
+          "true_positive": 33,
+          "false_positive": 0,
+          "false_negative": 26,
+          "true_negative": 61,
+          "miss_rate": 0.4407,
+          "miss_rate_ci": {
+            "low": 0.3215,
+            "high": 0.5671
+          },
+          "false_alarm_rate": 0.0,
+          "false_alarm_rate_ci": {
+            "low": 0.0,
+            "high": 0.0592
+          }
+        },
+        {
+          "layer": "temporal",
+          "n_labelled": 0,
+          "true_positive": 0,
+          "false_positive": 0,
+          "false_negative": 0,
+          "true_negative": 0,
+          "miss_rate": 0.0,
+          "miss_rate_ci": {
+            "low": 0.0,
+            "high": 1.0
+          },
+          "false_alarm_rate": 0.0,
+          "false_alarm_rate_ci": {
+            "low": 0.0,
+            "high": 1.0
+          }
+        }
+      ]
+    },
+    {
+      "policy": "precautionary",
+      "layers": [
+        {
+          "layer": "coercion",
+          "n_labelled": 120,
+          "true_positive": 67,
+          "false_positive": 35,
+          "false_negative": 0,
+          "true_negative": 18,
+          "miss_rate": 0.0,
+          "miss_rate_ci": {
+            "low": 0.0,
+            "high": 0.0542
+          },
+          "false_alarm_rate": 0.6604,
+          "false_alarm_rate_ci": {
+            "low": 0.5259,
+            "high": 0.7731
+          }
+        },
+        {
+          "layer": "data_sufficiency",
+          "n_labelled": 120,
+          "true_positive": 24,
+          "false_positive": 0,
+          "false_negative": 35,
+          "true_negative": 61,
+          "miss_rate": 0.5932,
+          "miss_rate_ci": {
+            "low": 0.4659,
+            "high": 0.7091
+          },
+          "false_alarm_rate": 0.0,
+          "false_alarm_rate_ci": {
+            "low": 0.0,
+            "high": 0.0592
+          }
+        },
+        {
+          "layer": "temporal",
+          "n_labelled": 0,
+          "true_positive": 0,
+          "false_positive": 0,
+          "false_negative": 0,
+          "true_negative": 0,
+          "miss_rate": 0.0,
+          "miss_rate_ci": {
+            "low": 0.0,
+            "high": 1.0
+          },
+          "false_alarm_rate": 0.0,
+          "false_alarm_rate_ci": {
+            "low": 0.0,
+            "high": 1.0
+          }
+        }
+      ]
+    }
+  ]
+}
