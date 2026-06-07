@@ -101,6 +101,23 @@ def render_text(report: EvaluationReport) -> str:
             ],
         )
 
+    if report.temporal_projection is not None and report.temporal_projection.has_temporal_data:
+        tp = report.temporal_projection
+        _section(
+            "Temporal projection",
+            [
+                f"trend = {tp.trend}; stable across horizons = {tp.stable}",
+                f"immediate = {tp.immediate_coercion:.2f}  "
+                f"long-term = {tp.long_term_coercion:.2f}  "
+                f"cumulative = {tp.cumulative_coercion:.2f}  expected total = "
+                f"{tp.expected_total_coercion:.2f}",
+                f"prevents greater future coercion = {tp.prevents_greater_future_coercion}; "
+                f"creates long-term dependency = {tp.creates_long_term_dependency}; "
+                f"reversible now / irreversible later = {tp.reversible_now_irreversible_later}",
+                *(f"high-risk unknown: {u}" for u in tp.high_risk_unknowns),
+            ],
+        )
+
     _section("Missing data", report.missing_data)
 
     if report.reasoning_trace is not None:

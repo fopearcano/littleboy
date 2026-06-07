@@ -11,11 +11,14 @@ and returns a **transparent, explained verdict** with an honest account of its
 own uncertainty. It is a reasoning engine, not a user interface and not a
 language model.
 
-This is **v0.6**, which adds the **Comparison Engine**: LittleBoy now compares
-several candidate actions and identifies the least coercive *morally viable* path
-under the available evidence, exposing dominance, trade-offs, and instability
-rather than a simplistic winner. (v0.5 added the language module; v0.4 the
-scenario builder; v0.3 the rule engine and policy layer.) See
+This is **v0.7**, which adds **Temporal & Consequence Modeling**: LittleBoy now
+judges an action *across time* — short-, medium-, and long-term consequences,
+delayed and cumulative coercion, reversibility, and the non-neutrality of
+inaction — rather than only at the instant it occurs. The guiding thesis: **an
+action is ethically unstable if it reduces visible coercion now while creating
+hidden, cumulative, irreversible, or delayed coercion later.** (v0.6 added the
+comparison engine; v0.5 the language module; v0.4 the scenario builder; v0.3 the
+rule engine and policy layer.) See
 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md),
 [`docs/ETHICAL_MODEL.md`](docs/ETHICAL_MODEL.md),
 [`docs/RULE_ENGINE.md`](docs/RULE_ENGINE.md),
@@ -24,9 +27,12 @@ scenario builder; v0.3 the rule engine and policy layer.) See
 [`docs/SCENARIO_TEMPLATES.md`](docs/SCENARIO_TEMPLATES.md),
 [`docs/LANGUAGE_ETHICS.md`](docs/LANGUAGE_ETHICS.md),
 [`docs/LINGUISTIC_COERCION.md`](docs/LINGUISTIC_COERCION.md),
-[`docs/COMPARISON_ENGINE.md`](docs/COMPARISON_ENGINE.md), and
-[`docs/TRADEOFF_ANALYSIS.md`](docs/TRADEOFF_ANALYSIS.md) for the full design and
-formal model.
+[`docs/COMPARISON_ENGINE.md`](docs/COMPARISON_ENGINE.md),
+[`docs/TRADEOFF_ANALYSIS.md`](docs/TRADEOFF_ANALYSIS.md),
+[`docs/TEMPORAL_MODEL.md`](docs/TEMPORAL_MODEL.md),
+[`docs/CONSEQUENCE_MODELING.md`](docs/CONSEQUENCE_MODELING.md), and
+[`docs/CUMULATIVE_COERCION.md`](docs/CUMULATIVE_COERCION.md) for the full design
+and formal model.
 
 ---
 
@@ -176,6 +182,56 @@ The same set can rank differently under different policy profiles. CLI:
 [`docs/COMPARISON_ENGINE.md`](docs/COMPARISON_ENGINE.md) and
 [`docs/TRADEOFF_ANALYSIS.md`](docs/TRADEOFF_ANALYSIS.md).
 
+## LittleBoy v0.7: Temporal & Consequence Modeling
+
+> **An action cannot be ethically judged only at the instant it occurs.** An
+> action is ethically *unstable* if it reduces visible coercion now while
+> creating hidden, cumulative, irreversible, or delayed coercion later.
+
+Coercion is rarely confined to the moment of action: it can be delayed,
+cumulative, reversible-now-but-irreversible-later, or simply *allowed to continue*
+by inaction. The `littleboy.temporal` module judges an action across time —
+deterministically, with no forecasting and no LLM, and never presenting an
+estimate as a certain prediction. An `ActionCase` may now carry four optional,
+fully-typed temporal inputs (and an `is_inaction` flag):
+
+- **`consequences`** — a `ConsequenceSet` of per-horizon `ConsequenceEstimate`s,
+  each with a *signed* `coercion_delta`, plus `probability`, `confidence`,
+  `reversibility`, and `evidence_quality`;
+- **`temporal_profile`** — coarse, directly-supplied per-horizon coercion;
+- **`reversibility_profile`** — how fully, at what cost, and with what residual
+  harm the action could be undone;
+- **`cumulative_coercion_profile`** — how a single small coercion could become
+  systemic if repeated, normalised, or institutionalised.
+
+`project_temporal` combines these with the immediate coercion into a
+`TemporalProjectionResult`: per-horizon coercion, an `expected_total_coercion`, a
+`trend` (rising / falling / stable), `cumulative_coercion`, a `reversibility_score`,
+the flags `prevents_greater_future_coercion`, `creates_long_term_dependency`, and
+`reversible_now_irreversible_later`, plus `high_risk_unknowns`, `uncertainty`,
+warnings, and missing data. Six rules consume it (and stay inert on non-temporal
+cases, so all earlier cases behave identically):
+
+- **LB-R019** Temporal Consequence — high long-term coercion downgrades even when
+  immediate coercion is low;
+- **LB-R020** Reversibility v2 — irreversible coercion needs stronger
+  justification; unknown reversibility lowers confidence (complements LB-R010);
+- **LB-R021** Cumulative Coercion — repetition/normalisation that makes coercion
+  systemic downgrades;
+- **LB-R022** Inaction Is Not Neutral — inaction that permits coercion to continue
+  or grow is judged as a coercive choice;
+- **LB-R023** Future Coercion Prevention — present coercion is *qualifiedly*
+  justified only if it credibly prevents greater future coercion **and** meets the
+  Axiom 3 conditions;
+- **LB-R024** Temporal Uncertainty — high-impact but weakly-evidenced temporal
+  claims lower confidence (more under stricter policy) and expose the missing data.
+
+The comparison engine also gains an **immediate-term** and a **long-term**
+ranking, and flags when they disagree. CLI: `littleboy temporal <case.json>`. See
+[`docs/TEMPORAL_MODEL.md`](docs/TEMPORAL_MODEL.md),
+[`docs/CONSEQUENCE_MODELING.md`](docs/CONSEQUENCE_MODELING.md), and
+[`docs/CUMULATIVE_COERCION.md`](docs/CUMULATIVE_COERCION.md).
+
 ## How evidence is represented
 
 An `EvidenceSet` holds `EvidenceItem`s, each a `claim` plus its `source_type`
@@ -244,7 +300,7 @@ src/littleboy/
     base.py         # Rule base class + RuleContext
     registry.py     # RuleRegistry (register / list / evaluate / enable-disable)
     policy.py       # PolicyProfile + the four built-in policy modes
-    builtin_rules.py# LB-R001 .. LB-R018 (incl. the six language rules)
+    builtin_rules.py# LB-R001 .. LB-R024 (incl. the language and temporal rules)
     engine.py       # RuleEngine: runs rules and synthesizes the verdict
     trace.py        # builds the ReasoningTrace
   case_builder/
@@ -266,15 +322,24 @@ src/littleboy/
     tradeoffs.py    # explicit trade-off analysis
     engine.py       # ComparisonEngine (builds on EthicalEvaluator)
     report.py       # comparison JSON / text rendering
+  temporal/
+    models.py       # ConsequenceEstimate/Set, Temporal/Reversibility/Cumulative profiles, result
+    horizon.py      # TimeHorizon ordering, aggregation weights, soft-OR
+    consequences.py # assess_consequences (expected delta, worst/best plausible, uncertainty)
+    reversibility.py# score_reversibility (cost + residual harm + epistemic status)
+    cumulative.py   # score_cumulative_coercion (repetition-gated amplifiers)
+    projection.py   # project_temporal: coercion across horizons (no import cycle)
+    report.py       # temporal JSON / text rendering
   reasoning/
     report.py       # JSON / text rendering
     experiment.py   # EthicalExperiment runner (falsificatory + heuristic)
-  cli.py            # evaluate / experiment / questions / build-case / templates / analyze-language / compare
+  cli.py            # evaluate / experiment / questions / build-case / templates / analyze-language / compare / temporal
 tests/              # pytest suite
-examples/           # sample JSON cases (incl. partial_*, language_*, comparison_*)
+examples/           # sample JSON cases (incl. partial_*, language_*, comparison_*, temporal_*)
 docs/               # ARCHITECTURE, ETHICAL_MODEL, RULE_ENGINE, POLICY_PROFILES,
                     #   CASE_BUILDER, SCENARIO_TEMPLATES, LANGUAGE_ETHICS,
-                    #   LINGUISTIC_COERCION, COMPARISON_ENGINE, TRADEOFF_ANALYSIS
+                    #   LINGUISTIC_COERCION, COMPARISON_ENGINE, TRADEOFF_ANALYSIS,
+                    #   TEMPORAL_MODEL, CONSEQUENCE_MODELING, CUMULATIVE_COERCION
 ```
 
 ## Installation
@@ -290,7 +355,7 @@ pip install -e ".[dev]"     # pydantic, pytest, typer, ruff
 ## Running the tests
 
 ```bash
-pytest                      # 125 tests
+pytest                      # 141 tests
 ruff check src tests        # lint (optional)
 ```
 
@@ -308,6 +373,8 @@ littleboy analyze-language examples/language_manipulative_case.json       # ling
 littleboy analyze-language examples/language_constructive_case.json --format text
 littleboy compare examples/comparison_basic.json                          # rank candidate actions
 littleboy compare examples/comparison_irreversible_vs_reversible.json --policy precautionary --format text
+littleboy temporal examples/temporal_low_now_high_later.json              # project coercion across time
+littleboy temporal examples/temporal_cumulative_policy_risk.json --format text
 littleboy templates                                                       # list scenario templates
 littleboy version
 ```
@@ -368,6 +435,18 @@ The v0.6 **comparison** sets (each an `ActionComparisonSet`); run them with
 | `examples/comparison_medical_abstract_options.json` | Abstract consent-respecting option vs. pressured ones (no clinical claims) |
 | `examples/comparison_irreversible_vs_reversible.json` | Reversibility vs. certainty trade-off; ranking shifts with policy |
 | `examples/comparison_uncertain_data.json` | LittleBoy refuses a stable ranking (too little data) |
+
+The v0.7 **temporal** examples; run them with `littleboy temporal` and
+`littleboy evaluate`:
+
+| File | Demonstrates | Verdict |
+|------|--------------|---------|
+| `examples/temporal_low_now_high_later.json` | Low coercion now, high coercion later (rising trend; LB-R019) | `NOT_ACCEPTABLE` |
+| `examples/temporal_high_now_prevents_worse.json` | Temporary coercion that credibly prevents greater future coercion (LB-R023) | `ACCEPTABLE_WITH_RESERVATIONS` |
+| `examples/temporal_inaction_not_neutral.json` | Inaction that permits coercion to continue/grow (LB-R022) | `NOT_ACCEPTABLE` |
+| `examples/temporal_irreversible_weak_data.json` | Irreversible action on weak evidence (LB-R020/R024) | `INSUFFICIENT_DATA` |
+| `examples/temporal_cumulative_policy_risk.json` | A small coercion that becomes systemic if normalised (LB-R021) | `NOT_ACCEPTABLE` |
+| `examples/comparison_temporal_tradeoff.json` | A *comparison set* whose immediate and long-term rankings disagree (`littleboy compare`) | — |
 
 (The v0.1 examples `simple_case.json`, `high_coercion_case.json`, and
 `insufficient_data_case.json` remain valid.)
@@ -453,36 +532,46 @@ make consequential decisions about real people.
 
 ## Current development status
 
-**v0.6 — comparison engine.** Implemented on top of v0.5: a
-`littleboy.comparison` package that compares candidate actions using the
-existing `EthicalEvaluator` (it does not replace it), decides moral viability,
-computes strict/partial dominance, produces a layered transparent ranking,
-detects and reports trade-offs, flags unstable rankings with the missing data
-that could change them, preserves every individual report, and supports policy
-overrides; a `compare` CLI command; six comparison example sets; and a 125-test
-suite (all passing). The comparison layer is purely additive.
+**v0.7 — temporal & consequence modeling.** Implemented on top of v0.6: a
+`littleboy.temporal` package that judges an action across time without
+forecasting or any LLM. It models per-horizon consequence estimates,
+reversibility (cost + residual harm + epistemic status), and cumulative coercion
+(repetition-gated systemic amplifiers); `project_temporal` derives per-horizon
+coercion, an expected total, a trend, and the ethically important flags
+(prevents-greater-future-coercion, creates-long-term-dependency,
+reversible-now-irreversible-later) while always carrying its own uncertainty,
+warnings, and missing data. Six new rules (LB-R019 .. LB-R024) consume the
+projection and stay inert on non-temporal cases; the comparison engine gains
+immediate-term vs. long-term rankings and a conflict flag; a `temporal` CLI
+command; six temporal examples; and a 141-test suite (all passing). The temporal
+layer is purely additive — every pre-v0.7 case evaluates identically.
 
 Earlier phases delivered the core models; coercion/data-quality/evidence scoring;
 consent/agency models; the tri-state Axiom 3 justification; feasibility-aware
 alternatives; the critical-data gate; the ethical experiment runner; the v0.3
-rule engine with four policy profiles and a full reasoning trace (now eighteen
-rules); the v0.4 scenario builder; and the v0.5 language & coercion module (no
-NLP/LLM). All v0.1–v0.5 inputs remain valid.
+rule engine with four policy profiles and a full reasoning trace (now
+twenty-four rules); the v0.4 scenario builder; the v0.5 language & coercion
+module (no NLP/LLM); and the v0.6 comparison engine. All v0.1–v0.6 inputs remain
+valid.
 
-**Deliberately not built:** any web UI, any LLM/API integration, any claim to
-absolute truth, any heavy frameworks.
+**Deliberately not built:** any web UI, any LLM/API integration, any prediction
+that looks certain, any claim to absolute truth, any heavy frameworks.
 
 ### Recommended next steps
 
 - A deliberation/explanation layer that narrates *why* the top option beats the
-  runner-up, and what single fact would most change the comparison (value of
-  information).
-- Calibrate the coercion / language / evidence heuristics, the policy thresholds,
-  and the ranking weights against a worked case library with golden-file
-  regression tests.
-- **Optional** LLM-assisted language-indicator extraction behind an explicit
-  flag, with the model's suggestions shown, attributed, and editable — the
-  deterministic core staying authoritative and the audit trail preserved.
+  runner-up across time, and what single fact would most change the verdict or
+  comparison (value of information).
+- Calibrate the temporal horizon weights, the cumulative-coercion gate, and the
+  coercion / language / evidence heuristics against a worked case library with
+  golden-file regression tests.
+- A scenario/Monte-Carlo layer that propagates the supplied probabilities and
+  confidences into a *distribution* over outcomes — still deterministic given its
+  inputs, still no LLM, never hiding the spread behind one number.
+- **Optional** LLM-assisted indicator extraction (language and consequence)
+  behind an explicit flag, with the model's suggestions shown, attributed, and
+  editable — the deterministic core staying authoritative and the audit trail
+  preserved.
 
 ## License
 

@@ -34,6 +34,13 @@ from littleboy.core.enums import (
 )
 from littleboy.data.evidence import EvidenceSet
 from littleboy.language.models import LanguageAct, LanguageAnalysis
+from littleboy.temporal.models import (
+    ConsequenceSet,
+    CumulativeCoercionProfile,
+    ReversibilityProfile,
+    TemporalProfile,
+    TemporalProjectionResult,
+)
 
 
 class _Base(BaseModel):
@@ -575,6 +582,23 @@ class ActionCase(_Base):
         default=None,
         description="A language act central to the case (drives linguistic-coercion analysis).",
     )
+    consequences: ConsequenceSet | None = Field(
+        default=None, description="Estimated consequences across time horizons (v0.7)."
+    )
+    temporal_profile: TemporalProfile | None = Field(
+        default=None, description="Optional directly-supplied per-horizon coercion estimates."
+    )
+    reversibility_profile: ReversibilityProfile | None = Field(
+        default=None, description="How (and at what cost) the action's effects could be undone."
+    )
+    cumulative_coercion_profile: CumulativeCoercionProfile | None = Field(
+        default=None,
+        description="How a single coercion could become serious if repeated/normalised.",
+    )
+    is_inaction: bool = Field(
+        default=False,
+        description="True if this 'action' is an inaction (so it can be judged as non-neutral).",
+    )
     context_notes: str = ""
 
     # --- Consent and agency --------------------------------------------------
@@ -658,6 +682,7 @@ class EvaluationReport(_Base):
     ethical_experiment: ExperimentSummary | None = None
     reasoning_trace: ReasoningTrace | None = None
     language_analysis: LanguageAnalysis | None = None
+    temporal_projection: TemporalProjectionResult | None = None
 
     case_completeness: CaseCompletenessReport | None = None
     recommended_questions: list[Question] = Field(default_factory=list)

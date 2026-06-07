@@ -1,0 +1,22 @@
+{
+  "title": "A small coercion that becomes systemic if normalised",
+  "description": "A single mildly coercive action that becomes ethically serious because it is likely to repeat, normalise, set precedent, create dependency, and institutionalise.",
+  "acting_agent": { "name": "Institution", "agent_type": "TYPE_II", "is_collective": true },
+  "affected_agents": [{ "name": "Members", "agent_type": "TYPE_II", "is_collective": true }],
+  "coercion_profile": { "social_pressure": 0.15, "reversibility": 1.0, "severity": 0.1 },
+  "data_quality": { "completeness": 0.8, "source_reliability": 0.8, "specificity": 0.8, "recency": 0.85, "corroboration": 0.75, "ambiguity": 0.2 },
+  "consent": "GIVEN",
+  "available_alternatives": [],
+  "responds_to_existing_coercion": false,
+  "expected_consequences": "Minor now, but adopted as a recurring norm.",
+  "cumulative_coercion_profile": {
+    "single_action_coercion": 0.15,
+    "repetition_likelihood": 0.9,
+    "normalization_risk": 0.8,
+    "precedent_risk": 0.8,
+    "dependency_creation_risk": 0.6,
+    "institutionalization_risk": 0.7,
+    "escalation_risk": 0.6,
+    "affected_population_growth": 0.7
+  }
+}

@@ -29,6 +29,7 @@ from littleboy.language.models import (
     LanguageEthicsProfile,
 )
 from littleboy.rules.policy import PolicyProfile
+from littleboy.temporal.models import ReversibilityProfile, TemporalProjectionResult
 
 
 @dataclass
@@ -68,6 +69,13 @@ class RuleContext:
     constructive: ConstructiveLanguageAssessment | None = None
     language_affects_consent: bool = False
     language_replaces_framing: bool = False
+
+    # Temporal & consequence modelling (v0.7). Defaulted so non-temporal cases
+    # need not set them (and the temporal rules then report NOT_APPLICABLE).
+    temporal_present: bool = False
+    temporal: TemporalProjectionResult | None = None
+    reversibility_profile: ReversibilityProfile | None = None
+    reversibility_unknown: bool = False
 
 
 class Rule:

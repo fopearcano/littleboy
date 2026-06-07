@@ -1,0 +1,27 @@
+{
+  "title": "A convenient default that entrenches control over time",
+  "description": "An action with very low coercion now, but whose plausible long-term consequence is a large increase in coercion.",
+  "acting_agent": { "name": "Platform", "agent_type": "TYPE_II", "is_collective": true },
+  "affected_agents": [{ "name": "Users", "agent_type": "TYPE_II", "is_collective": true }],
+  "coercion_profile": { "social_pressure": 0.1, "reversibility": 1.0, "severity": 0.05 },
+  "data_quality": { "completeness": 0.8, "source_reliability": 0.8, "specificity": 0.8, "recency": 0.85, "corroboration": 0.75, "ambiguity": 0.2 },
+  "consent": "GIVEN",
+  "available_alternatives": [],
+  "responds_to_existing_coercion": false,
+  "expected_consequences": "Convenient now; control accumulates later.",
+  "consequences": {
+    "consequences": [
+      {
+        "description": "The default quietly entrenches control and removes future choice",
+        "horizon": "long_term",
+        "coercion_delta": 0.8,
+        "severity": 0.7,
+        "probability": 0.9,
+        "confidence": 0.7,
+        "reversibility": 0.3,
+        "duration": 0.8,
+        "evidence_quality": 0.6
+      }
+    ]
+  }
+}

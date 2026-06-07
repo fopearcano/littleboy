@@ -79,6 +79,10 @@ def _build_entry(option: ActionOption, report: EvaluationReport) -> ActionRankin
         report.alternatives_analysis is not None
         and report.alternatives_analysis.has_feasible_less_coercive
     )
+    t = report.temporal_projection
+    has_temporal = bool(t is not None and t.has_temporal_data)
+    expected_total = t.expected_total_coercion if has_temporal else report.coercion_score
+    long_term = t.long_term_coercion if has_temporal else report.coercion_score
     return ActionRankingEntry(
         option_id=option.option_id,
         title=option.title or option.option_id,
@@ -97,6 +101,27 @@ def _build_entry(option: ActionOption, report: EvaluationReport) -> ActionRankin
         main_reasons=list(report.main_reasons),
         blockers=list(report.reasoning_trace.blockers) if report.reasoning_trace else [],
         missing_data=list(report.missing_data),
+        expected_total_coercion=round(expected_total, 4),
+        long_term_coercion=round(long_term, 4),
+        cumulative_coercion=(t.cumulative_coercion if has_temporal else 0.0),
+        temporal_trend=(t.trend if has_temporal else "unknown"),
+        temporal_present=has_temporal,
+        temporal_stable=(t.stable if has_temporal else True),
+    )
+
+
+def _immediate_key(entry: ActionRankingEntry) -> tuple:
+    # Immediate view: order by the coercion right now (not the temporal-laden verdict),
+    # so a genuine immediate-vs-long-term conflict can surface.
+    return (round(entry.coercion_score * 10), round(1 - entry.confidence, 4), entry.option_id)
+
+
+def _long_term_key(entry: ActionRankingEntry) -> tuple:
+    return (
+        round(entry.expected_total_coercion * 10),
+        round(entry.cumulative_coercion * 5),
+        round(1 - entry.confidence, 4),
+        entry.option_id,
     )
 
 
@@ -143,7 +168,24 @@ class ComparisonEngine:
         )
 
         what_could_change = self._what_could_change(ranked, data_sensitive)
+
+        # Immediate vs long-term views, and whether they conflict (v0.7).
+        immediate_ranking = [e.option_id for e in sorted(entries, key=_immediate_key)]
+        long_term_ranking = [e.option_id for e in sorted(entries, key=_long_term_key)]
+        rankings_conflict = immediate_ranking != long_term_ranking
+        temporal_missing = _unique(
+            f"{oid}: {m}"
+            for oid, rep in reports.items()
+            if rep.temporal_projection is not None and rep.temporal_projection.has_temporal_data
+            for m in rep.temporal_projection.missing_data
+        )
+
         warnings = self._uncertainty_warnings(ranked, data_sensitive, best_id)
+        if rankings_conflict:
+            warnings.append(
+                "the immediate-term and long-term rankings disagree; the choice depends on the "
+                "time horizon that matters most"
+            )
         missing_summary = _unique(m for e in ranked for m in e.missing_data)
 
         result = ActionComparisonResult(
@@ -158,8 +200,12 @@ class ComparisonEngine:
             ranking_stable=not data_sensitive,
             data_sensitive=data_sensitive,
             what_could_change_ranking=what_could_change,
-            uncertainty_warnings=warnings,
+            uncertainty_warnings=_unique(warnings),
             missing_data_summary=missing_summary,
+            immediate_ranking=immediate_ranking,
+            long_term_ranking=long_term_ranking,
+            rankings_conflict=rankings_conflict,
+            temporal_missing_data=temporal_missing,
             individual_reports=reports,
         )
         result.comparison_explanation = build_comparison_explanation(result)

@@ -16,6 +16,7 @@ from littleboy.core.enums import (
     ConsentStatus,
     EpistemicStatus,
     LanguageMedium,
+    PolicyMode,
     RuleResultStatus,
     RuleSeverity,
     Verdict,
@@ -23,6 +24,14 @@ from littleboy.core.enums import (
 from littleboy.core.models import RuleResult
 from littleboy.rules.base import Rule, RuleContext
 from littleboy.rules.registry import RuleRegistry
+
+# LB-R024 confidence penalty for high-impact, weakly-evidenced temporal claims.
+_TEMPORAL_UNCERTAINTY_DELTA = {
+    PolicyMode.PERMISSIVE: -0.05,
+    PolicyMode.STANDARD: -0.10,
+    PolicyMode.STRICT: -0.15,
+    PolicyMode.PRECAUTIONARY: -0.20,
+}
 
 # Media in which clarity carries a heightened ethical duty (used by LB-R018).
 _CLARITY_REQUIRED_MEDIA = (
@@ -747,6 +756,245 @@ class ObfuscationUnderHighStakesRule(Rule):
         )
 
 
+class TemporalConsequenceRule(Rule):
+    rule_id = "LB-R019"
+    name = "Temporal Consequence Rule"
+    description = (
+        "If long-term consequences plausibly increase coercion, downgrade even when "
+        "immediate coercion is low."
+    )
+    axioms_invoked = ("A2", "A5")
+
+    def evaluate(self, ctx: RuleContext) -> RuleResult:
+        if not ctx.temporal_present or ctx.temporal is None:
+            return self.not_applicable("the case contains no temporal data")
+        t = ctx.temporal
+        if t.long_term_coercion >= ctx.policy.max_coercion_for_acceptable:
+            return self.result(
+                status=_S.FAILED,
+                severity=_V.DOWNGRADE,
+                message=f"Long-term coercion is high ({t.long_term_coercion:.2f}) even though "
+                f"immediate coercion is {t.immediate_coercion:.2f}; judged across time (A2).",
+                verdict_delta=2,
+                confidence_delta=-0.05,
+            )
+        if t.long_term_coercion >= ctx.policy.coercion_moderate and t.trend == "rising":
+            return self.result(
+                status=_S.FAILED,
+                severity=_V.DOWNGRADE,
+                message=f"Coercion rises over time (immediate {t.immediate_coercion:.2f} -> "
+                f"long-term {t.long_term_coercion:.2f}); downgraded (A2).",
+                verdict_delta=1,
+            )
+        if t.trend == "rising":
+            return self.result(
+                status=_S.PASSED,
+                severity=_V.WARNING,
+                message="Coercion trends upward over time, but stays below the moderate threshold.",
+            )
+        return self.result(
+            status=_S.PASSED,
+            severity=_V.INFO,
+            message=(
+                f"Long-term coercion ({t.long_term_coercion:.2f}) does not exceed "
+                "the immediate level."
+            ),
+        )
+
+
+class ReversibilityRuleV2(Rule):
+    rule_id = "LB-R020"
+    name = "Reversibility Rule v2"
+    description = (
+        "An irreversible action, or one whose reversibility is unknown, requires stronger "
+        "evidence and justification (complements LB-R010)."
+    )
+    axioms_invoked = ("A3", "A5")
+
+    def evaluate(self, ctx: RuleContext) -> RuleResult:
+        rp = ctx.reversibility_profile
+        irreversible = ctx.irreversible or (
+            rp is not None
+            and (rp.is_reversible == EpistemicStatus.DISPUTED or rp.reversibility_score < 0.3)
+        )
+        unknown = ctx.reversibility_unknown or (rp is not None and rp.is_reversible.is_unresolved)
+        if not (irreversible or unknown or rp is not None):
+            return self.not_applicable("reversibility is known and the action is reversible")
+
+        if (
+            irreversible
+            and ctx.coercion_score >= ctx.policy.coercion_moderate
+            and (ctx.justification.is_justified is not True)
+        ):
+            return self.result(
+                status=_S.FAILED,
+                severity=_V.DOWNGRADE,
+                message="The action is effectively irreversible and coercive without an "
+                "established justification; irreversible coercion demands strong "
+                "justification (A3).",
+                verdict_delta=1,
+            )
+        if irreversible:
+            return self.result(
+                status=_S.PASSED,
+                severity=_V.WARNING,
+                message="The action is effectively irreversible; stronger evidence and "
+                "justification are expected (A5).",
+            )
+        if unknown:
+            return self.result(
+                status=_S.UNKNOWN,
+                severity=_V.WARNING,
+                message="Reversibility is unknown; confidence is reduced and irreversible acts "
+                "would demand stronger evidence (A5).",
+                missing_data=["reversibility of the action over time"],
+            )
+        return self.result(
+            status=_S.PASSED, severity=_V.INFO, message="The action is adequately reversible."
+        )
+
+
+class CumulativeCoercionRule(Rule):
+    rule_id = "LB-R021"
+    name = "Cumulative Coercion Rule"
+    description = (
+        "If a repeated or normalised action creates significant cumulative coercion, downgrade."
+    )
+    axioms_invoked = ("A0", "A2")
+
+    def evaluate(self, ctx: RuleContext) -> RuleResult:
+        if not ctx.temporal_present or ctx.temporal is None:
+            return self.not_applicable("the case contains no temporal data")
+        cum = ctx.temporal.cumulative_coercion
+        if cum <= 0.0:
+            return self.not_applicable("no cumulative-coercion profile was supplied")
+        if cum >= ctx.policy.max_coercion_for_acceptable:
+            return self.result(
+                status=_S.FAILED,
+                severity=_V.DOWNGRADE,
+                message=f"Repeated/normalised, the action creates high cumulative coercion "
+                f"({cum:.2f}); a small coercion becomes systemic (A0/A2).",
+                verdict_delta=2,
+                confidence_delta=-0.05,
+            )
+        if cum >= ctx.policy.coercion_moderate:
+            return self.result(
+                status=_S.FAILED,
+                severity=_V.DOWNGRADE,
+                message=f"Cumulative coercion is moderate ({cum:.2f}) once repetition/"
+                "normalisation are considered; downgraded (A2).",
+                verdict_delta=1,
+            )
+        return self.result(
+            status=_S.PASSED,
+            severity=_V.WARNING,
+            message=f"Cumulative coercion is present but low ({cum:.2f}).",
+        )
+
+
+class InactionIsNotNeutralRule(Rule):
+    rule_id = "LB-R022"
+    name = "Inaction Is Not Neutral Rule"
+    description = (
+        "If inaction allows existing coercion to continue, worsen, or become irreversible, "
+        "it is evaluated as a coercive choice, not a neutral default."
+    )
+    axioms_invoked = ("A0", "A2")
+
+    def evaluate(self, ctx: RuleContext) -> RuleResult:
+        if not ctx.case.is_inaction:
+            return self.not_applicable("this case is not an inaction")
+        t = ctx.temporal
+        permits = t is not None and (
+            t.expected_total_coercion >= ctx.policy.coercion_moderate
+            or t.trend == "rising"
+            or t.expected_coercion_delta > 0.0
+        )
+        if permits:
+            return self.result(
+                status=_S.FAILED,
+                severity=_V.BLOCKER,
+                message="Inaction here permits existing coercion to continue or grow; it is "
+                "evaluated as a coercive choice and cannot be confidently approved (A0/A2).",
+                verdict_cap=Verdict.ETHICALLY_SUSPICIOUS,
+            )
+        return self.result(
+            status=_S.PASSED,
+            severity=_V.INFO,
+            message="Inaction does not appear to permit ongoing or growing coercion here.",
+        )
+
+
+class FutureCoercionPreventionRule(Rule):
+    rule_id = "LB-R023"
+    name = "Future Coercion Prevention Rule"
+    description = (
+        "Temporary coercion may be qualifiedly justified only if it credibly prevents greater "
+        "future coercion and meets the Axiom 3 conditions."
+    )
+    axioms_invoked = ("A2", "A3")
+
+    def evaluate(self, ctx: RuleContext) -> RuleResult:
+        if not ctx.temporal_present or ctx.temporal is None:
+            return self.not_applicable("the case contains no temporal data")
+        if ctx.coercion_score < ctx.policy.max_coercion_for_acceptable:
+            return self.not_applicable(
+                "no high present coercion that would need this justification"
+            )
+        if not ctx.temporal.prevents_greater_future_coercion:
+            return self.not_applicable("no credible future-coercion prevention is claimed")
+        if ctx.justification.is_justified is True:
+            return self.result(
+                status=_S.PASSED,
+                severity=_V.INFO,
+                message="Temporary coercion is qualifiedly justified: it credibly prevents "
+                "greater future coercion and the Axiom 3 conditions are met.",
+            )
+        return self.result(
+            status=_S.FAILED,
+            severity=_V.WARNING,
+            message="The action claims to prevent greater future coercion, but the Axiom 3 "
+            "justification is incomplete; future prevention does not auto-justify "
+            "present coercion.",
+        )
+
+
+class TemporalUncertaintyRule(Rule):
+    rule_id = "LB-R024"
+    name = "Temporal Uncertainty Rule"
+    description = (
+        "If temporal consequences are high-impact but weakly evidenced, confidence drops and the "
+        "missing data is exposed."
+    )
+    axioms_invoked = ("A5",)
+
+    def evaluate(self, ctx: RuleContext) -> RuleResult:
+        if not ctx.temporal_present or ctx.temporal is None:
+            return self.not_applicable("the case contains no temporal data")
+        t = ctx.temporal
+        material = t.long_term_coercion >= ctx.policy.coercion_moderate or (
+            t.expected_total_coercion >= ctx.policy.coercion_moderate
+        )
+        if not (t.high_risk_unknowns or (t.uncertainty >= 0.5 and material)):
+            return self.result(
+                status=_S.PASSED,
+                severity=_V.INFO,
+                message="Temporal consequences are adequately evidenced for the stakes.",
+            )
+        delta = _TEMPORAL_UNCERTAINTY_DELTA[ctx.policy.mode]
+        # Precautionary policy also downgrades, not merely lowers confidence.
+        verdict_delta = 1 if ctx.policy.mode == PolicyMode.PRECAUTIONARY else 0
+        return self.result(
+            status=_S.FAILED,
+            severity=_V.WARNING,
+            message="Temporal consequences are high-impact but weakly evidenced; confidence is "
+            "reduced and the missing data is exposed (A5).",
+            confidence_delta=delta,
+            verdict_delta=verdict_delta,
+            missing_data=list(t.missing_data) + list(t.high_risk_unknowns),
+        )
+
+
 # The canonical, ordered list of built-in rules.
 BUILTIN_RULES: tuple[type[Rule], ...] = (
     TypeIIDutyRule,
@@ -767,6 +1015,12 @@ BUILTIN_RULES: tuple[type[Rule], ...] = (
     TestimonialInjusticeRule,
     ConstructiveLanguageDutyRule,
     ObfuscationUnderHighStakesRule,
+    TemporalConsequenceRule,
+    ReversibilityRuleV2,
+    CumulativeCoercionRule,
+    InactionIsNotNeutralRule,
+    FutureCoercionPreventionRule,
+    TemporalUncertaintyRule,
 )
 
 

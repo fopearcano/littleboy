@@ -1,0 +1,39 @@
+{
+  "title": "Doing nothing while coercion continues",
+  "description": "An inaction whose consequence is that an existing coercion continues and grows. Inaction is evaluated as a non-neutral choice.",
+  "acting_agent": { "name": "Bystander", "agent_type": "TYPE_II" },
+  "affected_agents": [{ "name": "Person being coerced", "agent_type": "TYPE_II" }],
+  "is_inaction": true,
+  "coercion_profile": { "psychological_pressure": 0.1, "reversibility": 0.4, "severity": 0.1 },
+  "data_quality": { "completeness": 0.8, "source_reliability": 0.8, "specificity": 0.8, "recency": 0.85, "corroboration": 0.75, "ambiguity": 0.2 },
+  "consent": "NOT_APPLICABLE",
+  "available_alternatives": [],
+  "responds_to_existing_coercion": false,
+  "expected_consequences": "The existing coercion continues and worsens.",
+  "consequences": {
+    "consequences": [
+      {
+        "description": "The existing coercion continues unchecked",
+        "horizon": "short_term",
+        "coercion_delta": 0.6,
+        "severity": 0.6,
+        "probability": 0.85,
+        "confidence": 0.7,
+        "reversibility": 0.4,
+        "duration": 0.6,
+        "evidence_quality": 0.6
+      },
+      {
+        "description": "The coercion becomes entrenched and harder to stop",
+        "horizon": "long_term",
+        "coercion_delta": 0.6,
+        "severity": 0.7,
+        "probability": 0.7,
+        "confidence": 0.6,
+        "reversibility": 0.3,
+        "duration": 0.8,
+        "evidence_quality": 0.6
+      }
+    ]
+  }
+}

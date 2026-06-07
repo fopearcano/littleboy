@@ -101,6 +101,19 @@ def render_comparison_text(result: ActionComparisonResult) -> str:
     _section("Strictly dominated options", result.dominated_options)
     _section("Non-dominated options", result.non_dominated_options)
     _section("Unresolved trade-offs", [t.description for t in result.tradeoffs])
+
+    lines.append("")
+    lines.append(
+        "Immediate-term order: "
+        + (" > ".join(result.immediate_ranking) if result.immediate_ranking else "(n/a)")
+    )
+    lines.append(
+        "Long-term order:      "
+        + (" > ".join(result.long_term_ranking) if result.long_term_ranking else "(n/a)")
+    )
+    lines.append(f"Immediate vs long-term rankings conflict: {result.rankings_conflict}")
+
     _section("Missing data that could change the ranking", result.what_could_change_ranking)
+    _section("Missing temporal data", result.temporal_missing_data)
     _section("Uncertainty warnings", result.uncertainty_warnings)
     return "\n".join(lines)

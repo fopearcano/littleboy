@@ -1,0 +1,80 @@
+{
+  "title": "Act now (cheap now, costly later) vs wait (costlier now, cheaper later)",
+  "description": "Two options whose immediate-term and long-term rankings disagree.",
+  "policy_mode": "standard",
+  "options": [
+    {
+      "option_id": "act_now",
+      "title": "Act now (low coercion now, high coercion later)",
+      "declared_goal": "resolve the situation",
+      "case": {
+        "title": "Act now with a convenient but entrenching measure",
+        "acting_agent": { "name": "Operator", "agent_type": "TYPE_II" },
+        "affected_agents": [{ "name": "Affected party", "agent_type": "TYPE_II" }],
+        "coercion_profile": { "social_pressure": 0.1, "reversibility": 1.0, "severity": 0.05 },
+        "data_quality": { "completeness": 0.8, "source_reliability": 0.8, "specificity": 0.8, "recency": 0.85, "corroboration": 0.75, "ambiguity": 0.2 },
+        "consent": "GIVEN",
+        "available_alternatives": [],
+        "responds_to_existing_coercion": false,
+        "expected_consequences": "Cheap now, entrenches control later.",
+        "consequences": {
+          "consequences": [
+            {
+              "description": "Control begins to entrench",
+              "horizon": "medium_term",
+              "coercion_delta": 0.8,
+              "severity": 0.7,
+              "probability": 0.9,
+              "confidence": 0.7,
+              "reversibility": 0.3,
+              "duration": 0.8,
+              "evidence_quality": 0.6
+            },
+            {
+              "description": "Control becomes entrenched and hard to undo",
+              "horizon": "long_term",
+              "coercion_delta": 0.8,
+              "severity": 0.7,
+              "probability": 0.9,
+              "confidence": 0.7,
+              "reversibility": 0.3,
+              "duration": 0.8,
+              "evidence_quality": 0.6
+            }
+          ]
+        }
+      }
+    },
+    {
+      "option_id": "wait",
+      "title": "Wait (higher coercion now, low coercion later)",
+      "declared_goal": "resolve the situation",
+      "case": {
+        "title": "Take a more demanding but self-limiting measure",
+        "acting_agent": { "name": "Operator", "agent_type": "TYPE_II" },
+        "affected_agents": [{ "name": "Affected party", "agent_type": "TYPE_II" }],
+        "coercion_profile": { "economic_pressure": 0.3, "reversibility": 0.9, "severity": 0.2 },
+        "data_quality": { "completeness": 0.8, "source_reliability": 0.8, "specificity": 0.8, "recency": 0.85, "corroboration": 0.75, "ambiguity": 0.2 },
+        "consent": "GIVEN",
+        "available_alternatives": [],
+        "responds_to_existing_coercion": false,
+        "expected_consequences": "Harder now, but it does not entrench.",
+        "consequences": {
+          "consequences": [
+            {
+              "description": "The measure winds down on its own",
+              "horizon": "long_term",
+              "coercion_delta": -0.2,
+              "severity": 0.3,
+              "probability": 0.7,
+              "confidence": 0.6,
+              "reversibility": 0.9,
+              "duration": 0.3,
+              "evidence_quality": 0.6
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

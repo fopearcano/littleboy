@@ -75,6 +75,14 @@ class ActionRankingEntry(_Base):
     consent_status: str | None = None
     has_feasible_less_coercive: bool = False
 
+    # Temporal (v0.7). For non-temporal options these equal the immediate values.
+    expected_total_coercion: float = Field(default=0.0, ge=0.0, le=1.0)
+    long_term_coercion: float = Field(default=0.0, ge=0.0, le=1.0)
+    cumulative_coercion: float = Field(default=0.0, ge=0.0, le=1.0)
+    temporal_trend: str = "unknown"
+    temporal_present: bool = False
+    temporal_stable: bool = True
+
     primary_reason: str = ""
     downgrade_reason: str | None = None
     main_reasons: list[str] = Field(default_factory=list)
@@ -122,6 +130,12 @@ class ActionComparisonResult(_Base):
     what_could_change_ranking: list[str] = Field(default_factory=list)
     uncertainty_warnings: list[str] = Field(default_factory=list)
     missing_data_summary: list[str] = Field(default_factory=list)
+
+    # Temporal (v0.7): immediate vs long-term views and their possible conflict.
+    immediate_ranking: list[str] = Field(default_factory=list)
+    long_term_ranking: list[str] = Field(default_factory=list)
+    rankings_conflict: bool = False
+    temporal_missing_data: list[str] = Field(default_factory=list)
 
     comparison_explanation: str = ""
     individual_reports: dict[str, EvaluationReport] = Field(default_factory=dict)

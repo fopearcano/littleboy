@@ -49,6 +49,7 @@ from littleboy.language.analyzer import (
 from littleboy.rules.base import RuleContext
 from littleboy.rules.engine import RuleEngine
 from littleboy.rules.policy import PolicyMode, PolicyProfile, get_policy
+from littleboy.temporal.projection import project_temporal
 
 # An action is treated as "irreversible" below this reversibility value. This is a
 # structural fact about the action; the *consequences* of irreversibility are
@@ -110,6 +111,16 @@ class EthicalEvaluator:
                 "no coercion profile supplied; coercion could not be characterised"
             ]
 
+        # 0b. Temporal & consequence projection (v0.7). Inert when no temporal data.
+        temporal = project_temporal(
+            base_coercion=coercion_score,
+            consequences=case.consequences,
+            temporal_profile=case.temporal_profile,
+            reversibility_profile=case.reversibility_profile,
+            cumulative_profile=case.cumulative_coercion_profile,
+            is_inaction=case.is_inaction,
+        )
+
         dq = assess_data_quality(case.data_quality)
         evidence = assess_evidence(case.evidence)
         epistemic_score = combine_epistemic_score(
@@ -131,6 +142,8 @@ class EthicalEvaluator:
             missing_data.append(f"critical data missing: {item}")
         if language_analysis is not None:
             missing_data.extend(f"language: {m}" for m in language_analysis.missing_data)
+        if temporal.has_temporal_data:
+            missing_data.extend(f"temporal: {m}" for m in temporal.missing_data)
         missing_data = _unique(missing_data)
         base_confidence = compute_confidence(epistemic_score, n_unknowns)
 
@@ -140,6 +153,9 @@ class EthicalEvaluator:
             profile is not None
             and profile.reversibility_is_known
             and profile.reversibility < IRREVERSIBLE_THRESHOLD
+        )
+        reversibility_unknown = case.reversibility_profile is None and (
+            profile is None or not profile.reversibility_is_known
         )
         ctx = RuleContext(
             case=case,
@@ -171,6 +187,10 @@ class EthicalEvaluator:
             language_replaces_framing=(
                 language_analysis.replaces_subject_framing if language_analysis else False
             ),
+            temporal_present=temporal.has_temporal_data,
+            temporal=temporal,
+            reversibility_profile=case.reversibility_profile,
+            reversibility_unknown=reversibility_unknown,
         )
         outcome = self.engine.evaluate(ctx, missing_data=missing_data)
 
@@ -181,7 +201,7 @@ class EthicalEvaluator:
         # 4. Assemble narratives from the rule results + sub-assessments.
         main_reasons = self._build_main_reasons(outcome, consent, agency)
         warnings = self._build_warnings(
-            outcome, consent, agency, justification, alternatives, language_analysis
+            outcome, consent, agency, justification, alternatives, language_analysis, temporal
         )
 
         data_quality_reasoning = list(dq.reasoning)
@@ -248,6 +268,7 @@ class EthicalEvaluator:
             ethical_experiment=experiment,
             reasoning_trace=outcome.trace,
             language_analysis=language_analysis,
+            temporal_projection=temporal,
             case_completeness=completeness,
             recommended_questions=recommended_questions,
             explanation=explanation,
@@ -267,7 +288,14 @@ class EthicalEvaluator:
         return _unique(reasons)
 
     def _build_warnings(
-        self, outcome, consent, agency, justification, alternatives, language_analysis=None
+        self,
+        outcome,
+        consent,
+        agency,
+        justification,
+        alternatives,
+        language_analysis=None,
+        temporal=None,
     ) -> list[str]:
         """Warnings: surfaced rule findings plus sub-assessment warnings."""
         warnings: list[str] = [
@@ -280,6 +308,8 @@ class EthicalEvaluator:
         warnings.extend(justification.warnings)
         if language_analysis is not None:
             warnings.extend(f"[language] {w}" for w in language_analysis.warnings)
+        if temporal is not None and temporal.has_temporal_data:
+            warnings.extend(f"[temporal] {w}" for w in temporal.warnings)
         if alternatives.infeasible_less_coercive:
             warnings.append(
                 "less coercive but infeasible option(s) noted (do not defeat the action): "

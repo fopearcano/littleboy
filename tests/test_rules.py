@@ -93,7 +93,7 @@ def test_registry_registers_and_lists_rules():
     with pytest.raises(ValueError):
         reg.register(DummyRule())  # duplicate id
 
-    assert len(default_registry()) == 18
+    assert len(default_registry()) == 24
 
 
 # --- 2. all built-in rules are well-formed -----------------------------------
@@ -108,7 +108,7 @@ def test_all_builtin_rules_have_metadata():
         assert rule.description
         assert rule.axioms_invoked  # at least one axiom
         ids.append(rule.rule_id)
-    assert len(set(ids)) == len(ids) == 18
+    assert len(set(ids)) == len(ids) == 24
 
 
 # --- 3. Type I agent does not receive moral-duty assignment ------------------
@@ -317,7 +317,7 @@ def test_report_includes_complete_rule_trace():
     report = EthicalEvaluator().evaluate(_case())
     tr = report.reasoning_trace
     assert tr is not None
-    assert len(tr.applied) == 18
+    assert len(tr.applied) == 24
     assert tr.final_verdict == report.verdict
     assert tr.policy_mode == PolicyMode.STANDARD
     assert report.policy_mode == PolicyMode.STANDARD
@@ -339,7 +339,7 @@ def test_cli_output_includes_rule_trace():
     payload = json.loads(result.stdout)
     assert payload["policy_mode"] == "strict"
     assert "reasoning_trace" in payload
-    assert len(payload["reasoning_trace"]["applied"]) == 18
+    assert len(payload["reasoning_trace"]["applied"]) == 24
     assert "final_verdict" in payload["reasoning_trace"]
 
 

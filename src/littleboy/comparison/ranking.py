@@ -39,14 +39,23 @@ _IRREV_CONFIDENCE_FLOOR = {
     PolicyMode.STRICT: 0.75,
     PolicyMode.PRECAUTIONARY: 0.85,
 }
+# How heavily cumulative coercion risk weighs in the ranking.
+_CUM_WEIGHT = {
+    PolicyMode.PERMISSIVE: 2.0,
+    PolicyMode.STANDARD: 3.0,
+    PolicyMode.STRICT: 4.0,
+    PolicyMode.PRECAUTIONARY: 5.0,
+}
 
 # Human labels for each key component, used to explain downgrades (in order).
 _KEY_LABELS = (
     "moral viability",
-    "coercion level",
+    "coercion across time",
     "consent integrity",
     "protection of vulnerable agents",
     "reversibility under uncertainty",
+    "cumulative coercion risk",
+    "temporal stability",
     "uncertainty",
     "availability of a less-coercive alternative",
     "constructive vs. manipulative language",
@@ -76,7 +85,9 @@ def ranking_key(entry: ActionRankingEntry, policy: PolicyProfile) -> tuple:
     else:
         viability_tier = 2
 
-    coercion_band = round(entry.coercion_score * 10)
+    # Coercion is judged across time (expected total); equals the immediate score
+    # for non-temporal options.
+    coercion_band = round(entry.expected_total_coercion * 10)
 
     consent_penalty = _consent_penalty(entry, policy)
 
@@ -90,6 +101,12 @@ def ranking_key(entry: ActionRankingEntry, policy: PolicyProfile) -> tuple:
     else:
         irrev_penalty = 0
 
+    cumulative_penalty = round(entry.cumulative_coercion * _CUM_WEIGHT[mode])
+    if entry.temporal_present and not entry.temporal_stable:
+        temporal_instability = 2 if mode == PolicyMode.PRECAUTIONARY else 1
+    else:
+        temporal_instability = 0
+
     uncertainty_band = round((1.0 - entry.confidence) * 5)
     alternative_penalty = 1 if entry.has_feasible_less_coercive else 0
     language_penalty = round(entry.linguistic_coercion_score * _LANG_WEIGHT[mode])
@@ -100,6 +117,8 @@ def ranking_key(entry: ActionRankingEntry, policy: PolicyProfile) -> tuple:
         consent_penalty,
         vulnerability_penalty,
         irrev_penalty,
+        cumulative_penalty,
+        temporal_instability,
         uncertainty_band,
         alternative_penalty,
         language_penalty,

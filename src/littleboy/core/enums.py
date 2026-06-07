@@ -186,6 +186,26 @@ class QuestionCategory(StrEnum):
     LANGUAGE = "language"
 
 
+class TimeHorizon(StrEnum):
+    """When a consequence is expected to occur.
+
+    These are *semantic* horizons, not fixed durations -- different case types
+    interpret them differently:
+
+    - ``IMMEDIATE``: the direct consequence of the action;
+    - ``SHORT_TERM``: soon after the action;
+    - ``MEDIUM_TERM``: consequences emerging after the first effects;
+    - ``LONG_TERM``: structural or persistent consequences;
+    - ``UNKNOWN``: the horizon is not known.
+    """
+
+    IMMEDIATE = "immediate"
+    SHORT_TERM = "short_term"
+    MEDIUM_TERM = "medium_term"
+    LONG_TERM = "long_term"
+    UNKNOWN = "unknown"
+
+
 class LanguageMedium(StrEnum):
     """The medium of a language act. Different media carry different duties of clarity."""
 

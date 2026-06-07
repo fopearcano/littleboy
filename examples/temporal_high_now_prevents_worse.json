@@ -1,0 +1,49 @@
+{
+  "title": "Temporary restraint that prevents greater future coercion",
+  "description": "A coercive action now that credibly prevents a larger coercion later, with a complete Axiom 3 justification.",
+  "acting_agent": { "name": "Responder", "agent_type": "TYPE_II" },
+  "affected_agents": [
+    { "name": "Restrained party", "agent_type": "TYPE_II" },
+    { "name": "Party at risk", "agent_type": "TYPE_II" }
+  ],
+  "coercion_profile": { "physical_force": 0.7, "duration": 0.2, "reversibility": 0.8, "severity": 0.5 },
+  "data_quality": { "completeness": 0.8, "source_reliability": 0.8, "specificity": 0.8, "recency": 0.9, "corroboration": 0.75, "ambiguity": 0.2 },
+  "consent": "NOT_APPLICABLE",
+  "responds_to_existing_coercion": true,
+  "prior_coercion_description": "An imminent, larger coercion.",
+  "expected_consequences": "A short, bounded coercion now averts a larger one later.",
+  "available_alternatives": [
+    { "title": "Do nothing", "estimated_coercion_score": 0.9, "feasibility": 1.0 }
+  ],
+  "justification": {
+    "responds_to_existing_or_imminent_coercion": "CONFIRMED",
+    "no_less_coercive_alternative_available": "LIKELY",
+    "necessity": "CONFIRMED",
+    "proportionality": "LIKELY",
+    "expected_total_coercion_reduction": 0.6,
+    "cessation_condition_defined": "CONFIRMED",
+    "reversibility": "CONFIRMED"
+  },
+  "reversibility_profile": {
+    "is_reversible": "CONFIRMED",
+    "reversibility_score": 0.8,
+    "time_to_reverse": "minutes",
+    "cost_to_reverse": 0.1,
+    "residual_harm_after_reversal": 0.1
+  },
+  "consequences": {
+    "consequences": [
+      {
+        "description": "The larger future coercion is averted and the restraint ends",
+        "horizon": "long_term",
+        "coercion_delta": -0.6,
+        "severity": 0.7,
+        "probability": 0.7,
+        "confidence": 0.6,
+        "reversibility": 0.8,
+        "duration": 0.4,
+        "evidence_quality": 0.6
+      }
+    ]
+  }
+}

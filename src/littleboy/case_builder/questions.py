@@ -288,6 +288,50 @@ def generate_questions(
             field_target="agency_profile",
         )
 
+    # --- Temporal & consequence questions (v0.7) -----------------------------
+    # Asked for coercive cases that have not characterised their future or
+    # reversibility -- an action must be judged across time, not just now.
+    if coercion_present and case.consequences is None and case.temporal_profile is None:
+        add(
+            "Q-FUTURE-CONSEQUENCES",
+            "What happens after the immediate effect (short, medium, long term)? Could the "
+            "coercion grow, repeat, normalise, create dependency, or become irreversible later?",
+            QuestionCategory.CONSEQUENCES,
+            QuestionPriority.MEDIUM,
+            "An action that lowers coercion now but raises it later is ethically unstable; "
+            "coercion must be judged across time (Axioms 2, 5).",
+            "consequences",
+            ["A2", "A5"],
+            field_target="consequences",
+        )
+    if coercion_present and case.reversibility_profile is None:
+        add(
+            "Q-REVERSIBILITY-OVER-TIME",
+            "Is the action reversible over time, at what cost, and what remains harmful even "
+            "if it is reversed?",
+            QuestionCategory.REVERSIBILITY,
+            QuestionPriority.MEDIUM,
+            "Irreversible actions demand stronger evidence and justification; residual harm "
+            "persists even after reversal (Axioms 3, 5).",
+            "reversibility_profile",
+            ["A3", "A5"],
+            field_target="reversibility_profile",
+        )
+    if case.is_inaction:
+        add(
+            "Q-INACTION-PREVENTS",
+            "Does doing nothing allow existing coercion to continue or grow -- and would acting "
+            "prevent a greater coercion later?",
+            QuestionCategory.CONSEQUENCES,
+            QuestionPriority.HIGH,
+            "Inaction is not neutral if it permits coercion to continue; and temporary coercion "
+            "may be qualifiedly justified only if it credibly prevents greater future coercion "
+            "(Axioms 2, 3).",
+            "consequences",
+            ["A2", "A3"],
+            field_target="consequences",
+        )
+
     # --- Template-specific questions -----------------------------------------
     if template is not None:
         for q in template.extra_questions:

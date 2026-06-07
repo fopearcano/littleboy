@@ -46,6 +46,7 @@ from littleboy.reasoning.report import (
     render_language_text,
     render_text,
 )
+from littleboy.temporal.report import render_temporal_json, render_temporal_text
 
 _POLICY_CHOICES = ", ".join(m.value for m in PolicyMode)
 _TEMPLATE_CHOICES = ", ".join(list_templates())
@@ -284,6 +285,36 @@ def analyze_language_cmd(
         typer.echo(render_language_json(analysis))
     else:
         typer.echo(render_language_text(analysis))
+
+
+@app.command()
+def temporal(
+    case_path: Path = typer.Argument(
+        ...,
+        exists=True,
+        dir_okay=False,
+        readable=True,
+        help="Path to a JSON ActionCase (ideally with temporal fields).",
+    ),
+    output_format: str = typer.Option(
+        "text", "--format", "-f", help="Output format: 'json' or 'text'."
+    ),
+    policy: str = typer.Option(
+        "standard", "--policy", "-p", help=f"Policy strictness: {_POLICY_CHOICES}."
+    ),
+) -> None:
+    """Show the temporal coercion projection for a case (trend, reversibility, cumulative)."""
+    if output_format not in {"json", "text"}:
+        typer.echo(f"Unknown format '{output_format}'; use 'json' or 'text'.", err=True)
+        raise typer.Exit(code=2)
+    policy_mode = _resolve_policy(policy)
+    case = _load_case(case_path)
+    report = EthicalEvaluator(policy_mode).evaluate(case)
+    projection = report.temporal_projection
+    if output_format == "json":
+        typer.echo(render_temporal_json(projection))
+    else:
+        typer.echo(render_temporal_text(projection))
 
 
 @app.command()
