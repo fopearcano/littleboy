@@ -14,11 +14,23 @@ from littleboy.calibration.corpus import (
     load_corpus,
     run_corpus,
 )
+from littleboy.calibration.fitting import (
+    fit_threshold_policy,
+    fitted_policy_golden_payload,
+)
 from littleboy.calibration.generator import (
     default_generated_scoring_corpus,
     default_labelled_outcome_corpus,
     generate_outcome_corpus,
     generate_scoring_corpus,
+)
+from littleboy.calibration.labels import (
+    apply_labels,
+    consensus_verdict,
+    labels_to_csv,
+    outcome_corpus_from_csv,
+    parse_labels_csv,
+    parse_verdict,
 )
 from littleboy.calibration.metrics import aggregate, score_entry
 from littleboy.calibration.models import (
@@ -28,6 +40,7 @@ from littleboy.calibration.models import (
     CaseDigest,
     ConfidenceInterval,
     CorpusEntry,
+    FittedPolicy,
     InterRaterAgreement,
     LabelerVerdict,
     LayerExpectation,
@@ -42,6 +55,7 @@ from littleboy.calibration.models import (
     ScoringCorpus,
     ScoringCorpusEntry,
     SplitReliability,
+    ThresholdSet,
 )
 from littleboy.calibration.reliability import (
     default_outcome_corpus,
@@ -68,6 +82,7 @@ __all__ = [
     "CaseDigest",
     "ConfidenceInterval",
     "CorpusEntry",
+    "FittedPolicy",
     "InterRaterAgreement",
     "LabelerVerdict",
     "LayerExpectation",
@@ -82,20 +97,29 @@ __all__ = [
     "ScoringCorpus",
     "ScoringCorpusEntry",
     "SplitReliability",
+    "ThresholdSet",
     "aggregate",
+    "apply_labels",
+    "consensus_verdict",
     "default_corpus",
     "default_generated_scoring_corpus",
     "default_labelled_outcome_corpus",
     "default_outcome_corpus",
     "default_scoring_corpus",
     "disposition",
+    "fit_threshold_policy",
+    "fitted_policy_golden_payload",
     "generate_outcome_corpus",
     "generate_scoring_corpus",
     "golden_payload",
     "inter_rater_agreement",
+    "labels_to_csv",
     "load_corpus",
     "load_outcome_corpus",
     "load_scoring_corpus",
+    "outcome_corpus_from_csv",
+    "parse_labels_csv",
+    "parse_verdict",
     "recommend_policy",
     "recommend_policy_for_stakeholder",
     "reliability_golden_payload",

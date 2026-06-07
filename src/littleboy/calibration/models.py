@@ -285,3 +285,53 @@ class PolicyRecommendation(_CalBase):
         default=None, description="Inter-labeller agreement: the ceiling reliability can reach."
     )
     notes: list[str] = Field(default_factory=list)
+
+
+# =============================================================================
+# Fitted threshold policies (v0.15): a custom policy fitted to one stakeholder
+# =============================================================================
+
+
+class ThresholdSet(_CalBase):
+    """The tunable coercion thresholds of a policy, fitted to a stakeholder.
+
+    Only the two coercion thresholds are fitted; every other operational parameter
+    is held at the ``base_mode`` profile's value (recorded here for transparency).
+    A fitted set is turned back into a full ``PolicyProfile`` to run the *real*
+    engine -- nothing about the verdict logic is duplicated or changed.
+    """
+
+    coercion_moderate: float = Field(ge=0.0, le=1.0)
+    max_coercion_for_acceptable: float = Field(ge=0.0, le=1.0)
+    base_mode: str = "standard"
+
+
+class FittedPolicy(_CalBase):
+    """A threshold set fitted on the dev split and honestly scored on the holdout.
+
+    The fit *never* sees the holdout: thresholds are chosen to best match the
+    stakeholder on ``fit_split``, then their agreement is reported on
+    ``report_split``. The nearest built-in policy is shown alongside so the *gain*
+    from fitting is auditable, and the inter-labeller ceiling bounds the claim.
+    """
+
+    target: str
+    metric: str = "disposition"
+    thresholds: ThresholdSet
+    fit_split: str = "dev"
+    report_split: str = "holdout"
+    n_fit: int = 0
+    n_report: int = 0
+    fit_accuracy: float = Field(default=0.0, ge=0.0, le=1.0)
+    report_accuracy: float = Field(default=0.0, ge=0.0, le=1.0)
+    report_accuracy_ci: ConfidenceInterval = Field(default_factory=ConfidenceInterval)
+    nearest_builtin: str = ""
+    nearest_builtin_accuracy: float = Field(default=0.0, ge=0.0, le=1.0)
+    nearest_builtin_accuracy_ci: ConfidenceInterval = Field(default_factory=ConfidenceInterval)
+    gain_over_nearest: float = Field(default=0.0, ge=-1.0, le=1.0)
+    distinguishable_from_nearest: bool = Field(
+        default=False,
+        description="True only if the fitted CI does not overlap the nearest built-in's.",
+    )
+    agreement_ceiling: float | None = None
+    notes: list[str] = Field(default_factory=list)

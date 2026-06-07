@@ -1,0 +1,34 @@
+{
+  "target": "consensus",
+  "metric": "disposition",
+  "thresholds": {
+    "coercion_moderate": 0.3,
+    "max_coercion_for_acceptable": 0.55,
+    "base_mode": "standard"
+  },
+  "fit_split": "dev",
+  "report_split": "holdout",
+  "n_fit": 30,
+  "n_report": 30,
+  "fit_accuracy": 0.9667,
+  "report_accuracy": 0.8667,
+  "report_accuracy_ci": {
+    "low": 0.7032,
+    "high": 0.9469
+  },
+  "nearest_builtin": "standard",
+  "nearest_builtin_accuracy": 0.9333,
+  "nearest_builtin_accuracy_ci": {
+    "low": 0.7868,
+    "high": 0.9815
+  },
+  "gain_over_nearest": -0.0666,
+  "distinguishable_from_nearest": false,
+  "agreement_ceiling": 0.7111,
+  "notes": [
+    "thresholds fitted to 'consensus' on the 'dev' split by disposition agreement, then scored on the never-fitted 'holdout' split",
+    "nearest built-in policy is 'standard' (by coercion-threshold distance); shown alongside so the gain is auditable",
+    "fitting did NOT clearly beat 'standard' on the holdout (0.87 vs 0.93); the intervals overlap, so prefer the simpler built-in policy",
+    "held-out agreement 0.87 exceeds the inter-labeller ceiling 0.71 for the consensus target; treat the excess as over-fitting the panel's noise, not real skill"
+  ]
+}

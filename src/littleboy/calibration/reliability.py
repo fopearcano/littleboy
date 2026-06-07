@@ -31,6 +31,7 @@ from littleboy.calibration.models import (
 from littleboy.calibration.scoring import wilson_ci
 from littleboy.core.enums import PolicyMode, Verdict
 from littleboy.core.evaluator import EthicalEvaluator
+from littleboy.rules.policy import PolicyProfile
 
 _OUTCOME_RESOURCE = "outcome_corpus.json"
 _SPLITS = ("dev", "holdout")
@@ -125,8 +126,16 @@ def inter_rater_agreement(entries: list[OutcomeEntry]) -> InterRaterAgreement | 
 # =============================================================================
 
 
-def _policy_reliability(entries, mode: PolicyMode, label_of: _LabelOf) -> PolicyReliability:
-    evaluator = EthicalEvaluator(mode)
+def _policy_reliability(
+    entries,
+    policy: PolicyMode | PolicyProfile,
+    label_of: _LabelOf,
+    *,
+    name: str | None = None,
+) -> PolicyReliability:
+    """Agreement of one policy (built-in mode or a custom profile) with the labels."""
+    evaluator = EthicalEvaluator(policy)
+    display = name or (policy.value if isinstance(policy, PolicyMode) else policy.mode.value)
     n = len(entries)
     exact = 0
     disp = 0
@@ -141,7 +150,7 @@ def _policy_reliability(entries, mode: PolicyMode, label_of: _LabelOf) -> Policy
         if disposition(verdict) == disposition(target):
             disp += 1
     return PolicyReliability(
-        policy=mode.value,
+        policy=display,
         n=n,
         exact_correct=exact,
         exact_accuracy=_rate(exact, n),

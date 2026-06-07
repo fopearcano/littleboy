@@ -238,6 +238,59 @@ littleboy recommend-policy --stakeholder lenient --metric exact
 littleboy recommend-policy                                 # against panel consensus
 ```
 
+### Real labels from CSV + a fitted-threshold recommender (v0.15)
+
+The persona panel is a stand-in. Two v0.15 additions take the next step toward
+external validity, both **deterministic, stdlib-only, and purely additive**.
+
+**Real, independent labels via CSV.** `littleboy.calibration.labels` imports actual
+human verdicts from a `case_id,labeler,verdict[,split]` CSV and overlays them onto
+the known cases by id (`outcome_corpus_from_csv`, `apply_labels`, `parse_labels_csv`,
+`labels_to_csv` for the round-trip / template export). The resulting `OutcomeCorpus`
+runs through the **existing** `run_reliability` / `recommend_policy` /
+`fit_threshold_policy` **unchanged** — the engine is only ever *measured against* the
+labels, never trained on them. The consensus rule is transparent: majority vote,
+ties broken toward the **more cautious** reading (when independent judges split
+evenly, the consensus should not over-claim permissibility). A round-trip
+(`labels_to_csv` → `parse_labels_csv` → `apply_labels`) reproduces per-labeller
+reliability exactly, which is the regression test that the import path is faithful.
+
+```bash
+littleboy recommend-policy --stakeholder strict --labels-csv my_labels.csv
+```
+
+**A fitted-threshold recommender.** Beyond the four coarse built-in policies,
+`fit_threshold_policy` searches a deterministic grid of the two coercion thresholds
+(`coercion_moderate`, `max_coercion_for_acceptable`) for the set that best matches a
+stakeholder — **fitting on the dev split only**, then scoring the chosen thresholds
+on the **never-fitted holdout**. A fitted set is turned back into a real
+`PolicyProfile` and run through the *real* engine, so no verdict logic is
+duplicated. The result is shown **side-by-side with the nearest built-in** so the
+gain from fitting is auditable, with confidence intervals on both and the
+inter-labeller ceiling as the caveat:
+
+```text
+FITTED POLICY for 'strict' (fitted on dev, scored on holdout):
+  thresholds: coercion_moderate=0.3 max_coercion_for_acceptable=0.35 (base: standard)
+  fitted   1.00 CI[0.95,1.00]   (dev fit 0.97)
+  nearest  strict         0.91 CI[0.83,0.96]   gain=+0.09
+  - fitting did NOT clearly beat 'strict' on the holdout (1.00 vs 0.91); the
+    intervals overlap, so prefer the simpler built-in policy
+```
+
+The honest headline: on this corpus fitting gives only a **small holdout gain**
+(+0.04 to +0.09) and in **every** case the confidence intervals overlap the nearest
+built-in's, so `distinguishable_from_nearest` is `False` and the tool tells you to
+**prefer the simpler built-in**. The consensus fit is even more instructive — it
+beats `standard` on dev (0.97) but does *worse* on the holdout (0.87 vs 0.93): a
+textbook over-fit, surfaced rather than hidden. This is the dev/holdout discipline
+doing its job. Pinned by `tests/golden/fitted_policy.golden.json`.
+
+```bash
+littleboy recommend-policy --stakeholder strict --fit       # ranking + fitted side-by-side
+littleboy recommend-policy --fit                            # fit to the consensus
+```
+
 ## Limitations
 
 - The **audit corpus** is small and hand-labelled: its rates are calibration
@@ -249,17 +302,24 @@ littleboy recommend-policy                                 # against panel conse
 - The **outcome (reliability) corpus** is the closest to external validity. v0.14
   grows it to 160 cases with a three-labeler panel and reports inter-labeller
   agreement, so the reliability intervals are now read against an honest ceiling
-  (holdout agreement ~0.68, Fleiss kappa ~0.37). But the "labelers" are still
-  *transparent personas authored by the maintainers*, not genuinely independent
-  people — they disagree realistically, yet by construction. A real external check
-  still needs labels from actual independent humans; the inter-rater machinery is
-  built and waiting for them, and would report their (likely lower) agreement just
-  the same.
+  (holdout agreement ~0.68, Fleiss kappa ~0.37). v0.15 adds a CSV import so *real*
+  independent labels can be dropped in and run through the same machinery — but the
+  *packaged* labels are still **transparent personas authored by the maintainers**,
+  not genuinely independent people. They disagree realistically, yet by
+  construction. The import path is built and waiting for actual human labels, and
+  would report their (likely lower) agreement just the same.
 - The **policy recommendation** is only as trustworthy as the labels and the
   ceiling above. It honestly marks policies whose confidence intervals overlap as
   `indistinguishable` (the data cannot separate them) and reports the agreement
   ceiling, so it cannot silently over-claim — but a recommendation tuned to a noisy
   target (kappa ~0.37) is a starting point for deliberation, not a settled answer.
+- The **fitted-threshold policy** fits only the two coercion thresholds over a
+  fixed grid, holding every other parameter at the base profile's value; it is not
+  a general optimiser. It fits on dev and reports on holdout (never tuned on), and
+  on the current corpus it does **not** clearly beat the nearest built-in — the
+  intervals overlap every time. That is the honest finding, not a defect: on a
+  small holdout, fitting buys little over a sensible built-in, and the tool says so
+  rather than dressing up an over-fit as an improvement.
 - Golden-file pinning catches drift but does not *validate* correctness — a wrong
   expectation, once frozen, stays wrong until a human revisits it.
 - The scoring-layer detectors are deliberately coarse (a coercion band, the data

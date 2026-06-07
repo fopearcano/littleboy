@@ -13,18 +13,26 @@ from littleboy.calibration import (
     AuditCorpus,
     ConfidenceInterval,
     CorpusEntry,
+    LabelerVerdict,
     LayerExpectation,
     ScoringCorpus,
     ScoringCorpusEntry,
+    apply_labels,
+    consensus_verdict,
     default_corpus,
     default_generated_scoring_corpus,
     default_labelled_outcome_corpus,
     default_outcome_corpus,
     default_scoring_corpus,
     disposition,
+    fit_threshold_policy,
+    fitted_policy_golden_payload,
     generate_outcome_corpus,
     generate_scoring_corpus,
     golden_payload,
+    labels_to_csv,
+    parse_labels_csv,
+    parse_verdict,
     recommend_policy_for_stakeholder,
     reliability_golden_payload,
     run_corpus,
@@ -429,3 +437,170 @@ def test_cli_calibrate_labelled_reliability_shows_ceiling():
     # the large multi-labeller corpus surfaces the inter-rater ceiling; the small
     # packaged corpus (without --labelled) has no panel and so does not.
     assert "inter-rater ceiling" in result.stdout
+
+
+# --- real labels from CSV + fitted-threshold recommender (v0.15) ---
+
+
+FITTED_GOLDEN = Path(__file__).resolve().parent / "golden" / "fitted_policy.golden.json"
+# coarse grid keeps the fit fast and the golden stable
+_FIT_GRID = {"moderate_grid": (0.15, 0.30, 0.45), "max_grid": (0.35, 0.55, 0.75)}
+
+
+def _strip_labels(corpus):
+    """A copy of a corpus with the labels removed (cases + ids + splits only)."""
+    return corpus.model_copy(
+        update={
+            "entries": [
+                e.model_copy(update={"labels": [], "human_verdict": Verdict.INSUFFICIENT_DATA})
+                for e in corpus.entries
+            ]
+        }
+    )
+
+
+def test_parse_verdict_is_forgiving():
+    assert parse_verdict("not_acceptable") == Verdict.NOT_ACCEPTABLE
+    assert parse_verdict("  Not-Acceptable ") == Verdict.NOT_ACCEPTABLE
+    assert parse_verdict("suspicious") == Verdict.ETHICALLY_SUSPICIOUS
+    assert parse_verdict("insufficient") == Verdict.INSUFFICIENT_DATA
+    try:
+        parse_verdict("maybe")
+    except ValueError as exc:
+        assert "unknown verdict" in str(exc)
+    else:  # pragma: no cover
+        raise AssertionError("expected ValueError on an unknown verdict")
+
+
+def test_consensus_verdict_majority_then_cautious_tiebreak():
+    def lv(name, v):
+        return LabelerVerdict(labeler=name, verdict=v)
+
+    # clear majority wins
+    majority = [
+        lv("a", Verdict.ACCEPTABLE),
+        lv("b", Verdict.ACCEPTABLE),
+        lv("c", Verdict.NOT_ACCEPTABLE),
+    ]
+    assert consensus_verdict(majority) == Verdict.ACCEPTABLE
+    # no majority (1-1-1) -> defer to the most cautious reading
+    split = [
+        lv("a", Verdict.ACCEPTABLE),
+        lv("b", Verdict.ACCEPTABLE_WITH_RESERVATIONS),
+        lv("c", Verdict.NOT_ACCEPTABLE),
+    ]
+    assert consensus_verdict(split) == Verdict.NOT_ACCEPTABLE
+
+
+def test_csv_roundtrip_reproduces_reliability():
+    # Export labels, strip them off the cases, re-import from the CSV, and confirm the
+    # *existing* reliability machinery produces an identical result -- the engine is
+    # only measured against the labels, never trained on them.
+    original = generate_outcome_corpus(n=40, seed=0)
+    labels_by_case, split_by_case = parse_labels_csv(labels_to_csv(original))
+    relabelled = apply_labels(_strip_labels(original), labels_by_case, split_by_case)
+    for who in ("lenient", "median", "strict"):
+        assert reliability_golden_payload(
+            run_reliability(relabelled, labeler=who)
+        ) == reliability_golden_payload(run_reliability(original, labeler=who))
+
+
+def test_apply_labels_drops_unlabelled_and_recomputes_consensus():
+    base = generate_outcome_corpus(n=10, seed=1)
+    target_id = base.entries[0].id
+    labels = {
+        target_id: [
+            LabelerVerdict(labeler="x", verdict=Verdict.NOT_ACCEPTABLE),
+            LabelerVerdict(labeler="y", verdict=Verdict.NOT_ACCEPTABLE),
+        ]
+    }
+    relabelled = apply_labels(base, labels)
+    assert len(relabelled.entries) == 1  # only the labelled case survives
+    entry = relabelled.entries[0]
+    assert entry.id == target_id
+    assert entry.human_verdict == Verdict.NOT_ACCEPTABLE  # consensus of the supplied labels
+
+
+def test_fit_ignores_the_holdout_when_choosing_thresholds():
+    base = generate_outcome_corpus(n=60, seed=0)
+    # scramble every holdout label; the fit must still pick the same thresholds,
+    # because thresholds are chosen on dev alone.
+    scrambled_entries = []
+    for e in base.entries:
+        if e.split == "holdout":
+            flat = [
+                LabelerVerdict(labeler=lv.labeler, verdict=Verdict.ACCEPTABLE) for lv in e.labels
+            ]
+            scrambled_entries.append(
+                e.model_copy(update={"labels": flat, "human_verdict": Verdict.ACCEPTABLE})
+            )
+        else:
+            scrambled_entries.append(e)
+    scrambled = base.model_copy(update={"entries": scrambled_entries})
+
+    a = fit_threshold_policy(base, "strict", **_FIT_GRID)
+    b = fit_threshold_policy(scrambled, "strict", **_FIT_GRID)
+    assert a.thresholds == b.thresholds  # holdout never tuned on
+    # but the *reported* holdout accuracy does react to the scrambled holdout labels
+    assert a.report_accuracy != b.report_accuracy
+
+
+def test_fit_is_deterministic():
+    corpus = generate_outcome_corpus(n=60, seed=0)
+    a = fitted_policy_golden_payload(fit_threshold_policy(corpus, "strict", **_FIT_GRID))
+    b = fitted_policy_golden_payload(fit_threshold_policy(corpus, "strict", **_FIT_GRID))
+    assert a == b
+
+
+def test_fit_shows_nearest_builtin_and_gain():
+    fitted = fit_threshold_policy(default_labelled_outcome_corpus(), "strict", **_FIT_GRID)
+    assert fitted.nearest_builtin in {"permissive", "standard", "strict", "precautionary"}
+    assert fitted.gain_over_nearest == round(
+        fitted.report_accuracy - fitted.nearest_builtin_accuracy, 4
+    )
+    # the distinguishable flag must agree with the confidence intervals
+    fci, nci = fitted.report_accuracy_ci, fitted.nearest_builtin_accuracy_ci
+    expected = fci.low > nci.high or nci.low > fci.high
+    assert fitted.distinguishable_from_nearest == expected
+
+
+def test_fit_diverges_by_stakeholder():
+    corpus = default_labelled_outcome_corpus()
+    lenient = fit_threshold_policy(corpus, "lenient", **_FIT_GRID)
+    strict = fit_threshold_policy(corpus, "strict", **_FIT_GRID)
+    # a lenient stakeholder tolerates more coercion before "not acceptable" than a
+    # strict one, so the fitted ceiling threshold is higher.
+    assert (
+        lenient.thresholds.max_coercion_for_acceptable
+        >= strict.thresholds.max_coercion_for_acceptable
+    )
+    assert lenient.thresholds != strict.thresholds
+
+
+def test_fitted_policy_golden_regression():
+    corpus = generate_outcome_corpus(n=60, seed=0)
+    payload = fitted_policy_golden_payload(fit_threshold_policy(corpus, None, **_FIT_GRID))
+    if os.environ.get("LITTLEBOY_UPDATE_GOLDEN"):
+        FITTED_GOLDEN.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n")
+    expected = json.loads(FITTED_GOLDEN.read_text())
+    assert payload == expected, (
+        "fitted policy drifted from the golden file; "
+        "re-run with LITTLEBOY_UPDATE_GOLDEN=1 if the change is intended"
+    )
+
+
+def test_cli_recommend_policy_fit_works():
+    result = runner.invoke(app, ["recommend-policy", "--stakeholder", "strict", "--fit"])
+    assert result.exit_code == 0
+    assert "FITTED POLICY" in result.stdout
+    assert "nearest" in result.stdout
+
+
+def test_cli_recommend_policy_with_labels_csv(tmp_path):
+    csv_path = tmp_path / "labels.csv"
+    csv_path.write_text(labels_to_csv(default_labelled_outcome_corpus()), encoding="utf-8")
+    result = runner.invoke(
+        app, ["recommend-policy", "--stakeholder", "strict", "--labels-csv", str(csv_path)]
+    )
+    assert result.exit_code == 0
+    assert "RECOMMENDED POLICY" in result.stdout

@@ -28,8 +28,10 @@ from littleboy.calibration import (
     default_labelled_outcome_corpus,
     default_outcome_corpus,
     default_scoring_corpus,
+    fit_threshold_policy,
     generate_scoring_corpus,
     load_corpus,
+    outcome_corpus_from_csv,
     recommend_policy_for_stakeholder,
     run_corpus,
     run_reliability,
@@ -614,6 +616,19 @@ def recommend_policy_cmd(
     metric: str = typer.Option(
         "disposition", "--metric", help="Rank by 'disposition' or 'exact' agreement."
     ),
+    fit: bool = typer.Option(
+        False,
+        "--fit",
+        help="Also fit a custom threshold policy (dev fit, holdout score) vs the nearest built-in.",
+    ),
+    labels_csv: Path | None = typer.Option(
+        None,
+        "--labels-csv",
+        exists=True,
+        dir_okay=False,
+        readable=True,
+        help="Overlay real labels (case_id,labeler,verdict[,split]) onto the corpus cases.",
+    ),
     output_format: str = typer.Option(
         "text", "--format", "-f", help="Output format: 'json' or 'text'."
     ),
@@ -626,12 +641,23 @@ def recommend_policy_cmd(
         typer.echo(f"Unknown metric '{metric}'; use 'disposition' or 'exact'.", err=True)
         raise typer.Exit(code=2)
 
-    rec = recommend_policy_for_stakeholder(
-        default_labelled_outcome_corpus(), stakeholder, metric=metric
-    )
+    base = default_labelled_outcome_corpus()
+    try:
+        corpus = outcome_corpus_from_csv(base, labels_csv) if labels_csv is not None else base
+    except ValueError as exc:
+        typer.echo(f"Could not apply labels from {labels_csv}: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+
+    rec = recommend_policy_for_stakeholder(corpus, stakeholder, metric=metric)
+    fitted = fit_threshold_policy(corpus, stakeholder, metric=metric) if fit else None
+
     if output_format == "json":
-        typer.echo(json.dumps(rec.model_dump(mode="json"), indent=2, ensure_ascii=False))
+        payload: dict = {"recommendation": rec.model_dump(mode="json")}
+        if fitted is not None:
+            payload["fitted"] = fitted.model_dump(mode="json")
+        typer.echo(json.dumps(payload, indent=2, ensure_ascii=False))
         return
+
     typer.echo(
         f"RECOMMENDED POLICY for '{rec.target}': {rec.recommended_policy}  "
         f"({rec.metric} agreement {rec.recommended_accuracy:.2f} on the {rec.split} split)"
@@ -646,6 +672,31 @@ def recommend_policy_cmd(
         typer.echo(f"    {p.policy:14s} {acc:.2f} CI[{ci.low:.2f},{ci.high:.2f}]{tie}")
     for note in rec.notes:
         typer.echo(f"  - {note}")
+
+    if fitted is not None:
+        ts = fitted.thresholds
+        fci = fitted.report_accuracy_ci
+        nci = fitted.nearest_builtin_accuracy_ci
+        typer.echo("")
+        typer.echo(
+            f"FITTED POLICY for '{fitted.target}' "
+            f"(fitted on {fitted.fit_split}, scored on {fitted.report_split}):"
+        )
+        typer.echo(
+            f"  thresholds: coercion_moderate={ts.coercion_moderate} "
+            f"max_coercion_for_acceptable={ts.max_coercion_for_acceptable} "
+            f"(base: {ts.base_mode})"
+        )
+        typer.echo(
+            f"  fitted   {fitted.report_accuracy:.2f} CI[{fci.low:.2f},{fci.high:.2f}]   "
+            f"(dev fit {fitted.fit_accuracy:.2f})"
+        )
+        typer.echo(
+            f"  nearest  {fitted.nearest_builtin:14s} {fitted.nearest_builtin_accuracy:.2f} "
+            f"CI[{nci.low:.2f},{nci.high:.2f}]   gain={fitted.gain_over_nearest:+.2f}"
+        )
+        for note in fitted.notes:
+            typer.echo(f"  - {note}")
 
 
 @app.command()
