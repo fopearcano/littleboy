@@ -19,8 +19,11 @@ from littleboy.calibration import (
     ScoringCorpusEntry,
     apply_labels,
     consensus_verdict,
+    cross_validate_threshold_policy,
+    cross_validated_fit_golden_payload,
     default_corpus,
     default_generated_scoring_corpus,
+    default_independent_outcome_corpus,
     default_labelled_outcome_corpus,
     default_outcome_corpus,
     default_scoring_corpus,
@@ -604,3 +607,115 @@ def test_cli_recommend_policy_with_labels_csv(tmp_path):
     )
     assert result.exit_code == 0
     assert "RECOMMENDED POLICY" in result.stdout
+
+
+# --- cross-validated fitting + a packaged independent labelled set (v0.16) ---
+
+
+CV_GOLDEN = Path(__file__).resolve().parent / "golden" / "cross_validated_fit.golden.json"
+
+
+def test_independent_corpus_loads_with_three_labelers():
+    c = default_independent_outcome_corpus()
+    assert len(c.entries) == 16
+    assert {lv.labeler for e in c.entries for lv in e.labels} == {"ann", "ben", "cleo"}
+
+
+def test_independent_corpus_agreement_is_real_and_messy():
+    # hand-authored independent labels disagree more than the rule-based personas:
+    # there is genuine sub-1.0 agreement and a positive-but-low kappa.
+    report = run_reliability(default_independent_outcome_corpus())
+    irs = [s.inter_rater for s in report.splits if s.inter_rater is not None]
+    assert irs, "the independent set should carry a labeler panel"
+    for ir in irs:
+        assert ir.n_labelers == 3
+        assert 0.0 < ir.percent_agreement < 1.0
+        assert ir.fleiss_kappa < 0.6  # messier than the synthetic panel
+
+
+def test_independent_corpus_recommendation_runs_unchanged():
+    # the *existing* recommendation layer runs on the imported labels with no changes.
+    rec = recommend_policy_for_stakeholder(default_independent_outcome_corpus())
+    assert rec.recommended_policy in {"permissive", "standard", "strict", "precautionary"}
+    assert rec.agreement_ceiling is not None
+
+
+def test_cv_is_deterministic():
+    corpus = generate_outcome_corpus(n=40, seed=0)
+    a = cross_validated_fit_golden_payload(
+        cross_validate_threshold_policy(corpus, "strict", k=4, **_FIT_GRID)
+    )
+    b = cross_validated_fit_golden_payload(
+        cross_validate_threshold_policy(corpus, "strict", k=4, **_FIT_GRID)
+    )
+    assert a == b
+
+
+def test_cv_folds_partition_the_cases():
+    corpus = generate_outcome_corpus(n=40, seed=0)
+    cv = cross_validate_threshold_policy(corpus, "strict", k=5, **_FIT_GRID)
+    assert cv.k == 5
+    assert len(cv.folds) == 5
+    for fold in cv.folds:
+        assert fold.n_train + fold.n_test == cv.n_cases  # train and test are complementary
+    assert sum(fold.n_test for fold in cv.folds) == cv.n_cases  # the test parts partition
+
+
+def test_cv_reports_gain_with_a_spread():
+    cv = cross_validate_threshold_policy(default_labelled_outcome_corpus(), "strict", **_FIT_GRID)
+    assert cv.gain_min <= cv.mean_gain <= cv.gain_max
+    assert cv.gain_std >= 0.0
+    # fitting to the strict stakeholder robustly helps across folds (more informative
+    # than the single-holdout fit, whose intervals overlapped).
+    assert cv.fitting_helps is True
+    assert cv.mean_gain > 0.0
+
+
+def test_cv_can_fit_optional_dimensions():
+    cv = cross_validate_threshold_policy(
+        generate_outcome_corpus(n=40, seed=0),
+        "strict",
+        k=4,
+        moderate_grid=(0.15, 0.30),
+        max_grid=(0.35, 0.55),
+        data_gate_grid=(0.25, 0.5),
+    )
+    assert cv.modal_thresholds is not None
+    # the data-quality gate dimension was actually searched (it is no longer None)
+    assert cv.modal_thresholds.min_data_quality_for_approval in {0.25, 0.5}
+
+
+def test_cross_validated_fit_golden_regression():
+    corpus = generate_outcome_corpus(n=40, seed=0)
+    payload = cross_validated_fit_golden_payload(
+        cross_validate_threshold_policy(corpus, None, k=4, **_FIT_GRID)
+    )
+    if os.environ.get("LITTLEBOY_UPDATE_GOLDEN"):
+        CV_GOLDEN.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n")
+    expected = json.loads(CV_GOLDEN.read_text())
+    assert payload == expected, (
+        "cross-validated fit drifted from the golden file; "
+        "re-run with LITTLEBOY_UPDATE_GOLDEN=1 if the change is intended"
+    )
+
+
+def test_cli_recommend_policy_independent_works():
+    result = runner.invoke(app, ["recommend-policy", "--independent"])
+    assert result.exit_code == 0
+    assert "RECOMMENDED POLICY" in result.stdout
+
+
+def test_cli_recommend_policy_cv_works():
+    result = runner.invoke(app, ["recommend-policy", "--independent", "--cv", "--folds", "4"])
+    assert result.exit_code == 0
+    assert "CROSS-VALIDATED FIT" in result.stdout
+    assert "gain over nearest built-in" in result.stdout
+
+
+def test_cli_rejects_independent_and_labels_csv_together(tmp_path):
+    csv_path = tmp_path / "labels.csv"
+    csv_path.write_text("case_id,labeler,verdict\nsimple,ann,acceptable\n", encoding="utf-8")
+    result = runner.invoke(
+        app, ["recommend-policy", "--independent", "--labels-csv", str(csv_path)]
+    )
+    assert result.exit_code == 2

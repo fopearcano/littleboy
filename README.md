@@ -11,18 +11,21 @@ and returns a **transparent, explained verdict** with an honest account of its
 own uncertainty. It is a reasoning engine, not a user interface and not a
 language model.
 
-This is **v0.15**, which takes the next step toward external validity: it imports
-**real independent labels from a CSV** (overlaid onto the known cases and run
-through the *existing* reliability/recommendation machinery unchanged), and adds a
-**fitted-threshold recommender** that — beyond the four coarse built-in policies —
-fits a stakeholder's coercion thresholds **on the dev split**, scores them on the
-**never-fitted holdout**, and shows the result **side-by-side with the nearest
-built-in** so the gain (if any) is auditable and an over-fit is exposed rather than
-hidden. (v0.14 grew the held-out set to a 160-case panel and added inter-labeller
-agreement + a policy-recommendation layer; v0.13 added external-validity
-calibration and globally-cost-optimal probabilistic planning; v0.12 let domains
-drive the planner and calibrated at scale with independent labels; v0.11 made
-minimal intake cost-aware and interactive; v0.10 added multi-fact value of
+This is **v0.16**, which makes the fitted-policy claim **honest with a variance**
+and ships a genuinely independent labelled set to test it: **k-fold
+cross-validation** reports a fitted policy's gain over the nearest built-in as a
+**mean ± spread across folds** (each fold fit on its training part, scored on its
+held-out part) rather than one lucky holdout, the fitter can optionally tune the
+data-quality gate and irreversibility floor, and a packaged **independent
+three-person panel** — hand-authored without consulting the engine, imported via the
+v0.15 CSV path — lets the whole reliability/recommendation/fitting stack run against
+real, messier human disagreement (publishing its honestly lower inter-rater
+agreement). (v0.15 imported real labels from CSV and added the single-split
+fitted-threshold recommender; v0.14 grew the held-out set to a 160-case panel and
+added inter-labeller agreement + a policy-recommendation layer; v0.13 added
+external-validity calibration and globally-cost-optimal probabilistic planning;
+v0.12 let domains drive the planner and calibrated at scale with independent labels;
+v0.11 made minimal intake cost-aware and interactive; v0.10 added multi-fact value of
 information and the minimal-sufficient-case planner; v0.9 the deliberation &
 value-of-information layer; v0.8 adversarial audit & bias testing; v0.7 temporal &
 consequence modeling; v0.6 the comparison engine; v0.5 the language module; v0.4
@@ -531,6 +534,37 @@ Deterministic, typed, additive — the verdict itself is unchanged. See
 Deterministic, typed, stdlib-only, additive — the verdict itself is unchanged. See
 [`docs/CALIBRATION.md`](docs/CALIBRATION.md).
 
+## LittleBoy v0.16: Cross-validated fitting & a packaged independent set
+
+> One holdout point can be lucky. Report the fitted policy's gain as a **mean ±
+> spread across folds** — and ship a genuinely independent labelled set, authored
+> without consulting the engine, to run the whole stack against.
+
+- **k-fold cross-validation** (`cross_validate_threshold_policy`): the cases are
+  pooled into `k` deterministic folds; each fold **fits thresholds on its training
+  part and scores them — and the nearest built-in — on its held-out part**. The
+  result is the *procedure's* generalisation: `mean_gain ± gain_std` (with min/max),
+  a `fitting_helps` flag (true only when the mean stays positive one σ down), and a
+  `threshold_stability` read. A verdict matrix is computed once, so CV costs one grid
+  evaluation regardless of `k`. The fitter can now also optionally tune the
+  **data-quality gate** and **irreversibility floor**. This is strictly more honest
+  than one holdout: for the `strict` stakeholder the single-split fit said "intervals
+  overlap, prefer the built-in", but 5-fold CV shows the gain is robust (**+0.069 ±
+  0.054**, modal thresholds stable across all folds) — one point hid a real effect.
+- **A packaged independent labelled set** (`default_independent_outcome_corpus`): the
+  16 v0.13 cases relabelled by a **three-person panel** (`ann`/`ben`/`cleo`) whose
+  verdicts live in `independent_labels.csv` and were **hand-authored as independent
+  human judgments — written without consulting the engine's output**, disagreeing
+  more messily than the rule-based personas (dev percent agreement ~0.54, Fleiss
+  kappa ~0.15). Imported through the **v0.15 CSV path**, inheriting the v0.13
+  dev/holdout split, it runs through `run_reliability` / `recommend_policy` /
+  `fit_threshold_policy` / `cross_validate_threshold_policy` **unchanged** — and on
+  this small, noisy set fitting honestly buys ~nothing over the nearest built-in.
+  CLI: `littleboy recommend-policy --independent --cv`.
+
+Deterministic, typed, stdlib-only, additive — the verdict itself is unchanged. See
+[`docs/CALIBRATION.md`](docs/CALIBRATION.md).
+
 ## How evidence is represented
 
 An `EvidenceSet` holds `EvidenceItem`s, each a `claim` plus its `source_type`
@@ -652,10 +686,11 @@ src/littleboy/
     generator.py    # deterministic corpus generators: scoring (latent labels) + multi-labeller outcomes
     reliability.py  # external-validity reliability, inter-labeller agreement, per-stakeholder policy recommendation
     labels.py       # import real independent labels from CSV; transparent consensus; round-trip
-    fitting.py      # fit a custom coercion-threshold policy on dev, scored on holdout, vs nearest built-in
+    fitting.py      # fit a threshold policy (single split + k-fold CV), shown vs the nearest built-in
     audit_corpus.json     # the packaged, self-contained audit calibration corpus
     scoring_corpus.json   # the packaged scoring-layer calibration corpus
     outcome_corpus.json   # the packaged held-out, human-labelled outcome corpus
+    independent_labels.csv# an independent three-person panel's verdicts for the outcome cases
   reasoning/
     report.py       # JSON / text rendering
     experiment.py   # EthicalExperiment runner (falsificatory + heuristic)
@@ -684,7 +719,7 @@ pip install -e ".[dev]"     # pydantic, pytest, typer, ruff
 ## Running the tests
 
 ```bash
-pytest                      # 230 tests
+pytest                      # 241 tests
 ruff check src tests        # lint (optional)
 ```
 
@@ -718,7 +753,9 @@ littleboy calibrate --scope reliability --labelled                        # 160-
 littleboy recommend-policy --stakeholder strict                           # best policy for a stakeholder, trade-offs shown
 littleboy recommend-policy --stakeholder lenient --metric exact --format text
 littleboy recommend-policy --stakeholder strict --fit                     # also fit custom thresholds (dev) vs nearest built-in (holdout)
+littleboy recommend-policy --stakeholder strict --cv --folds 5            # k-fold CV: gain over nearest built-in, mean +/- spread
 littleboy recommend-policy --labels-csv my_labels.csv                     # use real labels (case_id,labeler,verdict[,split])
+littleboy recommend-policy --independent                                  # against the packaged independent three-person panel
 littleboy build-case --minimal --from examples/voi_consent_pivotal.json --strategy lookahead
 littleboy templates                                                       # list scenario templates
 littleboy version
@@ -899,22 +936,20 @@ make consequential decisions about real people.
 
 ## Current development status
 
-**v0.15 — real labels from CSV & a fitted-threshold recommender.** Implemented on
-top of v0.14. A new `littleboy.calibration.labels` imports *real* independent
-verdicts from a `case_id,labeler,verdict[,split]` CSV (`outcome_corpus_from_csv`,
-`apply_labels`, `parse_labels_csv`, `labels_to_csv`), overlays them onto the known
-cases by id, and runs them through the **existing** reliability / recommendation /
-fitting layers unchanged — with a transparent consensus rule (majority; ties broken
-toward caution) and an exact round-trip. A new `fit_threshold_policy` fits a
-stakeholder's two coercion thresholds over a deterministic grid **on the dev split**,
-scores them on the **never-fitted holdout**, turns the result back into a real
-`PolicyProfile` run through the real engine, and shows it **side-by-side with the
-nearest built-in** (CIs on both, `gain_over_nearest`, `distinguishable_from_nearest`,
-the inter-labeller ceiling). The honest finding: fitting buys little over a sensible
-built-in (intervals always overlap on this corpus) and the consensus fit is flagged
-as a textbook over-fit — surfaced, not hidden. New `recommend-policy --fit` and
-`--labels-csv`; a fitted-policy golden file; a 230-test suite (all passing). Purely
-additive — the verdict itself is unchanged.
+**v0.16 — cross-validated fitting & a packaged independent set.** Implemented on top
+of v0.15. `cross_validate_threshold_policy` replaces the single dev/holdout split
+with **k-fold CV**: cases are pooled into `k` deterministic folds, each fold fits
+thresholds on its training part and scores them (and the nearest built-in) on its
+held-out part, and the gain is reported as `mean_gain ± gain_std` with min/max, a
+`fitting_helps` flag (mean positive one σ down) and `threshold_stability`; a
+once-computed verdict matrix keeps CV cheap regardless of `k`, and the fitter can now
+also tune the data-quality gate and irreversibility floor. A packaged
+`default_independent_outcome_corpus` relabels the 16 v0.13 cases with an independent
+three-person panel (`independent_labels.csv`, hand-authored without consulting the
+engine), imported via the v0.15 CSV path with honestly lower agreement (dev kappa
+~0.15) and run through the whole stack unchanged. New `recommend-policy --cv`,
+`--folds`, and `--independent`; a cross-validated-fit golden file; a 241-test suite
+(all passing). Purely additive — the verdict itself is unchanged.
 
 Earlier phases delivered the core models; coercion/data-quality/evidence scoring;
 consent/agency models; the tri-state Axiom 3 justification; feasibility-aware
@@ -926,8 +961,9 @@ v0.8 adversarial audit & bias testing; the v0.9 deliberation &
 value-of-information layer; the v0.10 multi-fact VoI & minimal-case planner; the
 v0.11 cost-aware interactive intake; the v0.12 domain-driven intake &
 independently-labelled calibration; the v0.13 external-validity reliability &
-probabilistic planning; and the v0.14 panel labelling at scale, inter-labeller
-agreement & policy recommendation. All v0.1–v0.14 inputs remain valid.
+probabilistic planning; the v0.14 panel labelling at scale, inter-labeller
+agreement & policy recommendation; and the v0.15 real-labels CSV import &
+single-split fitted-threshold recommender. All v0.1–v0.15 inputs remain valid.
 
 **Deliberately not built:** any web UI, any LLM/API integration, any opaque bias
 detection, any prediction that looks certain, any claim to absolute truth, any
@@ -936,13 +972,13 @@ to interrogate, not more dogmatic**.
 
 ### Recommended next steps
 
-- Collect and ship a **real, independently-labelled** outcome set (the CSV import
-  and inter-rater machinery are built and waiting): publish the genuine — likely
-  lower — agreement and the reliability it implies, holdout never inspected.
-- Extend the fitter beyond the two coercion thresholds (e.g. the data-quality gate
-  and the irreversibility floor) with **cross-validation over several dev/holdout
-  folds**, so a fitted policy's gain is estimated with a variance, not a single
-  holdout point — and still bounded by the agreement ceiling.
+- Collect and ship a **larger, genuinely external** labelled set — many cases from
+  people unconnected to the project — via the CSV path that is already in place, and
+  publish its real agreement and the reliability / cross-validated gain it implies,
+  holdout never inspected.
+- Report the cross-validated gain with a **proper confidence interval** (e.g.
+  repeated/stratified CV or a paired test across folds), so "fitting helps" carries
+  a calibrated p-value rather than a mean-minus-one-σ rule of thumb.
 - Let `intake_hints` declare fully custom unknowns (probe fields, resolutions, costs,
   and probabilities) so domains beyond the built-in fields can drive the planner.
 - **Optional** LLM-assisted indicator extraction (language, consequence, audit)

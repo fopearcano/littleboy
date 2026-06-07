@@ -28,6 +28,7 @@ from littleboy.calibration import (
     AuditCorpus,
     CalibrationReport,
     CorpusEntry,
+    CrossValidatedFit,
     FittedPolicy,
     InterRaterAgreement,
     OutcomeCorpus,
@@ -36,7 +37,9 @@ from littleboy.calibration import (
     ScoringCalibrationReport,
     ScoringCorpus,
     ThresholdSet,
+    cross_validate_threshold_policy,
     default_corpus,
+    default_independent_outcome_corpus,
     default_labelled_outcome_corpus,
     default_outcome_corpus,
     default_scoring_corpus,
@@ -177,13 +180,14 @@ from littleboy.temporal import (
     score_reversibility,
 )
 
-__version__ = "0.15.0"
+__version__ = "0.16.0"
 
 __all__ = [
     "AuditCorpus",
     "CalibrationReport",
     "ComparisonDeliberationReport",
     "CorpusEntry",
+    "CrossValidatedFit",
     "DeliberationReport",
     "Deliberator",
     "FittedPolicy",
@@ -201,7 +205,9 @@ __all__ = [
     "ThresholdSet",
     "cheapest_flip_set",
     "comparison_value_of_information",
+    "cross_validate_threshold_policy",
     "default_corpus",
+    "default_independent_outcome_corpus",
     "default_labelled_outcome_corpus",
     "default_outcome_corpus",
     "default_scoring_corpus",

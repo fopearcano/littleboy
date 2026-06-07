@@ -291,6 +291,49 @@ littleboy recommend-policy --stakeholder strict --fit       # ranking + fitted s
 littleboy recommend-policy --fit                            # fit to the consensus
 ```
 
+### Cross-validated fitting + a packaged independent set (v0.16)
+
+A single dev/holdout split gives the fitted policy's gain as **one point**, which can
+be lucky. v0.16 makes it a **claim with a variance**, and ships a genuinely
+independent labelled set to run it all against.
+
+**k-fold cross-validation** (`cross_validate_threshold_policy`). The cases are pooled
+into `k` deterministic folds; each fold **fits thresholds on its training part and
+scores them — and the nearest built-in — on its held-out part**. The reported gain
+is the *procedure's* generalisation: `mean_gain ± gain_std` (plus min/max), a
+`fitting_helps` flag that is true only when the mean stays positive one standard
+deviation down, and a `threshold_stability` read (how often the same thresholds
+won). Internally a verdict matrix is computed once, so CV costs one full grid
+evaluation regardless of `k`. The fitter can now also optionally tune the
+**data-quality gate** and the **irreversibility floor** (`data_gate_grid`,
+`reversibility_grid`), not just the two coercion thresholds.
+
+This is strictly more honest than one holdout: on the large synthetic corpus, the
+single-split fit for the `strict` stakeholder reported "intervals overlap, prefer
+the built-in", but 5-fold CV shows the gain is in fact **robust** — mean **+0.069 ±
+0.054**, positive one σ down, with the modal thresholds (0.30, 0.35) stable across
+**all** folds — so `fitting_helps` is `True`. One point hid a real effect; the
+spread revealed it. Pinned by `tests/golden/cross_validated_fit.golden.json`.
+
+**A packaged independent labelled set** (`default_independent_outcome_corpus`). The
+16 v0.13 cases are relabelled by a **three-person panel** (`ann`, `ben`, `cleo`)
+whose verdicts live in `independent_labels.csv` and were **hand-authored as
+independent human judgments — written without consulting the engine's output**, and
+disagreeing more messily than the rule-based personas. They are imported through the
+**v0.15 CSV path** and inherit the v0.13 dev/holdout split (so the holdout is never
+inspected during tuning). Their agreement is honestly **lower and messier** than the
+synthetic panel — dev percent agreement ~0.54 (Fleiss kappa ~0.15), holdout ~0.67
+(kappa ~0.40) — and the existing `run_reliability` / `recommend_policy` /
+`fit_threshold_policy` / `cross_validate_threshold_policy` all run against it
+**unchanged**. On this small set, fitting buys **nothing** over the nearest built-in
+(CV mean gain ~0.00), which is exactly what a tiny, noisy holdout should report.
+
+```bash
+littleboy recommend-policy --stakeholder strict --cv --folds 5   # gain as mean +/- spread
+littleboy recommend-policy --independent                         # against the independent panel
+littleboy recommend-policy --independent --cv                    # both together
+```
+
 ## Limitations
 
 - The **audit corpus** is small and hand-labelled: its rates are calibration
@@ -313,13 +356,19 @@ littleboy recommend-policy --fit                            # fit to the consens
   `indistinguishable` (the data cannot separate them) and reports the agreement
   ceiling, so it cannot silently over-claim — but a recommendation tuned to a noisy
   target (kappa ~0.37) is a starting point for deliberation, not a settled answer.
-- The **fitted-threshold policy** fits only the two coercion thresholds over a
-  fixed grid, holding every other parameter at the base profile's value; it is not
-  a general optimiser. It fits on dev and reports on holdout (never tuned on), and
-  on the current corpus it does **not** clearly beat the nearest built-in — the
-  intervals overlap every time. That is the honest finding, not a defect: on a
-  small holdout, fitting buys little over a sensible built-in, and the tool says so
-  rather than dressing up an over-fit as an improvement.
+- The **fitted-threshold policy** fits the two coercion thresholds (and, optionally,
+  the data-quality gate and irreversibility floor) over a fixed grid, holding every
+  other parameter at the base profile's value; it is not a general optimiser.
+  **Cross-validation** (v0.16) reports the fitting procedure's gain as a mean ±
+  spread rather than one holdout point, which is more honest — but it is still a
+  grid search over a synthetic or tiny corpus, and "fitting helps" remains a claim
+  bounded by the inter-labeller ceiling, not a licence to chase the labels.
+- The **independent labelled set** (v0.16) is the most honest data here, imported
+  through the same CSV path real labels would use — but it is still only 16 cases
+  and its labels, while authored *independently of the engine's output*, were
+  written by the maintainers, not crowd-sourced from the public. Genuine external
+  validity needs many more cases labelled by genuinely unrelated people; the
+  machinery is in place, the data is not yet.
 - Golden-file pinning catches drift but does not *validate* correctness — a wrong
   expectation, once frozen, stays wrong until a human revisits it.
 - The scoring-layer detectors are deliberately coarse (a coercion band, the data

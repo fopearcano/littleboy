@@ -36,7 +36,7 @@ littleboy = "littleboy.cli:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-"littleboy.calibration" = ["*.json"]
+"littleboy.calibration" = ["*.json", "*.csv"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

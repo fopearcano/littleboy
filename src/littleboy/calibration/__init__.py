@@ -15,6 +15,8 @@ from littleboy.calibration.corpus import (
     run_corpus,
 )
 from littleboy.calibration.fitting import (
+    cross_validate_threshold_policy,
+    cross_validated_fit_golden_payload,
     fit_threshold_policy,
     fitted_policy_golden_payload,
 )
@@ -40,7 +42,9 @@ from littleboy.calibration.models import (
     CaseDigest,
     ConfidenceInterval,
     CorpusEntry,
+    CrossValidatedFit,
     FittedPolicy,
+    FoldResult,
     InterRaterAgreement,
     LabelerVerdict,
     LayerExpectation,
@@ -58,6 +62,7 @@ from littleboy.calibration.models import (
     ThresholdSet,
 )
 from littleboy.calibration.reliability import (
+    default_independent_outcome_corpus,
     default_outcome_corpus,
     disposition,
     inter_rater_agreement,
@@ -82,7 +87,9 @@ __all__ = [
     "CaseDigest",
     "ConfidenceInterval",
     "CorpusEntry",
+    "CrossValidatedFit",
     "FittedPolicy",
+    "FoldResult",
     "InterRaterAgreement",
     "LabelerVerdict",
     "LayerExpectation",
@@ -101,8 +108,11 @@ __all__ = [
     "aggregate",
     "apply_labels",
     "consensus_verdict",
+    "cross_validate_threshold_policy",
+    "cross_validated_fit_golden_payload",
     "default_corpus",
     "default_generated_scoring_corpus",
+    "default_independent_outcome_corpus",
     "default_labelled_outcome_corpus",
     "default_outcome_corpus",
     "default_scoring_corpus",

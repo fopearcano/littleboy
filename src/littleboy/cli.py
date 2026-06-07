@@ -24,7 +24,9 @@ from pydantic import ValidationError
 from littleboy import __version__
 from littleboy.audit.report import render_audit_json, render_audit_text
 from littleboy.calibration import (
+    cross_validate_threshold_policy,
     default_corpus,
+    default_independent_outcome_corpus,
     default_labelled_outcome_corpus,
     default_outcome_corpus,
     default_scoring_corpus,
@@ -621,6 +623,17 @@ def recommend_policy_cmd(
         "--fit",
         help="Also fit a custom threshold policy (dev fit, holdout score) vs the nearest built-in.",
     ),
+    cv: bool = typer.Option(
+        False,
+        "--cv",
+        help="Also k-fold cross-validate the fit: gain over the nearest built-in, mean +/- spread.",
+    ),
+    folds: int = typer.Option(5, "--folds", help="Number of CV folds (with --cv)."),
+    independent: bool = typer.Option(
+        False,
+        "--independent",
+        help="Use the packaged independent hand-authored multi-labeller set instead of the panel.",
+    ),
     labels_csv: Path | None = typer.Option(
         None,
         "--labels-csv",
@@ -640,21 +653,32 @@ def recommend_policy_cmd(
     if metric not in {"disposition", "exact"}:
         typer.echo(f"Unknown metric '{metric}'; use 'disposition' or 'exact'.", err=True)
         raise typer.Exit(code=2)
+    if independent and labels_csv is not None:
+        typer.echo("Use either --independent or --labels-csv, not both.", err=True)
+        raise typer.Exit(code=2)
 
-    base = default_labelled_outcome_corpus()
-    try:
-        corpus = outcome_corpus_from_csv(base, labels_csv) if labels_csv is not None else base
-    except ValueError as exc:
-        typer.echo(f"Could not apply labels from {labels_csv}: {exc}", err=True)
-        raise typer.Exit(code=2) from exc
+    if independent:
+        corpus = default_independent_outcome_corpus()
+    else:
+        base = default_labelled_outcome_corpus()
+        try:
+            corpus = outcome_corpus_from_csv(base, labels_csv) if labels_csv is not None else base
+        except ValueError as exc:
+            typer.echo(f"Could not apply labels from {labels_csv}: {exc}", err=True)
+            raise typer.Exit(code=2) from exc
 
     rec = recommend_policy_for_stakeholder(corpus, stakeholder, metric=metric)
     fitted = fit_threshold_policy(corpus, stakeholder, metric=metric) if fit else None
+    cv_fit = (
+        cross_validate_threshold_policy(corpus, stakeholder, k=folds, metric=metric) if cv else None
+    )
 
     if output_format == "json":
         payload: dict = {"recommendation": rec.model_dump(mode="json")}
         if fitted is not None:
             payload["fitted"] = fitted.model_dump(mode="json")
+        if cv_fit is not None:
+            payload["cross_validated"] = cv_fit.model_dump(mode="json")
         typer.echo(json.dumps(payload, indent=2, ensure_ascii=False))
         return
 
@@ -696,6 +720,30 @@ def recommend_policy_cmd(
             f"CI[{nci.low:.2f},{nci.high:.2f}]   gain={fitted.gain_over_nearest:+.2f}"
         )
         for note in fitted.notes:
+            typer.echo(f"  - {note}")
+
+    if cv_fit is not None:
+        mt = cv_fit.modal_thresholds
+        typer.echo("")
+        typer.echo(
+            f"CROSS-VALIDATED FIT for '{cv_fit.target}' ({cv_fit.k}-fold, n={cv_fit.n_cases}):"
+        )
+        typer.echo(
+            f"  gain over nearest built-in: {cv_fit.mean_gain:+.3f} +/- {cv_fit.gain_std:.3f}  "
+            f"(min {cv_fit.gain_min:+.3f}, max {cv_fit.gain_max:+.3f})"
+        )
+        typer.echo(
+            f"  mean fitted={cv_fit.mean_fitted_accuracy:.2f}  "
+            f"mean nearest={cv_fit.mean_nearest_accuracy:.2f}  "
+            f"fitting_helps={cv_fit.fitting_helps}"
+        )
+        if mt is not None:
+            typer.echo(
+                f"  modal thresholds: coercion_moderate={mt.coercion_moderate} "
+                f"max_coercion_for_acceptable={mt.max_coercion_for_acceptable} "
+                f"(stable across {cv_fit.threshold_stability:.0%} of folds)"
+            )
+        for note in cv_fit.notes:
             typer.echo(f"  - {note}")
 
 

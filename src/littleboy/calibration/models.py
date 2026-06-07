@@ -293,16 +293,20 @@ class PolicyRecommendation(_CalBase):
 
 
 class ThresholdSet(_CalBase):
-    """The tunable coercion thresholds of a policy, fitted to a stakeholder.
+    """The tunable thresholds of a policy, fitted to a stakeholder.
 
-    Only the two coercion thresholds are fitted; every other operational parameter
-    is held at the ``base_mode`` profile's value (recorded here for transparency).
+    The two coercion thresholds are always fitted. The data-quality gate and the
+    irreversibility floor are *optional* extra dimensions: ``None`` means "keep the
+    ``base_mode`` profile's value" (so a two-dimensional fit serialises them as
+    null). Every other operational parameter is held at the base profile's value.
     A fitted set is turned back into a full ``PolicyProfile`` to run the *real*
     engine -- nothing about the verdict logic is duplicated or changed.
     """
 
     coercion_moderate: float = Field(ge=0.0, le=1.0)
     max_coercion_for_acceptable: float = Field(ge=0.0, le=1.0)
+    min_data_quality_for_approval: float | None = Field(default=None, ge=0.0, le=1.0)
+    irreversible_min_epistemic: float | None = Field(default=None, ge=0.0, le=1.0)
     base_mode: str = "standard"
 
 
@@ -332,6 +336,58 @@ class FittedPolicy(_CalBase):
     distinguishable_from_nearest: bool = Field(
         default=False,
         description="True only if the fitted CI does not overlap the nearest built-in's.",
+    )
+    agreement_ceiling: float | None = None
+    notes: list[str] = Field(default_factory=list)
+
+
+# =============================================================================
+# Cross-validated fitting (v0.16): a gain estimate with a variance, not one point
+# =============================================================================
+
+
+class FoldResult(_CalBase):
+    """One cross-validation fold: thresholds fit on the train part, scored on the test part."""
+
+    fold: int
+    n_train: int
+    n_test: int
+    thresholds: ThresholdSet
+    fitted_accuracy: float = Field(default=0.0, ge=0.0, le=1.0)
+    nearest_builtin: str = ""
+    nearest_builtin_accuracy: float = Field(default=0.0, ge=0.0, le=1.0)
+    gain: float = Field(default=0.0, ge=-1.0, le=1.0)
+
+
+class CrossValidatedFit(_CalBase):
+    """k-fold CV of the fitting procedure: its gain over the nearest built-in, mean ± spread.
+
+    Each fold fits thresholds on its training part and scores them on its held-out
+    part, so the reported gain is the *generalisation* of the fitting procedure --
+    a claim with a variance, not one lucky holdout. ``modal_thresholds`` is the most
+    frequently selected set across folds, and ``threshold_stability`` how often it
+    won; an unstable fit (low stability, wide spread) is a sign fitting is chasing
+    noise.
+    """
+
+    target: str
+    metric: str = "disposition"
+    k: int = 0
+    n_cases: int = 0
+    folds: list[FoldResult] = Field(default_factory=list)
+    mean_fitted_accuracy: float = Field(default=0.0, ge=0.0, le=1.0)
+    mean_nearest_accuracy: float = Field(default=0.0, ge=0.0, le=1.0)
+    mean_gain: float = Field(default=0.0, ge=-1.0, le=1.0)
+    gain_std: float = Field(default=0.0, ge=0.0, le=1.0)
+    gain_min: float = Field(default=0.0, ge=-1.0, le=1.0)
+    gain_max: float = Field(default=0.0, ge=-1.0, le=1.0)
+    fitting_helps: bool = Field(
+        default=False,
+        description="True only if the mean gain stays positive one standard deviation down.",
+    )
+    modal_thresholds: ThresholdSet | None = None
+    threshold_stability: float = Field(
+        default=0.0, ge=0.0, le=1.0, description="Fraction of folds that selected the modal set."
     )
     agreement_ceiling: float | None = None
     notes: list[str] = Field(default_factory=list)

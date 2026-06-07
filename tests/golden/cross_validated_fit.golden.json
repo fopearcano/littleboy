@@ -1,0 +1,94 @@
+{
+  "target": "consensus",
+  "metric": "disposition",
+  "k": 4,
+  "n_cases": 40,
+  "folds": [
+    {
+      "fold": 0,
+      "n_train": 30,
+      "n_test": 10,
+      "thresholds": {
+        "coercion_moderate": 0.3,
+        "max_coercion_for_acceptable": 0.55,
+        "min_data_quality_for_approval": null,
+        "irreversible_min_epistemic": null,
+        "base_mode": "standard"
+      },
+      "fitted_accuracy": 0.9,
+      "nearest_builtin": "standard",
+      "nearest_builtin_accuracy": 0.9,
+      "gain": 0.0
+    },
+    {
+      "fold": 1,
+      "n_train": 30,
+      "n_test": 10,
+      "thresholds": {
+        "coercion_moderate": 0.3,
+        "max_coercion_for_acceptable": 0.55,
+        "min_data_quality_for_approval": null,
+        "irreversible_min_epistemic": null,
+        "base_mode": "standard"
+      },
+      "fitted_accuracy": 0.9,
+      "nearest_builtin": "standard",
+      "nearest_builtin_accuracy": 0.9,
+      "gain": 0.0
+    },
+    {
+      "fold": 2,
+      "n_train": 30,
+      "n_test": 10,
+      "thresholds": {
+        "coercion_moderate": 0.3,
+        "max_coercion_for_acceptable": 0.75,
+        "min_data_quality_for_approval": null,
+        "irreversible_min_epistemic": null,
+        "base_mode": "standard"
+      },
+      "fitted_accuracy": 0.8,
+      "nearest_builtin": "permissive",
+      "nearest_builtin_accuracy": 0.8,
+      "gain": 0.0
+    },
+    {
+      "fold": 3,
+      "n_train": 30,
+      "n_test": 10,
+      "thresholds": {
+        "coercion_moderate": 0.3,
+        "max_coercion_for_acceptable": 0.55,
+        "min_data_quality_for_approval": null,
+        "irreversible_min_epistemic": null,
+        "base_mode": "standard"
+      },
+      "fitted_accuracy": 0.9,
+      "nearest_builtin": "standard",
+      "nearest_builtin_accuracy": 1.0,
+      "gain": -0.1
+    }
+  ],
+  "mean_fitted_accuracy": 0.875,
+  "mean_nearest_accuracy": 0.9,
+  "mean_gain": -0.025,
+  "gain_std": 0.0433,
+  "gain_min": -0.1,
+  "gain_max": 0.0,
+  "fitting_helps": false,
+  "modal_thresholds": {
+    "coercion_moderate": 0.3,
+    "max_coercion_for_acceptable": 0.55,
+    "min_data_quality_for_approval": null,
+    "irreversible_min_epistemic": null,
+    "base_mode": "standard"
+  },
+  "threshold_stability": 0.75,
+  "agreement_ceiling": 0.7167,
+  "notes": [
+    "4-fold CV of fitting to 'consensus' by disposition agreement; each fold fits on its training part and scores on its held-out part",
+    "fitting does NOT robustly help: mean gain -0.025 (± 0.043) is within a standard deviation of zero -- prefer the simpler built-in",
+    "fitted thresholds were stable across 3/4 folds; low stability or a wide spread means the fit is chasing noise",
+    "inter-labeller agreement over all cases is 0.72; the ceiling for matching the consensus"
+  ]
+}

@@ -19,6 +19,7 @@ from collections.abc import Callable
 from importlib import resources
 from pathlib import Path
 
+from littleboy.calibration.labels import apply_labels, parse_labels_csv
 from littleboy.calibration.models import (
     InterRaterAgreement,
     OutcomeCorpus,
@@ -34,6 +35,7 @@ from littleboy.core.evaluator import EthicalEvaluator
 from littleboy.rules.policy import PolicyProfile
 
 _OUTCOME_RESOURCE = "outcome_corpus.json"
+_INDEPENDENT_RESOURCE = "independent_labels.csv"
 _SPLITS = ("dev", "holdout")
 _DISPOSITION_CLASSES = ("permissible", "impermissible", "insufficient")
 
@@ -66,6 +68,29 @@ def default_outcome_corpus() -> OutcomeCorpus:
         .read_text(encoding="utf-8")
     )
     return OutcomeCorpus.model_validate_json(text)
+
+
+def default_independent_outcome_corpus() -> OutcomeCorpus:
+    """The packaged v0.13 cases relabelled by an independent three-person panel (v0.16).
+
+    The labels live in ``independent_labels.csv`` and were hand-authored as plausible
+    *independent human judgments* -- written without consulting the engine's output,
+    and disagreeing more messily than the rule-based personas. They are imported via
+    the v0.15 CSV path and inherit the v0.13 dev/holdout split, so the holdout is
+    never inspected during tuning.
+    """
+    text = (
+        resources.files("littleboy.calibration")
+        .joinpath(_INDEPENDENT_RESOURCE)
+        .read_text(encoding="utf-8")
+    )
+    labels_by_case, split_by_case = parse_labels_csv(text)
+    return apply_labels(
+        default_outcome_corpus(),
+        labels_by_case,
+        split_by_case,
+        title="Independent hand-authored multi-labeller outcome set (v0.16)",
+    )
 
 
 def _rate(numer: int, denom: int) -> float:

@@ -4,6 +4,8 @@
   "thresholds": {
     "coercion_moderate": 0.3,
     "max_coercion_for_acceptable": 0.55,
+    "min_data_quality_for_approval": null,
+    "irreversible_min_epistemic": null,
     "base_mode": "standard"
   },
   "fit_split": "dev",
