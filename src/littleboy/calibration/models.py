@@ -181,11 +181,20 @@ class ScoringCalibrationReport(_CalBase):
 # =============================================================================
 
 
+class LabelerVerdict(_CalBase):
+    """One labeler's verdict for a case (the panel of independent human labelers)."""
+
+    labeler: str
+    verdict: Verdict
+
+
 class OutcomeEntry(_CalBase):
-    """One case with a held-out, human-authored verdict label (not from the heuristics).
+    """One case with held-out, human-authored verdict labels (not from the heuristics).
 
     ``split`` is ``"dev"`` (where you may tune) or ``"holdout"`` (reported reliability,
-    never tuned against). The ``human_verdict`` is the labeler's considered judgment.
+    never tuned against). ``human_verdict`` is the panel **consensus** (majority);
+    ``labels`` carries each independent labeler's verdict, so inter-labeller
+    agreement can be measured -- the ceiling against which engine reliability is read.
     """
 
     id: str
@@ -194,6 +203,7 @@ class OutcomeEntry(_CalBase):
     split: str = "holdout"
     human_verdict: Verdict
     labeler: str = "panel"
+    labels: list[LabelerVerdict] = Field(default_factory=list)
 
 
 class OutcomeCorpus(_CalBase):
@@ -223,17 +233,55 @@ class PolicyReliability(_CalBase):
     disagreements: list[str] = Field(default_factory=list)
 
 
+class InterRaterAgreement(_CalBase):
+    """How much the human labelers agree with *each other* -- the reliability ceiling.
+
+    ``percent_agreement`` is the mean pairwise agreement on disposition;
+    ``fleiss_kappa`` is the chance-corrected agreement over the disposition classes.
+    No policy can be expected to match the human labels more often than the
+    labelers match one another.
+    """
+
+    n_items: int = 0
+    n_labelers: int = 0
+    percent_agreement: float = Field(default=0.0, ge=0.0, le=1.0)
+    fleiss_kappa: float = Field(default=0.0, ge=-1.0, le=1.0)
+
+
 class SplitReliability(_CalBase):
-    """Per-policy reliability over one split (dev or holdout)."""
+    """Per-policy reliability over one split (dev or holdout), with the agreement ceiling."""
 
     split: str
     n: int = 0
     policies: list[PolicyReliability] = Field(default_factory=list)
+    inter_rater: InterRaterAgreement | None = None
 
 
 class ReliabilityReport(_CalBase):
     """External-validity reliability of the engine against held-out human labels."""
 
     n_cases: int = 0
+    target: str = Field(
+        default="consensus", description="Whose labels reliability is measured against."
+    )
     splits: list[SplitReliability] = Field(default_factory=list)
+    notes: list[str] = Field(default_factory=list)
+
+
+class PolicyRecommendation(_CalBase):
+    """A recommended policy for a stakeholder, with the trade-offs shown rather than hidden."""
+
+    target: str = Field(description="Whose held-out judgments the recommendation matches.")
+    split: str = "holdout"
+    metric: str = "disposition"
+    recommended_policy: str | None = None
+    recommended_accuracy: float = Field(default=0.0, ge=0.0, le=1.0)
+    ranked: list[PolicyReliability] = Field(default_factory=list)
+    indistinguishable: list[str] = Field(
+        default_factory=list,
+        description="Policies whose CI overlaps the best one's -- the data cannot separate them.",
+    )
+    agreement_ceiling: float | None = Field(
+        default=None, description="Inter-labeller agreement: the ceiling reliability can reach."
+    )
     notes: list[str] = Field(default_factory=list)

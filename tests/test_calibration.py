@@ -18,11 +18,14 @@ from littleboy.calibration import (
     ScoringCorpusEntry,
     default_corpus,
     default_generated_scoring_corpus,
+    default_labelled_outcome_corpus,
     default_outcome_corpus,
     default_scoring_corpus,
     disposition,
+    generate_outcome_corpus,
     generate_scoring_corpus,
     golden_payload,
+    recommend_policy_for_stakeholder,
     reliability_golden_payload,
     run_corpus,
     run_reliability,
@@ -346,3 +349,83 @@ def test_cli_calibrate_reliability_works():
     assert result.exit_code == 0
     assert "reliability vs held-out human labels" in result.stdout
     assert "holdout" in result.stdout
+
+
+# --- multi-labeller corpus, inter-rater agreement & policy recommendation (v0.14) ---
+
+
+LABELLED_GOLDEN = (
+    Path(__file__).resolve().parent / "golden" / "labelled_outcome_reliability.golden.json"
+)
+
+
+def test_outcome_generator_is_deterministic():
+    a = reliability_golden_payload(run_reliability(generate_outcome_corpus(n=40, seed=3)))
+    b = reliability_golden_payload(run_reliability(generate_outcome_corpus(n=40, seed=3)))
+    assert a == b
+
+
+def test_inter_rater_agreement_is_a_real_ceiling():
+    report = run_reliability(default_labelled_outcome_corpus())
+    holdout = next(s for s in report.splits if s.split == "holdout")
+    ir = holdout.inter_rater
+    assert ir is not None
+    assert ir.n_labelers == 3
+    # the labelers genuinely disagree (kappa well below 1) but better than chance (above 0)
+    assert 0.0 < ir.fleiss_kappa < 1.0
+    assert 0.0 < ir.percent_agreement < 1.0
+
+
+def test_recommendation_diverges_by_stakeholder():
+    corpus = default_labelled_outcome_corpus()
+    lenient = recommend_policy_for_stakeholder(corpus, "lenient")
+    strict = recommend_policy_for_stakeholder(corpus, "strict")
+    # a lenient stakeholder is best matched by a permissive policy; a strict one by a
+    # conservative policy -- the recommendation tracks *them*, not a fixed answer.
+    assert lenient.recommended_policy == "permissive"
+    assert strict.recommended_policy in {"strict", "precautionary"}
+    assert lenient.recommended_policy != strict.recommended_policy
+
+
+def test_recommendation_shows_tradeoffs_and_ceiling():
+    rec = recommend_policy_for_stakeholder(default_labelled_outcome_corpus(), "strict")
+    # the winner is the max-accuracy policy in the ranking
+    best = max(rec.ranked, key=lambda p: p.disposition_accuracy)
+    assert rec.recommended_policy == best.policy
+    assert rec.recommended_accuracy == best.disposition_accuracy
+    # ties and the agreement ceiling are surfaced, not hidden
+    assert rec.agreement_ceiling is not None
+    assert rec.ranked  # full ranking is present
+
+
+def test_recommendation_handles_consensus_target():
+    rec = recommend_policy_for_stakeholder(default_labelled_outcome_corpus(), None)
+    assert rec.target == "consensus"
+    assert rec.recommended_policy is not None
+
+
+def test_labelled_reliability_golden_regression():
+    payload = reliability_golden_payload(run_reliability(default_labelled_outcome_corpus()))
+    if os.environ.get("LITTLEBOY_UPDATE_GOLDEN"):
+        LABELLED_GOLDEN.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n")
+    expected = json.loads(LABELLED_GOLDEN.read_text())
+    assert payload == expected, (
+        "labelled-corpus reliability drifted; "
+        "re-run with LITTLEBOY_UPDATE_GOLDEN=1 if the change is intended"
+    )
+
+
+def test_cli_recommend_policy_works():
+    result = runner.invoke(app, ["recommend-policy", "--stakeholder", "strict"])
+    assert result.exit_code == 0
+    assert "RECOMMENDED POLICY" in result.stdout
+    assert "inter-labeller agreement ceiling" in result.stdout
+
+
+def test_cli_calibrate_labelled_reliability_shows_ceiling():
+    result = runner.invoke(app, ["calibrate", "--scope", "reliability", "--labelled"])
+    assert result.exit_code == 0
+    assert "reliability vs held-out human labels" in result.stdout
+    # the large multi-labeller corpus surfaces the inter-rater ceiling; the small
+    # packaged corpus (without --labelled) has no panel and so does not.
+    assert "inter-rater ceiling" in result.stdout

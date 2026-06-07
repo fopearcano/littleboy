@@ -170,6 +170,74 @@ golden-pinned (`tests/golden/outcome_reliability.golden.json`).
 littleboy calibrate --scope reliability    # per-policy agreement with held-out human labels
 ```
 
+### Independent labelling at scale + policy recommendation (v0.14)
+
+A single human label hides a hard truth: **people disagree about ethics**, and a
+reliability number is only meaningful next to *how much the labelers agreed with
+each other*. v0.14 grows the held-out outcome set an order of magnitude — to **160
+cases**, each judged by a **panel of three independent labelers** — and reports
+inter-labeller agreement alongside per-policy reliability.
+
+**Independent labelers.** Each labeler is a *different, transparent* judgment rule
+over the observable case (coercion severity, data adequacy, consent), authored
+separately from the engine and from one another: a `lenient` persona that only
+condemns severe coercion, a `median` persona, and a `strict` persona that condemns
+much earlier. They genuinely disagree on borderline cases. The panel's majority is
+the **consensus** (`human_verdict`); each persona's raw verdict is kept in `labels`
+so agreement can be measured. Generation is deterministic given the seed
+(`generate_outcome_corpus`, `default_labelled_outcome_corpus`), so the corpus is
+reproducible without storing 160 cases on disk.
+
+**Inter-labeller agreement is the ceiling.** `inter_rater_agreement` computes, on
+the coarse disposition classes, the mean **pairwise percent agreement** and
+**Fleiss' kappa** (chance-corrected). On the holdout set the three labelers agree
+only ~**0.68** of the time (kappa ~**0.37** — "fair"). That is the ceiling: *no
+policy can be expected to match the consensus more often than the labelers match
+one another*, so a policy reporting 0.92 disposition agreement is doing well
+**relative to a noisy target**, not approaching perfection. The ceiling is carried
+on every `SplitReliability` (`inter_rater`) and surfaced by `littleboy calibrate
+--scope reliability --labelled` (the `--labelled` flag swaps the small packaged
+corpus for the large multi-labeller one):
+
+```text
+  [holdout] n=80  inter-rater ceiling: agreement=0.68 kappa=0.37
+    permissive     exact=0.56 CI[0.45,0.67]  disposition=0.93
+    standard       exact=0.54 CI[0.43,0.64]  disposition=0.90
+    strict         exact=0.46 CI[0.36,0.57]  disposition=0.82
+    precautionary  exact=0.46 CI[0.36,0.57]  disposition=0.74
+```
+
+**A policy-recommendation layer.** Different stakeholders want different policies,
+and that should be shown, not hidden. `recommend_policy_for_stakeholder(corpus,
+labeler=...)` (and `recommend_policy(report)`) takes a stakeholder's held-out
+judgments and recommends the policy whose verdicts best match them — by disposition
+accuracy by default, or `exact`. Crucially it shows the **trade-offs**: the full
+ranking with Wilson intervals, the set of policies whose intervals **overlap the
+leader's** (so the data *cannot* separate them — `indistinguishable`), and the
+agreement ceiling as an over-fitting caveat. Because the labelers genuinely differ,
+the recommendation genuinely diverges by stakeholder:
+
+```text
+stakeholder=lenient    -> permissive     acc=0.86   ties with: standard
+stakeholder=median     -> permissive     acc=0.92   ties with: standard, strict
+stakeholder=strict     -> precautionary  acc=1.00   ties with: strict
+stakeholder=consensus  -> permissive     acc=0.92   ties with: standard, strict
+```
+
+A lenient stakeholder is best served by `permissive`; a strict stakeholder by
+`precautionary` (a perfect match — because the strict persona and the precautionary
+policy condemn at similar coercion levels). The trade-off is explicit: choosing
+`precautionary` to satisfy the strict stakeholder would drop consensus disposition
+agreement from 0.92 to 0.74. The recommendation is golden-pinned
+(`tests/golden/labelled_outcome_reliability.golden.json`).
+
+```bash
+littleboy calibrate --scope reliability --labelled        # 160-case panel + inter-rater ceiling
+littleboy recommend-policy --stakeholder strict           # best policy for one stakeholder
+littleboy recommend-policy --stakeholder lenient --metric exact
+littleboy recommend-policy                                 # against panel consensus
+```
+
 ## Limitations
 
 - The **audit corpus** is small and hand-labelled: its rates are calibration
@@ -178,10 +246,20 @@ littleboy calibrate --scope reliability    # per-policy agreement with held-out 
   still *synthetic* — drawn from a latent model the maintainers chose, not from the
   real world. It measures whether the heuristics recover that latent model, which
   is a strong internal check but not external validity.
-- The **outcome (reliability) corpus** is the closest to external validity, but it
-  is small and its "human" labels are still authored by the maintainers; a genuine
-  external check needs many more cases, labelled by independent people, with the
-  holdout never inspected during tuning. The wide Wilson intervals say as much.
+- The **outcome (reliability) corpus** is the closest to external validity. v0.14
+  grows it to 160 cases with a three-labeler panel and reports inter-labeller
+  agreement, so the reliability intervals are now read against an honest ceiling
+  (holdout agreement ~0.68, Fleiss kappa ~0.37). But the "labelers" are still
+  *transparent personas authored by the maintainers*, not genuinely independent
+  people — they disagree realistically, yet by construction. A real external check
+  still needs labels from actual independent humans; the inter-rater machinery is
+  built and waiting for them, and would report their (likely lower) agreement just
+  the same.
+- The **policy recommendation** is only as trustworthy as the labels and the
+  ceiling above. It honestly marks policies whose confidence intervals overlap as
+  `indistinguishable` (the data cannot separate them) and reports the agreement
+  ceiling, so it cannot silently over-claim — but a recommendation tuned to a noisy
+  target (kappa ~0.37) is a starting point for deliberation, not a settled answer.
 - Golden-file pinning catches drift but does not *validate* correctness — a wrong
   expectation, once frozen, stays wrong until a human revisits it.
 - The scoring-layer detectors are deliberately coarse (a coercion band, the data

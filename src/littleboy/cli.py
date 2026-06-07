@@ -25,10 +25,12 @@ from littleboy import __version__
 from littleboy.audit.report import render_audit_json, render_audit_text
 from littleboy.calibration import (
     default_corpus,
+    default_labelled_outcome_corpus,
     default_outcome_corpus,
     default_scoring_corpus,
     generate_scoring_corpus,
     load_corpus,
+    recommend_policy_for_stakeholder,
     run_corpus,
     run_reliability,
     run_scoring_corpus,
@@ -503,6 +505,12 @@ def calibrate(
         "-g",
         help="Use the large generated (independently-labelled) corpus for the scoring scope.",
     ),
+    labelled: bool = typer.Option(
+        False,
+        "--labelled",
+        "-l",
+        help="Use the large multi-labeller outcome corpus (with inter-rater agreement).",
+    ),
     n: int = typer.Option(120, "--n", help="Number of generated cases (with --generated)."),
     seed: int = typer.Option(0, "--seed", help="Seed for the generated corpus (with --generated)."),
 ) -> None:
@@ -528,7 +536,8 @@ def calibrate(
         )
         scoring_report = run_scoring_corpus(scoring_corpus)
     if scope in {"reliability", "all"}:
-        reliability_report = run_reliability(default_outcome_corpus())
+        outcome_corpus = default_labelled_outcome_corpus() if labelled else default_outcome_corpus()
+        reliability_report = run_reliability(outcome_corpus)
 
     if output_format == "json":
         payload: dict = {}
@@ -579,13 +588,64 @@ def calibrate(
             typer.echo("")
         typer.echo("CALIBRATION (reliability vs held-out human labels):")
         for split in reliability_report.splits:
-            typer.echo(f"  [{split.split}] n={split.n}")
+            ceiling = ""
+            if split.inter_rater is not None:
+                ir = split.inter_rater
+                ceiling = (
+                    f"  inter-rater ceiling: agreement={ir.percent_agreement:.2f} "
+                    f"kappa={ir.fleiss_kappa:.2f}"
+                )
+            typer.echo(f"  [{split.split}] n={split.n}{ceiling}")
             for p in split.policies:
                 lo, hi = p.exact_accuracy_ci.low, p.exact_accuracy_ci.high
                 typer.echo(
                     f"    {p.policy:14s} exact={p.exact_accuracy:.2f} CI[{lo:.2f},{hi:.2f}]  "
                     f"disposition={p.disposition_accuracy:.2f}"
                 )
+
+
+@app.command(name="recommend-policy")
+def recommend_policy_cmd(
+    stakeholder: str | None = typer.Option(
+        None,
+        "--stakeholder",
+        help="Match this labeler's held-out judgments (default: the panel consensus).",
+    ),
+    metric: str = typer.Option(
+        "disposition", "--metric", help="Rank by 'disposition' or 'exact' agreement."
+    ),
+    output_format: str = typer.Option(
+        "text", "--format", "-f", help="Output format: 'json' or 'text'."
+    ),
+) -> None:
+    """Recommend the policy whose verdicts best match a stakeholder's held-out judgments."""
+    if output_format not in {"json", "text"}:
+        typer.echo(f"Unknown format '{output_format}'; use 'json' or 'text'.", err=True)
+        raise typer.Exit(code=2)
+    if metric not in {"disposition", "exact"}:
+        typer.echo(f"Unknown metric '{metric}'; use 'disposition' or 'exact'.", err=True)
+        raise typer.Exit(code=2)
+
+    rec = recommend_policy_for_stakeholder(
+        default_labelled_outcome_corpus(), stakeholder, metric=metric
+    )
+    if output_format == "json":
+        typer.echo(json.dumps(rec.model_dump(mode="json"), indent=2, ensure_ascii=False))
+        return
+    typer.echo(
+        f"RECOMMENDED POLICY for '{rec.target}': {rec.recommended_policy}  "
+        f"({rec.metric} agreement {rec.recommended_accuracy:.2f} on the {rec.split} split)"
+    )
+    if rec.agreement_ceiling is not None:
+        typer.echo(f"  inter-labeller agreement ceiling: {rec.agreement_ceiling:.2f}")
+    typer.echo("  ranking (with trade-offs):")
+    for p in rec.ranked:
+        acc = p.disposition_accuracy if metric == "disposition" else p.exact_accuracy
+        ci = p.disposition_accuracy_ci if metric == "disposition" else p.exact_accuracy_ci
+        tie = "  (tied with the leader)" if p.policy in rec.indistinguishable else ""
+        typer.echo(f"    {p.policy:14s} {acc:.2f} CI[{ci.low:.2f},{ci.high:.2f}]{tie}")
+    for note in rec.notes:
+        typer.echo(f"  - {note}")
 
 
 @app.command()

@@ -11,15 +11,18 @@ and returns a **transparent, explained verdict** with an honest account of its
 own uncertainty. It is a reasoning engine, not a user interface and not a
 language model.
 
-This is **v0.13**, which adds **external-validity calibration** and **probabilistic
-planning**: LittleBoy now measures how often each policy's verdict agrees with a
-**held-out, human-labelled** outcome set (with proper confidence intervals,
-holdout never tuned against), and the intake lookahead plans the **globally
-cost-optimal** questionnaire over a domain-supplied **answer distribution**
-(`intake_hints.answer_probabilities`) rather than assuming uniform answers. (v0.12
-let domains drive the planner and calibrated at scale with independent labels;
-v0.11 made minimal intake cost-aware and interactive; v0.10 added multi-fact value
-of information and the minimal-sufficient-case planner; v0.9 the deliberation &
+This is **v0.14**, which adds **independent labelling at scale** and a **policy-
+recommendation layer**: the held-out outcome set is grown an order of magnitude
+(160 cases, each judged by a panel of three independent labelers), LittleBoy now
+reports **inter-labeller agreement** (Fleiss' kappa) alongside per-policy
+reliability — so the intervals are read against an honest ceiling — and a new layer
+recommends, for a given stakeholder's held-out judgments, the policy whose verdicts
+best match them, **with the trade-offs shown** (full ranking, overlapping-interval
+ties, and the agreement ceiling) rather than hidden. (v0.13 added external-validity
+calibration and globally-cost-optimal probabilistic planning; v0.12 let domains
+drive the planner and calibrated at scale with independent labels; v0.11 made
+minimal intake cost-aware and interactive; v0.10 added multi-fact value of
+information and the minimal-sufficient-case planner; v0.9 the deliberation &
 value-of-information layer; v0.8 adversarial audit & bias testing; v0.7 temporal &
 consequence modeling; v0.6 the comparison engine; v0.5 the language module; v0.4
 the scenario builder; v0.3 the rule engine and policy layer.) See
@@ -458,6 +461,41 @@ Deterministic, typed, additive — the verdict itself is unchanged. See
 [`docs/MINIMAL_SUFFICIENT_CASE.md`](docs/MINIMAL_SUFFICIENT_CASE.md) and
 [`docs/CALIBRATION.md`](docs/CALIBRATION.md).
 
+## LittleBoy v0.14: Independent labelling at scale & policy recommendation
+
+> A reliability number is only meaningful next to **how much the labelers agreed
+> with each other** — and different stakeholders deserve different policies, shown
+> with their trade-offs, not one answer pretending to be universal.
+
+- **Multi-labeller corpus at scale**: `generate_outcome_corpus` /
+  `default_labelled_outcome_corpus` builds a held-out outcome set an order of
+  magnitude larger (**160 cases**), each judged by a **panel of three independent
+  labelers** — `lenient`, `median`, `strict` — each a different, transparent
+  judgment rule authored separately from the engine and from one another. The
+  panel's majority is the **consensus**; each labeler's raw verdict is kept so
+  agreement can be measured. Deterministic given the seed.
+- **Inter-labeller agreement as the ceiling**: `inter_rater_agreement` reports the
+  mean pairwise **percent agreement** and **Fleiss' kappa** (chance-corrected) on
+  the coarse disposition. On the holdout the three labelers agree only ~**0.68**
+  (kappa ~**0.37**), and this ceiling rides on every `SplitReliability` — *no policy
+  can be expected to match the consensus more often than the labelers match each
+  other*, so a policy at 0.92 disposition agreement is doing well against a **noisy
+  target**, not approaching perfection.
+- **Policy-recommendation layer**: `recommend_policy_for_stakeholder(corpus,
+  labeler=…)` (and `recommend_policy(report)`) takes a stakeholder's held-out
+  judgments and recommends the policy whose verdicts best match them (by
+  disposition, or `exact`), **with the trade-offs shown**: the full ranking with
+  Wilson intervals, the policies whose intervals **overlap the leader's** (so the
+  data cannot separate them), and the agreement ceiling as an over-fitting caveat.
+  Because the labelers genuinely differ, the recommendation diverges by stakeholder
+  — a `lenient` stakeholder is best served by `permissive`, a `strict` one by
+  `precautionary` (a perfect match) — and the cost of satisfying the strict
+  stakeholder (consensus agreement dropping 0.92 → 0.74) is made explicit. CLI:
+  `littleboy recommend-policy --stakeholder strict`.
+
+Deterministic, typed, additive — the verdict itself is unchanged. See
+[`docs/CALIBRATION.md`](docs/CALIBRATION.md).
+
 ## How evidence is represented
 
 An `EvidenceSet` holds `EvidenceItem`s, each a `claim` plus its `source_type`
@@ -576,15 +614,15 @@ src/littleboy/
     metrics.py      # per-entry audit scoring + miss / false-alarm aggregation
     corpus.py       # load / run the audit corpus, build digests, golden payload
     scoring.py      # run the scoring corpus + per-policy + Wilson confidence intervals
-    generator.py    # deterministic, independently-labelled corpus generator (at scale)
-    reliability.py  # external-validity: agreement with held-out human labels, per policy
+    generator.py    # deterministic corpus generators: scoring (latent labels) + multi-labeller outcomes
+    reliability.py  # external-validity reliability, inter-labeller agreement, per-stakeholder policy recommendation
     audit_corpus.json     # the packaged, self-contained audit calibration corpus
     scoring_corpus.json   # the packaged scoring-layer calibration corpus
     outcome_corpus.json   # the packaged held-out, human-labelled outcome corpus
   reasoning/
     report.py       # JSON / text rendering
     experiment.py   # EthicalExperiment runner (falsificatory + heuristic)
-  cli.py            # evaluate / experiment / questions / build-case / templates / analyze-language / compare / temporal / audit / deliberate / calibrate
+  cli.py            # evaluate / experiment / questions / build-case / templates / analyze-language / compare / temporal / audit / deliberate / calibrate / recommend-policy
 tests/              # pytest suite (incl. golden/ for calibration regression)
 examples/           # sample JSON cases (incl. partial_*, language_*, comparison_*, temporal_*, audit_*, voi_*)
 docs/               # ARCHITECTURE, ETHICAL_MODEL, RULE_ENGINE, POLICY_PROFILES,
@@ -609,7 +647,7 @@ pip install -e ".[dev]"     # pydantic, pytest, typer, ruff
 ## Running the tests
 
 ```bash
-pytest                      # 211 tests
+pytest                      # 219 tests
 ruff check src tests        # lint (optional)
 ```
 
@@ -639,6 +677,9 @@ littleboy questions examples/voi_consent_pivotal.json --minimal           # only
 littleboy calibrate                                                       # audit + scoring + reliability
 littleboy calibrate --scope scoring --generated --n 200                   # large, independently-labelled corpus
 littleboy calibrate --scope reliability                                   # per-policy agreement with held-out human labels
+littleboy calibrate --scope reliability --labelled                        # 160-case panel + inter-labeller ceiling
+littleboy recommend-policy --stakeholder strict                           # best policy for a stakeholder, trade-offs shown
+littleboy recommend-policy --stakeholder lenient --metric exact --format text
 littleboy build-case --minimal --from examples/voi_consent_pivotal.json --strategy lookahead
 littleboy templates                                                       # list scenario templates
 littleboy version
@@ -819,18 +860,20 @@ make consequential decisions about real people.
 
 ## Current development status
 
-**v0.13 — external validity & probabilistic planning.** Implemented on top of
-v0.12: a held-out, human-labelled `OutcomeCorpus` (dev/holdout splits, labels
-authored independently of the heuristics) and `run_reliability`, which reports
-**per-policy** agreement of the engine's verdict with the human label — exact and
-by coarse disposition — each with a Wilson interval and a disagreement list; on the
-packaged holdout `standard` tracks the panel best (~0.88) and `precautionary` worst
-(~0.25). `intake_hints.answer_probabilities` lets the expectimax lookahead plan the
-**globally cost-optimal** questionnaire over a non-uniform answer distribution
-(the chosen first question can change with the probabilities);
-`expected_questionnaire_cost` reports the optimal expected total. New
-`calibrate --scope reliability`; a reliability golden file; a 211-test suite (all
-passing). Purely additive — the verdict itself is unchanged.
+**v0.14 — independent labelling at scale & policy recommendation.** Implemented on
+top of v0.13: the held-out `OutcomeCorpus` is grown an order of magnitude
+(`generate_outcome_corpus`, 160 cases) with each case judged by a **panel of three
+independent labelers**; `run_reliability` now also reports **inter-labeller
+agreement** (percent agreement + Fleiss' kappa) on every split — the ceiling
+against which per-policy reliability is read (holdout agreement ~0.68, kappa ~0.37).
+A new policy-recommendation layer (`recommend_policy`,
+`recommend_policy_for_stakeholder`, `littleboy recommend-policy`) takes a
+stakeholder's held-out judgments and recommends the best-matching policy **with the
+trade-offs shown** — the full ranking with Wilson intervals, the overlapping-interval
+ties, and the agreement ceiling — and the recommendation genuinely diverges by
+stakeholder (lenient → `permissive`, strict → `precautionary`). Two new golden
+files; a 219-test suite (all passing). Purely additive — the verdict itself is
+unchanged.
 
 Earlier phases delivered the core models; coercion/data-quality/evidence scoring;
 consent/agency models; the tri-state Axiom 3 justification; feasibility-aware
@@ -840,8 +883,9 @@ rules); the v0.4 scenario builder; the v0.5 language & coercion module (no
 NLP/LLM); the v0.6 comparison engine; the v0.7 temporal & consequence model; the
 v0.8 adversarial audit & bias testing; the v0.9 deliberation &
 value-of-information layer; the v0.10 multi-fact VoI & minimal-case planner; the
-v0.11 cost-aware interactive intake; and the v0.12 domain-driven intake &
-independently-labelled calibration. All v0.1–v0.12 inputs remain valid.
+v0.11 cost-aware interactive intake; the v0.12 domain-driven intake &
+independently-labelled calibration; and the v0.13 external-validity reliability &
+probabilistic planning. All v0.1–v0.13 inputs remain valid.
 
 **Deliberately not built:** any web UI, any LLM/API integration, any opaque bias
 detection, any prediction that looks certain, any claim to absolute truth, any
@@ -850,13 +894,15 @@ to interrogate, not more dogmatic**.
 
 ### Recommended next steps
 
-- Scale the held-out outcome set by an order of magnitude with labels from genuinely
-  independent people, and report inter-labeller agreement alongside per-policy
-  reliability so the intervals mean something.
+- Replace the synthetic labeler personas with **real, independent human labels** on
+  the held-out set (the inter-rater machinery is built and waiting): import a CSV of
+  per-labeler verdicts, report the genuine (likely lower) agreement, and let the
+  recommendation layer run against it unchanged.
+- Recommend not just a built-in policy but a **custom threshold set** fitted to a
+  stakeholder's held-out judgments (still shown, bounded by the agreement ceiling,
+  and never tuned on the holdout).
 - Let `intake_hints` declare fully custom unknowns (probe fields, resolutions, costs,
   and probabilities) so domains beyond the built-in fields can drive the planner.
-- A policy-recommendation layer that, given a reliability report, suggests the
-  policy whose verdicts best match a stakeholder's held-out judgments.
 - **Optional** LLM-assisted indicator extraction (language, consequence, audit)
   behind an explicit flag, with the model's suggestions shown, attributed, and
   editable — the deterministic core staying authoritative and the audit trail

@@ -1,5 +1,6 @@
 {
   "n_cases": 16,
+  "target": "consensus",
   "splits": [
     {
       "split": "dev",
@@ -21,8 +22,8 @@
             "high": 1.0
           },
           "disagreements": [
-            "irreversible_low_data: human NOT_ACCEPTABLE vs engine ETHICALLY_SUSPICIOUS",
-            "temporal_low_now_high_later: human NOT_ACCEPTABLE vs engine ETHICALLY_SUSPICIOUS"
+            "irreversible_low_data: label NOT_ACCEPTABLE vs engine ETHICALLY_SUSPICIOUS",
+            "temporal_low_now_high_later: label NOT_ACCEPTABLE vs engine ETHICALLY_SUSPICIOUS"
           ]
         },
         {
@@ -41,7 +42,7 @@
             "high": 0.9776
           },
           "disagreements": [
-            "irreversible_low_data: human NOT_ACCEPTABLE vs engine INSUFFICIENT_DATA"
+            "irreversible_low_data: label NOT_ACCEPTABLE vs engine INSUFFICIENT_DATA"
           ]
         },
         {
@@ -60,10 +61,10 @@
             "high": 0.8632
           },
           "disagreements": [
-            "high_coercion: human NOT_ACCEPTABLE vs engine INSUFFICIENT_DATA",
-            "policy_strict_borderline: human ACCEPTABLE_WITH_RESERVATIONS vs engine ETHICALLY_SUSPICIOUS",
-            "irreversible_low_data: human NOT_ACCEPTABLE vs engine INSUFFICIENT_DATA",
-            "constructive_language: human ACCEPTABLE vs engine ACCEPTABLE_WITH_RESERVATIONS"
+            "high_coercion: label NOT_ACCEPTABLE vs engine INSUFFICIENT_DATA",
+            "policy_strict_borderline: label ACCEPTABLE_WITH_RESERVATIONS vs engine ETHICALLY_SUSPICIOUS",
+            "irreversible_low_data: label NOT_ACCEPTABLE vs engine INSUFFICIENT_DATA",
+            "constructive_language: label ACCEPTABLE vs engine ACCEPTABLE_WITH_RESERVATIONS"
           ]
         },
         {
@@ -82,14 +83,15 @@
             "high": 0.7848
           },
           "disagreements": [
-            "low_coercion: human ACCEPTABLE vs engine ACCEPTABLE_WITH_RESERVATIONS",
-            "high_coercion: human NOT_ACCEPTABLE vs engine INSUFFICIENT_DATA",
-            "policy_strict_borderline: human ACCEPTABLE_WITH_RESERVATIONS vs engine INSUFFICIENT_DATA",
-            "irreversible_low_data: human NOT_ACCEPTABLE vs engine INSUFFICIENT_DATA",
-            "constructive_language: human ACCEPTABLE vs engine ETHICALLY_SUSPICIOUS"
+            "low_coercion: label ACCEPTABLE vs engine ACCEPTABLE_WITH_RESERVATIONS",
+            "high_coercion: label NOT_ACCEPTABLE vs engine INSUFFICIENT_DATA",
+            "policy_strict_borderline: label ACCEPTABLE_WITH_RESERVATIONS vs engine INSUFFICIENT_DATA",
+            "irreversible_low_data: label NOT_ACCEPTABLE vs engine INSUFFICIENT_DATA",
+            "constructive_language: label ACCEPTABLE vs engine ETHICALLY_SUSPICIOUS"
           ]
         }
-      ]
+      ],
+      "inter_rater": null
     },
     {
       "split": "holdout",
@@ -111,8 +113,8 @@
             "high": 0.9285
           },
           "disagreements": [
-            "policy_permissive: human NOT_ACCEPTABLE vs engine ACCEPTABLE_WITH_RESERVATIONS",
-            "high_coercion_missing_consent: human NOT_ACCEPTABLE vs engine INSUFFICIENT_DATA"
+            "policy_permissive: label NOT_ACCEPTABLE vs engine ACCEPTABLE_WITH_RESERVATIONS",
+            "high_coercion_missing_consent: label NOT_ACCEPTABLE vs engine INSUFFICIENT_DATA"
           ]
         },
         {
@@ -131,7 +133,7 @@
             "high": 0.9776
           },
           "disagreements": [
-            "high_coercion_missing_consent: human NOT_ACCEPTABLE vs engine INSUFFICIENT_DATA"
+            "high_coercion_missing_consent: label NOT_ACCEPTABLE vs engine INSUFFICIENT_DATA"
           ]
         },
         {
@@ -150,10 +152,10 @@
             "high": 0.8632
           },
           "disagreements": [
-            "simple: human ACCEPTABLE vs engine ACCEPTABLE_WITH_RESERVATIONS",
-            "high_coercion_missing_consent: human NOT_ACCEPTABLE vs engine INSUFFICIENT_DATA",
-            "false_dichotomy: human NOT_ACCEPTABLE vs engine INSUFFICIENT_DATA",
-            "testimonial_injustice: human NOT_ACCEPTABLE vs engine INSUFFICIENT_DATA"
+            "simple: label ACCEPTABLE vs engine ACCEPTABLE_WITH_RESERVATIONS",
+            "high_coercion_missing_consent: label NOT_ACCEPTABLE vs engine INSUFFICIENT_DATA",
+            "false_dichotomy: label NOT_ACCEPTABLE vs engine INSUFFICIENT_DATA",
+            "testimonial_injustice: label NOT_ACCEPTABLE vs engine INSUFFICIENT_DATA"
           ]
         },
         {
@@ -172,15 +174,16 @@
             "high": 0.6943
           },
           "disagreements": [
-            "simple: human ACCEPTABLE vs engine ACCEPTABLE_WITH_RESERVATIONS",
-            "manipulative_language: human NOT_ACCEPTABLE vs engine INSUFFICIENT_DATA",
-            "temporal_prevents_worse: human ACCEPTABLE_WITH_RESERVATIONS vs engine NOT_ACCEPTABLE",
-            "high_coercion_missing_consent: human NOT_ACCEPTABLE vs engine INSUFFICIENT_DATA",
-            "false_dichotomy: human NOT_ACCEPTABLE vs engine INSUFFICIENT_DATA",
-            "testimonial_injustice: human NOT_ACCEPTABLE vs engine INSUFFICIENT_DATA"
+            "simple: label ACCEPTABLE vs engine ACCEPTABLE_WITH_RESERVATIONS",
+            "manipulative_language: label NOT_ACCEPTABLE vs engine INSUFFICIENT_DATA",
+            "temporal_prevents_worse: label ACCEPTABLE_WITH_RESERVATIONS vs engine NOT_ACCEPTABLE",
+            "high_coercion_missing_consent: label NOT_ACCEPTABLE vs engine INSUFFICIENT_DATA",
+            "false_dichotomy: label NOT_ACCEPTABLE vs engine INSUFFICIENT_DATA",
+            "testimonial_injustice: label NOT_ACCEPTABLE vs engine INSUFFICIENT_DATA"
           ]
         }
-      ]
+      ],
+      "inter_rater": null
     }
   ]
 }
