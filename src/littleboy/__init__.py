@@ -23,6 +23,16 @@ from littleboy.case_builder import (
     list_templates,
     wizard_prompts,
 )
+from littleboy.comparison import (
+    ActionComparisonResult,
+    ActionComparisonSet,
+    ActionOption,
+    ActionRankingEntry,
+    ComparisonEngine,
+    DominanceResult,
+    TradeoffAnalysis,
+    compare,
+)
 from littleboy.core.agency import assess_agency, assess_consent
 from littleboy.core.alternatives import analyse_alternatives
 from littleboy.core.axioms import (
@@ -94,11 +104,15 @@ from littleboy.rules import (
     get_policy,
 )
 
-__version__ = "0.5.0"
+__version__ = "0.6.0"
 
 __all__ = [
     "BUILTIN_RULES",
     "ActionCase",
+    "ActionComparisonResult",
+    "ActionComparisonSet",
+    "ActionOption",
+    "ActionRankingEntry",
     "AgencyProfile",
     "AgentType",
     "Alternative",
@@ -110,9 +124,11 @@ __all__ = [
     "CoercionJustification",
     "ConstructiveLanguageAssessment",
     "CoercionProfile",
+    "ComparisonEngine",
     "ConsentProfile",
     "ConsentStatus",
     "DataQualityProfile",
+    "DominanceResult",
     "EpistemicStatus",
     "EthicalEvaluator",
     "EthicalExperiment",
@@ -144,11 +160,13 @@ __all__ = [
     "RuleSeverity",
     "ScenarioTemplate",
     "SourceType",
+    "TradeoffAnalysis",
     "UncertaintyLevel",
     "Verdict",
     "agent_can_bear_duties",
     "analyse_alternatives",
     "analyze_language",
+    "compare",
     "assess_agency",
     "assess_consent",
     "build_case_from_answers",

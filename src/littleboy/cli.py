@@ -30,6 +30,9 @@ from littleboy.case_builder import (
     wizard_prompts,
 )
 from littleboy.case_builder.templates import ScenarioTemplate
+from littleboy.comparison import ComparisonEngine
+from littleboy.comparison.models import ActionComparisonSet
+from littleboy.comparison.report import render_comparison_json, render_comparison_text
 from littleboy.core.enums import PolicyMode
 from littleboy.core.evaluator import EthicalEvaluator
 from littleboy.core.models import ActionCase
@@ -213,6 +216,46 @@ def build_case(
         typer.echo(
             "\nNot enough information to evaluate yet; answer the critical questions above first."
         )
+
+
+@app.command()
+def compare(
+    set_path: Path = typer.Argument(
+        ...,
+        exists=True,
+        dir_okay=False,
+        readable=True,
+        help="Path to a JSON ActionComparisonSet (a set of candidate options).",
+    ),
+    output_format: str = typer.Option(
+        "text", "--format", "-f", help="Output format: 'json' or 'text'."
+    ),
+    policy: str | None = typer.Option(
+        None, "--policy", "-p", help=f"Override policy: {_POLICY_CHOICES} (default: the set's)."
+    ),
+) -> None:
+    """Compare candidate actions and rank the least-coercive morally viable path."""
+    if output_format not in {"json", "text"}:
+        typer.echo(f"Unknown format '{output_format}'; use 'json' or 'text'.", err=True)
+        raise typer.Exit(code=2)
+    policy_mode = _resolve_policy(policy) if policy is not None else None
+
+    try:
+        raw = json.loads(set_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        typer.echo(f"Invalid JSON in {set_path}: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+    try:
+        comparison_set = ActionComparisonSet.model_validate(raw)
+    except ValidationError as exc:
+        typer.echo(f"Invalid ActionComparisonSet in {set_path}:\n{exc}", err=True)
+        raise typer.Exit(code=2) from exc
+
+    result = ComparisonEngine(policy_mode).compare(comparison_set)
+    if output_format == "json":
+        typer.echo(render_comparison_json(result))
+    else:
+        typer.echo(render_comparison_text(result))
 
 
 @app.command(name="analyze-language")

@@ -1,0 +1,39 @@
+{
+  "title": "Irreversible high-confidence action vs reversible lower-confidence action",
+  "description": "Two options at similar coercion: one irreversible but better-evidenced, one reversible but less certain. Policy changes which wins.",
+  "policy_mode": "standard",
+  "options": [
+    {
+      "option_id": "irreversible",
+      "title": "Irreversible action (better evidenced)",
+      "declared_goal": "resolve the situation",
+      "case": {
+        "title": "Take the irreversible action",
+        "acting_agent": { "name": "Operator", "agent_type": "TYPE_II" },
+        "affected_agents": [{ "name": "Subject", "agent_type": "TYPE_II" }],
+        "coercion_profile": { "physical_force": 0.4, "reversibility": 0.1, "severity": 0.3 },
+        "data_quality": { "completeness": 0.8, "source_reliability": 0.8, "specificity": 0.75, "recency": 0.8, "corroboration": 0.7, "ambiguity": 0.2 },
+        "consent": "GIVEN",
+        "available_alternatives": [],
+        "responds_to_existing_coercion": false,
+        "expected_consequences": "The situation is resolved permanently."
+      }
+    },
+    {
+      "option_id": "reversible",
+      "title": "Reversible action (less certain)",
+      "declared_goal": "resolve the situation",
+      "case": {
+        "title": "Take the reversible action",
+        "acting_agent": { "name": "Operator", "agent_type": "TYPE_II" },
+        "affected_agents": [{ "name": "Subject", "agent_type": "TYPE_II" }],
+        "coercion_profile": { "physical_force": 0.4, "reversibility": 1.0, "severity": 0.3 },
+        "data_quality": { "completeness": 0.55, "source_reliability": 0.55, "specificity": 0.5, "recency": 0.6, "corroboration": 0.5, "ambiguity": 0.35 },
+        "consent": "GIVEN",
+        "available_alternatives": [],
+        "responds_to_existing_coercion": false,
+        "expected_consequences": "The situation is resolved for now and can be undone."
+      }
+    }
+  ]
+}

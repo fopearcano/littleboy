@@ -1,0 +1,55 @@
+{
+  "title": "How to get a colleague to attend an important meeting",
+  "description": "Three candidate actions toward the same goal, differing in coercion.",
+  "policy_mode": "standard",
+  "options": [
+    {
+      "option_id": "ask",
+      "title": "Ask politely",
+      "declared_goal": "the colleague attends the meeting",
+      "case": {
+        "title": "Ask the colleague politely to attend",
+        "acting_agent": { "name": "Manager", "agent_type": "TYPE_II" },
+        "affected_agents": [{ "name": "Colleague", "agent_type": "TYPE_II" }],
+        "coercion_profile": { "social_pressure": 0.1, "reversibility": 1.0, "severity": 0.05 },
+        "data_quality": { "completeness": 0.85, "source_reliability": 0.85, "specificity": 0.8, "recency": 0.85, "corroboration": 0.8, "ambiguity": 0.15 },
+        "consent": "GIVEN",
+        "available_alternatives": [],
+        "responds_to_existing_coercion": false,
+        "expected_consequences": "The colleague attends willingly."
+      }
+    },
+    {
+      "option_id": "pressure",
+      "title": "Apply social pressure",
+      "declared_goal": "the colleague attends the meeting",
+      "case": {
+        "title": "Pressure the colleague socially",
+        "acting_agent": { "name": "Manager", "agent_type": "TYPE_II" },
+        "affected_agents": [{ "name": "Colleague", "agent_type": "TYPE_II" }],
+        "coercion_profile": { "social_pressure": 0.5, "psychological_pressure": 0.4, "reversibility": 0.8, "severity": 0.3 },
+        "data_quality": { "completeness": 0.85, "source_reliability": 0.85, "specificity": 0.8, "recency": 0.85, "corroboration": 0.8, "ambiguity": 0.15 },
+        "consent": "GIVEN",
+        "available_alternatives": [],
+        "responds_to_existing_coercion": false,
+        "expected_consequences": "The colleague attends but feels pushed."
+      }
+    },
+    {
+      "option_id": "threaten",
+      "title": "Threaten consequences",
+      "declared_goal": "the colleague attends the meeting",
+      "case": {
+        "title": "Threaten the colleague with consequences",
+        "acting_agent": { "name": "Manager", "agent_type": "TYPE_II" },
+        "affected_agents": [{ "name": "Colleague", "agent_type": "TYPE_II" }],
+        "coercion_profile": { "threat": 0.8, "psychological_pressure": 0.5, "reversibility": 0.5, "severity": 0.7 },
+        "data_quality": { "completeness": 0.85, "source_reliability": 0.85, "specificity": 0.8, "recency": 0.85, "corroboration": 0.8, "ambiguity": 0.15 },
+        "consent": "GIVEN",
+        "available_alternatives": [],
+        "responds_to_existing_coercion": false,
+        "expected_consequences": "The colleague attends under threat."
+      }
+    }
+  ]
+}

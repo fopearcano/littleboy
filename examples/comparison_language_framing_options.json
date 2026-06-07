@@ -1,0 +1,51 @@
+{
+  "title": "Informing a customer: constructive vs manipulative wording",
+  "description": "Two ways to communicate the same offer, differing only in language.",
+  "policy_mode": "standard",
+  "options": [
+    {
+      "option_id": "constructive",
+      "title": "Clear, neutral wording",
+      "declared_goal": "the customer makes an informed choice",
+      "case": {
+        "title": "Explain the offer clearly and let the customer decide",
+        "acting_agent": { "name": "Seller", "agent_type": "TYPE_II" },
+        "affected_agents": [{ "name": "Customer", "agent_type": "TYPE_II" }],
+        "data_quality": { "completeness": 0.85, "source_reliability": 0.85, "specificity": 0.8, "recency": 0.85, "corroboration": 0.8, "ambiguity": 0.15 },
+        "consent": "GIVEN",
+        "available_alternatives": [],
+        "responds_to_existing_coercion": false,
+        "expected_consequences": "The customer chooses freely.",
+        "language_act": {
+          "text": "Here is what the offer includes and excludes. Take your time; you can decline.",
+          "speaker_agent": "Seller",
+          "target_agents": ["Customer"],
+          "context": { "medium": "advertisement", "power_asymmetry": 0.3, "stakes": 0.5, "reversibility": 1.0 },
+          "ethics_profile": { "clarity": 0.9, "truthfulness": 0.9, "agency_respect": 0.9, "consent_support": 0.9, "constructive_potential": 0.9 }
+        }
+      }
+    },
+    {
+      "option_id": "manipulative",
+      "title": "Manipulative wording",
+      "declared_goal": "the customer makes an informed choice",
+      "case": {
+        "title": "Push the customer with fear and false necessity",
+        "acting_agent": { "name": "Seller", "agent_type": "TYPE_II" },
+        "affected_agents": [{ "name": "Customer", "agent_type": "TYPE_II" }],
+        "data_quality": { "completeness": 0.85, "source_reliability": 0.85, "specificity": 0.8, "recency": 0.85, "corroboration": 0.8, "ambiguity": 0.15 },
+        "consent": "GIVEN",
+        "available_alternatives": [],
+        "responds_to_existing_coercion": false,
+        "expected_consequences": "The customer signs up under pressure.",
+        "language_act": {
+          "text": "You have no choice. Act now before it's too late or you'll lose everything.",
+          "speaker_agent": "Seller",
+          "target_agents": ["Customer"],
+          "context": { "medium": "advertisement", "power_asymmetry": 0.6, "urgency": 0.9, "stakes": 0.6, "reversibility": 0.8 },
+          "ethics_profile": { "clarity": 0.4, "truthfulness": 0.4, "agency_respect": 0.2, "consent_support": 0.2, "manipulation_risk": 0.7 }
+        }
+      }
+    }
+  ]
+}

@@ -11,19 +11,22 @@ and returns a **transparent, explained verdict** with an honest account of its
 own uncertainty. It is a reasoning engine, not a user interface and not a
 language model.
 
-This is **v0.5**, which adds the **Language & Coercion Module**: LittleBoy now
-recognises that language is not ethically neutral and detects/evaluates
-linguistic-informational coercion. (v0.4 added the scenario builder; v0.3 the
-rule engine and policy layer.) See
+This is **v0.6**, which adds the **Comparison Engine**: LittleBoy now compares
+several candidate actions and identifies the least coercive *morally viable* path
+under the available evidence, exposing dominance, trade-offs, and instability
+rather than a simplistic winner. (v0.5 added the language module; v0.4 the
+scenario builder; v0.3 the rule engine and policy layer.) See
 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md),
 [`docs/ETHICAL_MODEL.md`](docs/ETHICAL_MODEL.md),
 [`docs/RULE_ENGINE.md`](docs/RULE_ENGINE.md),
 [`docs/POLICY_PROFILES.md`](docs/POLICY_PROFILES.md),
 [`docs/CASE_BUILDER.md`](docs/CASE_BUILDER.md),
 [`docs/SCENARIO_TEMPLATES.md`](docs/SCENARIO_TEMPLATES.md),
-[`docs/LANGUAGE_ETHICS.md`](docs/LANGUAGE_ETHICS.md), and
-[`docs/LINGUISTIC_COERCION.md`](docs/LINGUISTIC_COERCION.md) for the full design
-and formal model.
+[`docs/LANGUAGE_ETHICS.md`](docs/LANGUAGE_ETHICS.md),
+[`docs/LINGUISTIC_COERCION.md`](docs/LINGUISTIC_COERCION.md),
+[`docs/COMPARISON_ENGINE.md`](docs/COMPARISON_ENGINE.md), and
+[`docs/TRADEOFF_ANALYSIS.md`](docs/TRADEOFF_ANALYSIS.md) for the full design and
+formal model.
 
 ---
 
@@ -143,6 +146,36 @@ transparently, with **no NLP/LLM**.
 See [`docs/LANGUAGE_ETHICS.md`](docs/LANGUAGE_ETHICS.md) and
 [`docs/LINGUISTIC_COERCION.md`](docs/LINGUISTIC_COERCION.md).
 
+## LittleBoy v0.6: Comparison Engine
+
+> Choose the **least coercive morally viable path** under the available
+> evidence, while exposing uncertainty, missing data, trade-offs, and possible
+> contradictions.
+
+Real ethical decisions are choices among options, not verdicts on one action in
+isolation. The `littleboy.comparison` module evaluates several candidate actions
+(each a full `ActionCase`) with the existing `EthicalEvaluator` — it does **not**
+replace it — and then:
+
+- decides **moral viability** for each option (viable / viable-with-reservations
+  / non-viable), where "viable" never means "morally perfect";
+- computes **dominance**: an option strictly dominates another when it is less
+  coercive and no worse on data, evidence, confidence, verdict, blockers, and
+  feasibility for the same goal; partial dominance is a **trade-off**, surfaced
+  not hidden;
+- produces a **layered, transparent ranking** (viability → least coercion →
+  consent integrity → vulnerability protection → reversibility under uncertainty
+  → lower uncertainty → fewer less-coercive alternatives → constructive language),
+  with a `primary_reason` and a `downgrade_reason` for each option;
+- marks the ranking **unstable** when missing data or a close call could reorder
+  it, and lists exactly `what_could_change_ranking`;
+- preserves every option's full `EvaluationReport`.
+
+The same set can rank differently under different policy profiles. CLI:
+`littleboy compare <set.json> --policy strict`. See
+[`docs/COMPARISON_ENGINE.md`](docs/COMPARISON_ENGINE.md) and
+[`docs/TRADEOFF_ANALYSIS.md`](docs/TRADEOFF_ANALYSIS.md).
+
 ## How evidence is represented
 
 An `EvidenceSet` holds `EvidenceItem`s, each a `claim` plus its `source_type`
@@ -226,15 +259,22 @@ src/littleboy/
     scoring.py      # score_language_ethics / score_linguistic_coercion
     constructive.py # score_constructive_language
     analyzer.py     # analyze_language + bridge into the coercion model
+  comparison/
+    models.py       # ActionOption, ActionComparisonSet/Result, ranking/dominance/tradeoff
+    dominance.py    # strict / partial / none / incomparable dominance
+    ranking.py      # layered, transparent ranking (not a single score)
+    tradeoffs.py    # explicit trade-off analysis
+    engine.py       # ComparisonEngine (builds on EthicalEvaluator)
+    report.py       # comparison JSON / text rendering
   reasoning/
     report.py       # JSON / text rendering
     experiment.py   # EthicalExperiment runner (falsificatory + heuristic)
-  cli.py            # evaluate / experiment / questions / build-case / templates / analyze-language
+  cli.py            # evaluate / experiment / questions / build-case / templates / analyze-language / compare
 tests/              # pytest suite
-examples/           # sample JSON cases (incl. partial_*.json and language_*.json)
+examples/           # sample JSON cases (incl. partial_*, language_*, comparison_*)
 docs/               # ARCHITECTURE, ETHICAL_MODEL, RULE_ENGINE, POLICY_PROFILES,
                     #   CASE_BUILDER, SCENARIO_TEMPLATES, LANGUAGE_ETHICS,
-                    #   LINGUISTIC_COERCION
+                    #   LINGUISTIC_COERCION, COMPARISON_ENGINE, TRADEOFF_ANALYSIS
 ```
 
 ## Installation
@@ -250,7 +290,7 @@ pip install -e ".[dev]"     # pydantic, pytest, typer, ruff
 ## Running the tests
 
 ```bash
-pytest                      # 109 tests
+pytest                      # 125 tests
 ruff check src tests        # lint (optional)
 ```
 
@@ -266,6 +306,8 @@ littleboy questions examples/partial_medical_case.json --template medical_decisi
 littleboy build-case --template speech_or_language_manipulation -o my_case.json   # interactive wizard
 littleboy analyze-language examples/language_manipulative_case.json       # linguistic coercion
 littleboy analyze-language examples/language_constructive_case.json --format text
+littleboy compare examples/comparison_basic.json                          # rank candidate actions
+littleboy compare examples/comparison_irreversible_vs_reversible.json --policy precautionary --format text
 littleboy templates                                                       # list scenario templates
 littleboy version
 ```
@@ -314,6 +356,18 @@ them with `littleboy analyze-language` and `littleboy evaluate`:
 | `examples/testimonial_injustice_case.json` | Dismissing a vulnerable person's testimony (LB-R016) | `NOT_ACCEPTABLE` |
 | `examples/obfuscation_high_stakes_case.json` | Obscure binding notice where clarity is owed (LB-R018) | `NOT_ACCEPTABLE` |
 | `examples/semantic_compression_euthanasia_case.json` | Reducing "I want to die" to a label; framing replaced | `INSUFFICIENT_DATA` |
+
+The v0.6 **comparison** sets (each an `ActionComparisonSet`); run them with
+`littleboy compare`:
+
+| File | Demonstrates |
+|------|--------------|
+| `examples/comparison_basic.json` | A clear least-coercive option dominates the coercive ones |
+| `examples/comparison_emergency_options.json` | Justified emergency coercion outranks inaction that permits more coercion |
+| `examples/comparison_language_framing_options.json` | Constructive speech ranks above manipulative speech |
+| `examples/comparison_medical_abstract_options.json` | Abstract consent-respecting option vs. pressured ones (no clinical claims) |
+| `examples/comparison_irreversible_vs_reversible.json` | Reversibility vs. certainty trade-off; ranking shifts with policy |
+| `examples/comparison_uncertain_data.json` | LittleBoy refuses a stable ranking (too little data) |
 
 (The v0.1 examples `simple_case.json`, `high_coercion_case.json`, and
 `insufficient_data_case.json` remain valid.)
@@ -399,34 +453,36 @@ make consequential decisions about real people.
 
 ## Current development status
 
-**v0.5 — language & coercion module.** Implemented on top of v0.4: a
-`littleboy.language` package that models a language act, scores its ethics and
-linguistic coercion, assesses constructive language, and detects manipulation
-from a transparent phrase lexicon; six new rules (LB-R013 .. LB-R018); a bridge
-that folds linguistic coercion into the main coercion model; an
-`analyze-language` CLI command; language-aware scenario templates; and a
-109-test suite (all passing). The language layer is purely additive — cases
-without a `language_act` evaluate exactly as before, and all v0.1–v0.4 inputs
-remain valid. No NLP/LLM is used.
+**v0.6 — comparison engine.** Implemented on top of v0.5: a
+`littleboy.comparison` package that compares candidate actions using the
+existing `EthicalEvaluator` (it does not replace it), decides moral viability,
+computes strict/partial dominance, produces a layered transparent ranking,
+detects and reports trade-offs, flags unstable rankings with the missing data
+that could change them, preserves every individual report, and supports policy
+overrides; a `compare` CLI command; six comparison example sets; and a 125-test
+suite (all passing). The comparison layer is purely additive.
 
 Earlier phases delivered the core models; coercion/data-quality/evidence scoring;
 consent/agency models; the tri-state Axiom 3 justification; feasibility-aware
 alternatives; the critical-data gate; the ethical experiment runner; the v0.3
 rule engine with four policy profiles and a full reasoning trace (now eighteen
-rules); and the v0.4 scenario builder.
+rules); the v0.4 scenario builder; and the v0.5 language & coercion module (no
+NLP/LLM). All v0.1–v0.5 inputs remain valid.
 
 **Deliberately not built:** any web UI, any LLM/API integration, any claim to
 absolute truth, any heavy frameworks.
 
 ### Recommended next steps
 
+- A deliberation/explanation layer that narrates *why* the top option beats the
+  runner-up, and what single fact would most change the comparison (value of
+  information).
+- Calibrate the coercion / language / evidence heuristics, the policy thresholds,
+  and the ranking weights against a worked case library with golden-file
+  regression tests.
 - **Optional** LLM-assisted language-indicator extraction behind an explicit
   flag, with the model's suggestions shown, attributed, and editable — the
   deterministic core staying authoritative and the audit trail preserved.
-- Calibrate the coercion / language / evidence heuristics and the policy
-  thresholds against a worked case library with golden-file regression tests.
-- Model `EthicalTruth` as explicitly derived, queryable propositions with a
-  derivation trace from specific axioms and rules.
 
 ## License
 

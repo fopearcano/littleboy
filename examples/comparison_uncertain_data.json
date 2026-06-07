@@ -1,0 +1,35 @@
+{
+  "title": "Two options on too little information",
+  "description": "Both options rest on weak data, so LittleBoy refuses a stable ranking.",
+  "policy_mode": "standard",
+  "options": [
+    {
+      "option_id": "option_a",
+      "title": "Option A (thinly evidenced)",
+      "declared_goal": "respond to the report",
+      "case": {
+        "title": "Act on a vague report",
+        "acting_agent": { "name": "Actor", "agent_type": "TYPE_II" },
+        "affected_agents": [{ "name": "Affected party", "agent_type": "TYPE_II" }],
+        "coercion_profile": { "psychological_pressure": 0.4, "reversibility": 0.5, "severity": 0.4 },
+        "data_quality": { "completeness": 0.2, "source_reliability": 0.2, "specificity": 0.2, "recency": 0.3, "corroboration": 0.1, "ambiguity": 0.8, "missing_critical_facts": ["what actually happened"] },
+        "consent": "UNKNOWN",
+        "responds_to_existing_coercion": false
+      }
+    },
+    {
+      "option_id": "option_b",
+      "title": "Option B (also thinly evidenced)",
+      "declared_goal": "respond to the report",
+      "case": {
+        "title": "Act differently on the same vague report",
+        "acting_agent": { "name": "Actor", "agent_type": "TYPE_II" },
+        "affected_agents": [{ "name": "Affected party", "agent_type": "TYPE_II" }],
+        "coercion_profile": { "economic_pressure": 0.4, "reversibility": 0.5, "severity": 0.4 },
+        "data_quality": { "completeness": 0.2, "source_reliability": 0.25, "specificity": 0.2, "recency": 0.3, "corroboration": 0.1, "ambiguity": 0.8, "missing_critical_facts": ["what actually happened"] },
+        "consent": "UNKNOWN",
+        "responds_to_existing_coercion": false
+      }
+    }
+  ]
+}

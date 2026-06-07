@@ -1,0 +1,58 @@
+{
+  "title": "Responding to a person's situation (abstract, ethical framing only)",
+  "description": "An abstract decision among ways to respond to a person's need. This is an ethical-language comparison, not medical advice or a clinical/legal claim.",
+  "policy_mode": "standard",
+  "options": [
+    {
+      "option_id": "offer_and_let_decide",
+      "title": "Offer the option and let the person decide",
+      "declared_goal": "address the person's need",
+      "case": {
+        "title": "Offer the option with informed, voluntary consent",
+        "acting_agent": { "name": "Care provider", "agent_type": "TYPE_II" },
+        "affected_agents": [{ "name": "Person", "agent_type": "TYPE_II" }],
+        "coercion_profile": { "psychological_pressure": 0.1, "reversibility": 0.8, "severity": 0.1 },
+        "data_quality": { "completeness": 0.8, "source_reliability": 0.8, "specificity": 0.8, "recency": 0.85, "corroboration": 0.75, "ambiguity": 0.2 },
+        "consent": "GIVEN",
+        "consent_profile": { "status": "GIVEN", "informed": "CONFIRMED", "voluntary": "CONFIRMED" },
+        "available_alternatives": [],
+        "responds_to_existing_coercion": false,
+        "expected_consequences": "The person decides freely."
+      }
+    },
+    {
+      "option_id": "proceed_without_clear_consent",
+      "title": "Proceed without clear consent",
+      "declared_goal": "address the person's need",
+      "case": {
+        "title": "Proceed though consent is unclear",
+        "acting_agent": { "name": "Care provider", "agent_type": "TYPE_II" },
+        "affected_agents": [{ "name": "Person", "agent_type": "TYPE_II" }],
+        "coercion_profile": { "physical_force": 0.3, "psychological_pressure": 0.3, "reversibility": 0.6, "severity": 0.4 },
+        "data_quality": { "completeness": 0.8, "source_reliability": 0.8, "specificity": 0.8, "recency": 0.85, "corroboration": 0.75, "ambiguity": 0.2 },
+        "consent": "UNKNOWN",
+        "agency_profile": { "agent_type": "TYPE_II", "vulnerability_level": 0.7 },
+        "available_alternatives": [],
+        "responds_to_existing_coercion": false,
+        "expected_consequences": "The intervention happens without clear agreement."
+      }
+    },
+    {
+      "option_id": "pressure",
+      "title": "Pressure the person into it",
+      "declared_goal": "address the person's need",
+      "case": {
+        "title": "Pressure the person into the intervention",
+        "acting_agent": { "name": "Care provider", "agent_type": "TYPE_II" },
+        "affected_agents": [{ "name": "Person", "agent_type": "TYPE_II" }],
+        "coercion_profile": { "psychological_pressure": 0.7, "threat": 0.5, "reversibility": 0.5, "severity": 0.6 },
+        "data_quality": { "completeness": 0.8, "source_reliability": 0.8, "specificity": 0.8, "recency": 0.85, "corroboration": 0.75, "ambiguity": 0.2 },
+        "consent": "COERCED",
+        "agency_profile": { "agent_type": "TYPE_II", "vulnerability_level": 0.7 },
+        "available_alternatives": [],
+        "responds_to_existing_coercion": false,
+        "expected_consequences": "The person complies under pressure."
+      }
+    }
+  ]
+}

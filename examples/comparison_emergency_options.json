@@ -1,0 +1,57 @@
+{
+  "title": "Stopping an ongoing assault: act or do nothing",
+  "description": "A justified, bounded intervention versus inaction that permits greater coercion.",
+  "policy_mode": "standard",
+  "options": [
+    {
+      "option_id": "restrain",
+      "title": "Restrain the attacker (minimum force)",
+      "declared_goal": "protect the victim",
+      "case": {
+        "title": "Restrain the attacker with minimum force",
+        "acting_agent": { "name": "Bystander", "agent_type": "TYPE_II" },
+        "affected_agents": [
+          { "name": "Attacker", "agent_type": "TYPE_II" },
+          { "name": "Victim", "agent_type": "TYPE_II" }
+        ],
+        "coercion_profile": { "physical_force": 0.7, "threat": 0.3, "duration": 0.2, "reversibility": 0.9, "severity": 0.5 },
+        "data_quality": { "completeness": 0.8, "source_reliability": 0.8, "specificity": 0.8, "recency": 0.9, "corroboration": 0.7, "ambiguity": 0.2 },
+        "consent": "NOT_APPLICABLE",
+        "responds_to_existing_coercion": true,
+        "prior_coercion_description": "An active assault.",
+        "expected_consequences": "The assault stops; the attacker is briefly restrained and released.",
+        "available_alternatives": [
+          { "title": "Do nothing", "estimated_coercion_score": 0.95, "feasibility": 1.0 },
+          { "title": "Verbal de-escalation only", "estimated_coercion_score": 0.15, "feasibility": 0.2 }
+        ],
+        "justification": {
+          "responds_to_existing_or_imminent_coercion": "CONFIRMED",
+          "no_less_coercive_alternative_available": "LIKELY",
+          "necessity": "CONFIRMED",
+          "proportionality": "LIKELY",
+          "expected_total_coercion_reduction": 0.6,
+          "cessation_condition_defined": "CONFIRMED",
+          "reversibility": "CONFIRMED"
+        }
+      }
+    },
+    {
+      "option_id": "do_nothing",
+      "title": "Do nothing",
+      "declared_goal": "protect the victim",
+      "case": {
+        "title": "Do nothing while the assault continues",
+        "acting_agent": { "name": "Bystander", "agent_type": "TYPE_II" },
+        "affected_agents": [
+          { "name": "Attacker", "agent_type": "TYPE_II" },
+          { "name": "Victim", "agent_type": "TYPE_II" }
+        ],
+        "coercion_profile": { "physical_force": 0.6, "threat": 0.5, "duration": 0.6, "reversibility": 0.2, "severity": 0.8 },
+        "data_quality": { "completeness": 0.8, "source_reliability": 0.8, "specificity": 0.8, "recency": 0.9, "corroboration": 0.7, "ambiguity": 0.2 },
+        "consent": "REFUSED",
+        "responds_to_existing_coercion": false,
+        "expected_consequences": "The victim continues to suffer the assault."
+      }
+    }
+  ]
+}
