@@ -41,6 +41,11 @@ from littleboy.data.quality import (
     combine_epistemic_score,
     compute_confidence,
 )
+from littleboy.language.analyzer import (
+    analyze_language,
+    language_to_coercion_profile,
+    merge_coercion_profiles,
+)
 from littleboy.rules.base import RuleContext
 from littleboy.rules.engine import RuleEngine
 from littleboy.rules.policy import PolicyMode, PolicyProfile, get_policy
@@ -76,11 +81,29 @@ class EthicalEvaluator:
 
     def evaluate(self, case: ActionCase) -> EvaluationReport:
         """Evaluate a case and return a fully-explained, fully-traced report."""
+        # 0. Language analysis (v0.5): if the case centres on a language act,
+        #    analyse it and fold its linguistic coercion into the coercion model.
+        language_analysis = (
+            analyze_language(case.language_act) if case.language_act is not None else None
+        )
+        language_coercion = (
+            language_to_coercion_profile(language_analysis)
+            if language_analysis is not None
+            else None
+        )
+        effective_profile = merge_coercion_profiles(case.coercion_profile, language_coercion)
+
         # 1. Base scores and assessments (reused from v0.1/v0.2).
-        if case.coercion_profile is not None:
-            coercion = score_coercion(case.coercion_profile)
+        if effective_profile is not None:
+            coercion = score_coercion(effective_profile)
             coercion_score = coercion.score
             coercion_reasoning = list(coercion.reasoning)
+            if language_coercion is not None:
+                coercion_reasoning.append(
+                    "includes a linguistic-coercion contribution "
+                    f"(linguistic coercion {language_analysis.linguistic_coercion_score:.2f}; "
+                    "informational_manipulation/psychological_pressure raised accordingly)"
+                )
         else:
             coercion_score = 0.0
             coercion_reasoning = [
@@ -99,16 +122,20 @@ class EthicalEvaluator:
         alternatives = analyse_alternatives(case.available_alternatives, coercion_score)
 
         # 2. Unknowns, missing data, base confidence (Axiom 5).
-        n_unknowns, missing_data = self._collect_unknowns(case, coercion_score, consent, agency)
+        n_unknowns, missing_data = self._collect_unknowns(
+            case, coercion_score, consent, agency, effective_profile
+        )
         for fact in dq.missing_facts:
             missing_data.append(f"missing critical fact: {fact}")
         for item in detect_missing_critical_data(case):
             missing_data.append(f"critical data missing: {item}")
+        if language_analysis is not None:
+            missing_data.extend(f"language: {m}" for m in language_analysis.missing_data)
         missing_data = _unique(missing_data)
         base_confidence = compute_confidence(epistemic_score, n_unknowns)
 
         # 3. Build the rule context and run the engine.
-        profile = case.coercion_profile
+        profile = effective_profile
         irreversible = (
             profile is not None
             and profile.reversibility_is_known
@@ -131,6 +158,19 @@ class EthicalEvaluator:
             alternatives=alternatives,
             n_unknowns=n_unknowns,
             base_confidence=base_confidence,
+            language_present=language_analysis is not None,
+            language_profile=(language_analysis.profile if language_analysis else None),
+            language_context=(language_analysis.context if language_analysis else None),
+            linguistic_coercion=(
+                language_analysis.linguistic_coercion_score if language_analysis else 0.0
+            ),
+            constructive=(language_analysis.constructive if language_analysis else None),
+            language_affects_consent=(
+                language_analysis.affects_consent if language_analysis else False
+            ),
+            language_replaces_framing=(
+                language_analysis.replaces_subject_framing if language_analysis else False
+            ),
         )
         outcome = self.engine.evaluate(ctx, missing_data=missing_data)
 
@@ -140,7 +180,9 @@ class EthicalEvaluator:
 
         # 4. Assemble narratives from the rule results + sub-assessments.
         main_reasons = self._build_main_reasons(outcome, consent, agency)
-        warnings = self._build_warnings(outcome, consent, agency, justification, alternatives)
+        warnings = self._build_warnings(
+            outcome, consent, agency, justification, alternatives, language_analysis
+        )
 
         data_quality_reasoning = list(dq.reasoning)
         data_quality_reasoning.append(
@@ -205,6 +247,7 @@ class EthicalEvaluator:
             alternatives_analysis=alternatives,
             ethical_experiment=experiment,
             reasoning_trace=outcome.trace,
+            language_analysis=language_analysis,
             case_completeness=completeness,
             recommended_questions=recommended_questions,
             explanation=explanation,
@@ -223,7 +266,9 @@ class EthicalEvaluator:
         reasons.extend(agency.reasons)
         return _unique(reasons)
 
-    def _build_warnings(self, outcome, consent, agency, justification, alternatives) -> list[str]:
+    def _build_warnings(
+        self, outcome, consent, agency, justification, alternatives, language_analysis=None
+    ) -> list[str]:
         """Warnings: surfaced rule findings plus sub-assessment warnings."""
         warnings: list[str] = [
             f"[{r.rule_id}] {r.message}"
@@ -233,6 +278,8 @@ class EthicalEvaluator:
         warnings.extend(consent.warnings)
         warnings.extend(agency.warnings)
         warnings.extend(justification.warnings)
+        if language_analysis is not None:
+            warnings.extend(f"[language] {w}" for w in language_analysis.warnings)
         if alternatives.infeasible_less_coercive:
             warnings.append(
                 "less coercive but infeasible option(s) noted (do not defeat the action): "
@@ -255,15 +302,18 @@ class EthicalEvaluator:
 
     # -- unknowns -------------------------------------------------------------
 
-    def _collect_unknowns(self, case, coercion_score, consent, agency):
+    def _collect_unknowns(self, case, coercion_score, consent, agency, effective_profile=None):
         """Return ``(count, missing_notes)``. Counts each distinct unknown once.
 
         The first six are the v0.1 structural unknowns; the last two are extra
         granular penalties that only apply when a structured consent/agency
-        profile is supplied. (Unchanged from v0.2; drives the base confidence.)
+        profile is supplied. ``effective_profile`` is the coercion profile after
+        any language contribution is merged in (so a language act can supply
+        reversibility). Drives the base confidence.
         """
         unknowns: list[str] = []
         missing: list[str] = []
+        profile = effective_profile if effective_profile is not None else case.coercion_profile
 
         if case.effective_agent_type() is None:
             unknowns.append("agent_type")
@@ -277,7 +327,7 @@ class EthicalEvaluator:
         if case.expected_consequences is None:
             unknowns.append("consequences")
             missing.append("expected consequences of the action are unknown")
-        if case.coercion_profile is None or not case.coercion_profile.reversibility_is_known:
+        if profile is None or not profile.reversibility_is_known:
             unknowns.append("reversibility")
             missing.append("reversibility of the coercion is unknown")
         moderate = self.policy.coercion_moderate

@@ -33,6 +33,7 @@ from littleboy.core.enums import (
     AgentType,
     ConsentStatus,
     EpistemicStatus,
+    LanguageMedium,
     PolicyMode,
     QuestionCategory,
     QuestionPriority,
@@ -69,6 +70,19 @@ from littleboy.core.models import (
     RuleResult,
 )
 from littleboy.data.evidence import EvidenceItem, EvidenceSet
+from littleboy.language import (
+    ConstructiveLanguageAssessment,
+    LanguageAct,
+    LanguageAnalysis,
+    LanguageContext,
+    LanguageEthicsProfile,
+    ManipulationFinding,
+    analyze_language,
+    detect_manipulation,
+    score_constructive_language,
+    score_language_ethics,
+    score_linguistic_coercion,
+)
 from littleboy.reasoning.experiment import EthicalExperiment, EthicalExperimentResult
 from littleboy.rules import (
     BUILTIN_RULES,
@@ -80,7 +94,7 @@ from littleboy.rules import (
     get_policy,
 )
 
-__version__ = "0.4.0"
+__version__ = "0.5.0"
 
 __all__ = [
     "BUILTIN_RULES",
@@ -94,6 +108,7 @@ __all__ = [
     "CaseBuilder",
     "CaseCompletenessReport",
     "CoercionJustification",
+    "ConstructiveLanguageAssessment",
     "CoercionProfile",
     "ConsentProfile",
     "ConsentStatus",
@@ -107,6 +122,12 @@ __all__ = [
     "EvidenceSet",
     "ExperimentSummary",
     "JustificationResult",
+    "LanguageAct",
+    "LanguageAnalysis",
+    "LanguageContext",
+    "LanguageEthicsProfile",
+    "LanguageMedium",
+    "ManipulationFinding",
     "MoralAgent",
     "PolicyMode",
     "PolicyProfile",
@@ -127,11 +148,13 @@ __all__ = [
     "Verdict",
     "agent_can_bear_duties",
     "analyse_alternatives",
+    "analyze_language",
     "assess_agency",
     "assess_consent",
     "build_case_from_answers",
     "completeness_report",
     "default_registry",
+    "detect_manipulation",
     "detect_missing_critical_data",
     "evaluate_coercion_justification",
     "generate_questions",
@@ -139,6 +162,9 @@ __all__ = [
     "get_template",
     "list_templates",
     "recommended_next_questions",
+    "score_constructive_language",
+    "score_language_ethics",
+    "score_linguistic_coercion",
     "wizard_prompts",
     "__version__",
 ]

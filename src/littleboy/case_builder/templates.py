@@ -128,6 +128,19 @@ _register(
                 ["A2"],
                 field_target="available_alternatives",
             ),
+            _q(
+                "medical_decision",
+                3,
+                "How were the options and risks communicated -- clearly and without "
+                "pressure, or in a way that steered the decision?",
+                QuestionCategory.LANGUAGE,
+                QuestionPriority.HIGH,
+                "Consent is only as good as the language that informs it; unclear or "
+                "pressuring language undermines it (Axioms 0, 2).",
+                "language_act",
+                ["A0", "A2"],
+                field_target="language_act",
+            ),
         ],
     )
 )
@@ -159,6 +172,19 @@ _register(
                 "justification",
                 ["A3"],
                 field_target="justification",
+            ),
+            _q(
+                "legal_or_institutional_constraint",
+                2,
+                "Is the rule or notice written clearly, or is it obscure where the stakes "
+                "demand clarity?",
+                QuestionCategory.LANGUAGE,
+                QuestionPriority.MEDIUM,
+                "Obfuscation in a high-stakes legal/institutional notice is itself a "
+                "restriction on understanding and will (Axioms 1, 5).",
+                "language_act",
+                ["A1", "A5"],
+                field_target="language_act",
             ),
         ],
     )
@@ -229,6 +255,65 @@ _register(
                 ["A0", "A2"],
                 field_target="coercion_profile.informational_manipulation",
             ),
+            _q(
+                "speech_or_language_manipulation",
+                2,
+                "What was actually said, by whom, to whom, and in what medium?",
+                QuestionCategory.LANGUAGE,
+                QuestionPriority.HIGH,
+                "Linguistic coercion can only be assessed against the actual words and their "
+                "setting (Axioms 0, 2).",
+                "text",
+                ["A0", "A2"],
+                field_target="language_act",
+            ),
+            _q(
+                "speech_or_language_manipulation",
+                3,
+                "Does the language use shame or fear, assert a false necessity ('no choice'), "
+                "or force a false either/or?",
+                QuestionCategory.LANGUAGE,
+                QuestionPriority.HIGH,
+                "Shame/fear pressure and false necessity/dichotomy are manipulative framings "
+                "that restrict the will (Axioms 0, 2).",
+                "score_0_1",
+                ["A0", "A2"],
+            ),
+            _q(
+                "speech_or_language_manipulation",
+                4,
+                "Were the real alternatives made visible or hidden, and was the wording clear "
+                "and truthful?",
+                QuestionCategory.LANGUAGE,
+                QuestionPriority.HIGH,
+                "Hiding alternatives and obscuring the truth restricts the field of choice "
+                "(Axiom 2).",
+                "score_0_1",
+                ["A2"],
+            ),
+            _q(
+                "speech_or_language_manipulation",
+                5,
+                "Could the target reply, disagree, or ask questions -- and was their own "
+                "testimony taken seriously rather than dismissed or compressed?",
+                QuestionCategory.LANGUAGE,
+                QuestionPriority.HIGH,
+                "Silencing reply and dismissing a subject's testimony replaces their "
+                "meaning-field with the speaker's (Axioms 0, 1).",
+                "boolean",
+                ["A0", "A1"],
+            ),
+            _q(
+                "speech_or_language_manipulation",
+                6,
+                "Did this language affect the target's consent or decision?",
+                QuestionCategory.CONSENT,
+                QuestionPriority.HIGH,
+                "Consent obtained through manipulative language is of reduced quality "
+                "(Axioms 0, 2).",
+                "boolean",
+                ["A0", "A2"],
+            ),
         ],
     )
 )
@@ -263,6 +348,17 @@ _register(
                 ["A0", "A2"],
                 field_target="agency_profile",
             ),
+            _q(
+                "economic_pressure",
+                2,
+                "Does the offer use urgency, fear, or 'last chance' language to rush the decision?",
+                QuestionCategory.LANGUAGE,
+                QuestionPriority.MEDIUM,
+                "Time pressure and fear language reduce the field of deliberation (Axioms 0, 2).",
+                "language_act",
+                ["A0", "A2"],
+                field_target="language_act",
+            ),
         ],
     )
 )
@@ -296,6 +392,19 @@ _register(
                 "agency_profile",
                 ["A0", "A2"],
                 field_target="agency_profile",
+            ),
+            _q(
+                "caregiving_or_dependency",
+                2,
+                "Is the dependant's own testimony heard and taken seriously, or compressed "
+                "into a convenient label ('they just want X')?",
+                QuestionCategory.LANGUAGE,
+                QuestionPriority.HIGH,
+                "Semantic compression and testimonial injustice replace the dependant's "
+                "meaning-field with the caregiver's (Axioms 0, 1).",
+                "language_act",
+                ["A0", "A1"],
+                field_target="language_act",
             ),
         ],
     )
@@ -399,6 +508,19 @@ _register(
                 "agent_type",
                 ["A1", "A4"],
                 field_target="acting_agent",
+            ),
+            _q(
+                "ai_or_algorithmic_decision",
+                2,
+                "Does the system's messaging mislead, pressure, or obscure (dark patterns), "
+                "and can the affected person get a clear explanation?",
+                QuestionCategory.LANGUAGE,
+                QuestionPriority.HIGH,
+                "Automated messaging can manipulate at scale; opacity restricts the user's "
+                "understanding and will (Axioms 0, 2).",
+                "language_act",
+                ["A0", "A2"],
+                field_target="language_act",
             ),
         ],
     )

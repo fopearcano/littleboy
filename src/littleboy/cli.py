@@ -33,11 +33,14 @@ from littleboy.case_builder.templates import ScenarioTemplate
 from littleboy.core.enums import PolicyMode
 from littleboy.core.evaluator import EthicalEvaluator
 from littleboy.core.models import ActionCase
+from littleboy.language import analyze_language
 from littleboy.reasoning.experiment import EthicalExperiment
 from littleboy.reasoning.report import (
     render_completeness_json,
     render_completeness_text,
     render_json,
+    render_language_json,
+    render_language_text,
     render_text,
 )
 
@@ -210,6 +213,34 @@ def build_case(
         typer.echo(
             "\nNot enough information to evaluate yet; answer the critical questions above first."
         )
+
+
+@app.command(name="analyze-language")
+def analyze_language_cmd(
+    case_path: Path = typer.Argument(
+        ...,
+        exists=True,
+        dir_okay=False,
+        readable=True,
+        help="Path to a JSON ActionCase that contains a `language_act`.",
+    ),
+    output_format: str = typer.Option(
+        "text", "--format", "-f", help="Output format: 'json' or 'text'."
+    ),
+) -> None:
+    """Analyse the linguistic coercion and constructiveness of a case's language act."""
+    if output_format not in {"json", "text"}:
+        typer.echo(f"Unknown format '{output_format}'; use 'json' or 'text'.", err=True)
+        raise typer.Exit(code=2)
+    case = _load_case(case_path)
+    if case.language_act is None:
+        typer.echo("This case contains no `language_act`; there is nothing to analyse.", err=True)
+        raise typer.Exit(code=2)
+    analysis = analyze_language(case.language_act)
+    if output_format == "json":
+        typer.echo(render_language_json(analysis))
+    else:
+        typer.echo(render_language_text(analysis))
 
 
 @app.command()

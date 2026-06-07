@@ -1,0 +1,47 @@
+{
+  "title": "Pressured contract signing",
+  "description": "A salesperson pushes a customer to sign immediately using false necessity, a false dichotomy, and fear, in a high-pressure setting.",
+  "acting_agent": { "name": "Salesperson", "agent_type": "TYPE_II", "is_collective": false },
+  "affected_agents": [{ "name": "Customer", "agent_type": "TYPE_II" }],
+  "intended_goal": "Obtain an immediate signature.",
+  "consent": "GIVEN",
+  "available_alternatives": [],
+  "data_quality": {
+    "completeness": 0.8,
+    "source_reliability": 0.8,
+    "specificity": 0.8,
+    "recency": 0.8,
+    "corroboration": 0.7,
+    "ambiguity": 0.2
+  },
+  "responds_to_existing_coercion": false,
+  "expected_consequences": "The customer signs under pressure and may regret it.",
+  "agency_profile": {
+    "agent_type": "TYPE_II",
+    "capacity_confidence": 0.7,
+    "vulnerability_level": 0.7
+  },
+  "language_act": {
+    "text": "You have no choice. Either you sign now or you destroy everything. Act now before it's too late.",
+    "speaker_agent": "Salesperson",
+    "target_agents": ["Customer"],
+    "declared_intent": "Close the sale immediately.",
+    "context": {
+      "medium": "contract",
+      "power_asymmetry": 0.8,
+      "urgency": 0.9,
+      "target_vulnerability": 0.7,
+      "stakes": 0.8,
+      "reversibility": 0.2,
+      "audience_scope": 0.0
+    },
+    "ethics_profile": {
+      "clarity": 0.3,
+      "truthfulness": 0.4,
+      "context_completeness": 0.3,
+      "agency_respect": 0.2,
+      "consent_support": 0.2,
+      "manipulation_risk": 0.7
+    }
+  }
+}

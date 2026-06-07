@@ -15,6 +15,7 @@ from littleboy.core.models import (
     EvaluationReport,
     QuestionSet,
 )
+from littleboy.language.models import LanguageAnalysis
 
 
 def report_to_dict(report: EvaluationReport) -> dict:
@@ -82,6 +83,21 @@ def render_text(report: EvaluationReport) -> str:
                 *(f"feasible less coercive: {a}" for a in aa.feasible_less_coercive),
                 *(f"less coercive but infeasible: {a}" for a in aa.infeasible_less_coercive),
                 *(f"unquantified: {a}" for a in aa.unquantified),
+            ],
+        )
+
+    if report.language_analysis is not None:
+        la = report.language_analysis
+        _section(
+            "Language analysis",
+            [
+                f"linguistic_coercion = {la.linguistic_coercion_score:.2f}",
+                f"constructive = {la.constructive.constructive_score:.2f}  "
+                f"agency_support = {la.constructive.agency_support:.2f}",
+                f"affects_consent = {la.affects_consent}  "
+                f"replaces_subject_framing = {la.replaces_subject_framing}",
+                *(f"indicator: {i}" for i in la.dominant_indicators),
+                *(f"finding: {f.indicator} ({f.evidence})" for f in la.manipulation_findings),
             ],
         )
 
@@ -172,4 +188,47 @@ def render_completeness_text(
         block = " (blocks evaluation)" if q.blocks_evaluation else ""
         lines.append(f"  [{q.priority.value}/{q.category.value}]{axioms}{block} {q.text}")
         lines.append(f"      why it matters: {q.why_it_matters}")
+    return "\n".join(lines)
+
+
+def render_language_json(analysis: LanguageAnalysis, *, indent: int = 2) -> str:
+    """Render a language analysis as indented JSON (the machine-readable form)."""
+    return json.dumps(analysis.model_dump(mode="json"), indent=indent, ensure_ascii=False)
+
+
+def render_language_text(analysis: LanguageAnalysis) -> str:
+    """Render a language analysis as a readable text block."""
+    c = analysis.constructive
+    lines = [
+        f"LINGUISTIC COERCION: {analysis.linguistic_coercion_score:.2f}   "
+        f"CONSTRUCTIVE: {c.constructive_score:.2f}",
+        f"  affects_consent={analysis.affects_consent}  "
+        f"replaces_subject_framing={analysis.replaces_subject_framing}",
+        f"  agency_support={c.agency_support:.2f}  "
+        f"alternative_visibility={c.alternative_visibility:.2f}  "
+        f"clarifying_effect={c.clarifying_effect:.2f}",
+    ]
+
+    def _section(title: str, items: list[str]) -> None:
+        lines.append("")
+        lines.append(f"{title}:")
+        if not items:
+            lines.append("  (none)")
+        for item in items:
+            lines.append(f"  - {item}")
+
+    _section("Dominant indicators", analysis.dominant_indicators)
+    _section(
+        "Manipulation findings",
+        [
+            f"{f.indicator}: {f.evidence} (severity {f.severity:.2f})"
+            for f in analysis.manipulation_findings
+        ],
+    )
+    _section("Warnings", analysis.warnings)
+    _section("Missing data", analysis.missing_data)
+    _section("Recommended questions", analysis.recommended_questions)
+    lines.append("")
+    lines.append("Recommended rewrite:")
+    lines.append(f"  {c.recommended_rewrite}")
     return "\n".join(lines)

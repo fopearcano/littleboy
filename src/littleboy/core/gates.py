@@ -46,17 +46,23 @@ def _missing_keys(case: ActionCase) -> list[str]:
     """Return the keys of critical data absent from the case, in checklist order."""
     keys: list[str] = []
 
+    # A language act characterises coercion (and its reversibility via context) too.
+    has_coercion = case.coercion_profile is not None or case.language_act is not None
+    reversibility_known = (
+        case.coercion_profile is not None and case.coercion_profile.reversibility_is_known
+    ) or case.language_act is not None
+
     if case.effective_agent_type() is None:
         keys.append("agent_type")
     if not case.affected_agents:
         keys.append("affected_agents")
-    if case.coercion_profile is None:
+    if not has_coercion:
         keys.append("coercion_presence")
     if case.responds_to_existing_coercion is None:
         keys.append("coercion_source")
     if case.available_alternatives is None:
         keys.append("alternatives")
-    if case.coercion_profile is None or not case.coercion_profile.reversibility_is_known:
+    if not reversibility_known:
         keys.append("reversibility")
     if case.expected_consequences is None:
         keys.append("consequences")

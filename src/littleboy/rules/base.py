@@ -23,6 +23,11 @@ from littleboy.core.models import (
     RuleResult,
 )
 from littleboy.data.evidence import EvidenceAssessment
+from littleboy.language.models import (
+    ConstructiveLanguageAssessment,
+    LanguageContext,
+    LanguageEthicsProfile,
+)
 from littleboy.rules.policy import PolicyProfile
 
 
@@ -54,6 +59,15 @@ class RuleContext:
 
     n_unknowns: int
     base_confidence: float
+
+    # Language & coercion (v0.5). Defaulted so non-language cases need not set them.
+    language_present: bool = False
+    language_profile: LanguageEthicsProfile | None = None
+    language_context: LanguageContext | None = None
+    linguistic_coercion: float = 0.0
+    constructive: ConstructiveLanguageAssessment | None = None
+    language_affects_consent: bool = False
+    language_replaces_framing: bool = False
 
 
 class Rule:

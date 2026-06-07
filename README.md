@@ -11,17 +11,19 @@ and returns a **transparent, explained verdict** with an honest account of its
 own uncertainty. It is a reasoning engine, not a user interface and not a
 language model.
 
-This is **v0.4**, which adds a **scenario builder / case-input wizard**: LittleBoy
-now also helps *construct* a morally evaluable case, detecting missing
-information and asking precise questions before judging. (v0.3 added the formal,
-inspectable **rule engine** and **policy layer**.) See
+This is **v0.5**, which adds the **Language & Coercion Module**: LittleBoy now
+recognises that language is not ethically neutral and detects/evaluates
+linguistic-informational coercion. (v0.4 added the scenario builder; v0.3 the
+rule engine and policy layer.) See
 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md),
 [`docs/ETHICAL_MODEL.md`](docs/ETHICAL_MODEL.md),
 [`docs/RULE_ENGINE.md`](docs/RULE_ENGINE.md),
 [`docs/POLICY_PROFILES.md`](docs/POLICY_PROFILES.md),
-[`docs/CASE_BUILDER.md`](docs/CASE_BUILDER.md), and
-[`docs/SCENARIO_TEMPLATES.md`](docs/SCENARIO_TEMPLATES.md) for the full design and
-formal model.
+[`docs/CASE_BUILDER.md`](docs/CASE_BUILDER.md),
+[`docs/SCENARIO_TEMPLATES.md`](docs/SCENARIO_TEMPLATES.md),
+[`docs/LANGUAGE_ETHICS.md`](docs/LANGUAGE_ETHICS.md), and
+[`docs/LINGUISTIC_COERCION.md`](docs/LINGUISTIC_COERCION.md) for the full design
+and formal model.
 
 ---
 
@@ -110,6 +112,37 @@ The builder never invents facts; it only asks for them. See
 [`docs/CASE_BUILDER.md`](docs/CASE_BUILDER.md) and
 [`docs/SCENARIO_TEMPLATES.md`](docs/SCENARIO_TEMPLATES.md).
 
+## LittleBoy v0.5: Language & Coercion Module
+
+> **Language is ethically decisive because it can either expand or restrict the
+> field in which will, consent, and self-understanding become possible.**
+
+Language is not ethically neutral. It can clarify, liberate, and disclose; or it
+can manipulate, obscure, shame, confuse, frame, silence, or replace the subject's
+own meaning-field with someone else's. The `littleboy.language` module detects
+and evaluates linguistic/informational coercion — deterministically and
+transparently, with **no NLP/LLM**.
+
+- **`LanguageAct` / `LanguageContext` / `LanguageEthicsProfile`**: a unit of
+  language, its setting (medium, power asymmetry, vulnerability, stakes, ...),
+  and 16 heuristic ethics indicators (quality axes vs. risk axes).
+- **Manipulation dimensions**: false necessity, false dichotomy, shame/fear
+  pressure, authority capture, semantic compression, testimonial injustice,
+  obfuscation, persuasive counterfeit — supplied explicitly and/or detected by a
+  small, documented phrase lexicon that always cites the phrase it matched.
+- **Constructive language**: a `ConstructiveLanguageAssessment` scores how much
+  the language *expands* the field of will (clarity, agency support, alternative
+  visibility, consent support, ...) with a deterministic recommended rewrite.
+- **Integration**: when a case has a `language_act`, its linguistic coercion is
+  folded into the main `CoercionProfile` (it can only *raise* coercion), six new
+  rules fire (**LB-R013 .. LB-R018**), and the report carries a full
+  `language_analysis`. Consent built on manipulative language gets no confident
+  approval (LB-R015).
+- **CLI**: `littleboy analyze-language <case.json>`.
+
+See [`docs/LANGUAGE_ETHICS.md`](docs/LANGUAGE_ETHICS.md) and
+[`docs/LINGUISTIC_COERCION.md`](docs/LINGUISTIC_COERCION.md).
+
 ## How evidence is represented
 
 An `EvidenceSet` holds `EvidenceItem`s, each a `claim` plus its `source_type`
@@ -178,7 +211,7 @@ src/littleboy/
     base.py         # Rule base class + RuleContext
     registry.py     # RuleRegistry (register / list / evaluate / enable-disable)
     policy.py       # PolicyProfile + the four built-in policy modes
-    builtin_rules.py# LB-R001 .. LB-R012
+    builtin_rules.py# LB-R001 .. LB-R018 (incl. the six language rules)
     engine.py       # RuleEngine: runs rules and synthesizes the verdict
     trace.py        # builds the ReasoningTrace
   case_builder/
@@ -187,14 +220,21 @@ src/littleboy/
     templates.py    # ScenarioTemplate + the ten built-in templates
     builder.py      # CaseBuilder (the public entry point)
     session.py      # wizard prompts + build_case_from_answers (I/O-free)
+  language/
+    models.py       # LanguageAct, LanguageContext, LanguageEthicsProfile, ...
+    manipulation.py # transparent manipulation-phrase lexicon + detector
+    scoring.py      # score_language_ethics / score_linguistic_coercion
+    constructive.py # score_constructive_language
+    analyzer.py     # analyze_language + bridge into the coercion model
   reasoning/
     report.py       # JSON / text rendering
     experiment.py   # EthicalExperiment runner (falsificatory + heuristic)
-  cli.py            # littleboy evaluate / experiment / questions / build-case / templates
+  cli.py            # evaluate / experiment / questions / build-case / templates / analyze-language
 tests/              # pytest suite
-examples/           # sample JSON cases (incl. partial_*.json for the builder)
+examples/           # sample JSON cases (incl. partial_*.json and language_*.json)
 docs/               # ARCHITECTURE, ETHICAL_MODEL, RULE_ENGINE, POLICY_PROFILES,
-                    #   CASE_BUILDER, SCENARIO_TEMPLATES
+                    #   CASE_BUILDER, SCENARIO_TEMPLATES, LANGUAGE_ETHICS,
+                    #   LINGUISTIC_COERCION
 ```
 
 ## Installation
@@ -210,7 +250,7 @@ pip install -e ".[dev]"     # pydantic, pytest, typer, ruff
 ## Running the tests
 
 ```bash
-pytest                      # 93 tests
+pytest                      # 109 tests
 ruff check src tests        # lint (optional)
 ```
 
@@ -224,6 +264,8 @@ littleboy experiment examples/high_coercion_missing_consent.json          # fals
 littleboy questions examples/partial_generic_case.json                    # what's missing + questions
 littleboy questions examples/partial_medical_case.json --template medical_decision --format json
 littleboy build-case --template speech_or_language_manipulation -o my_case.json   # interactive wizard
+littleboy analyze-language examples/language_manipulative_case.json       # linguistic coercion
+littleboy analyze-language examples/language_constructive_case.json --format text
 littleboy templates                                                       # list scenario templates
 littleboy version
 ```
@@ -256,9 +298,22 @@ builder has something to ask about — try them with `littleboy questions`:
 | File | Use with |
 |------|----------|
 | `examples/partial_generic_case.json` | `littleboy questions ...` (base questions) |
+| (see also the v0.5 language examples below) | |
 | `examples/partial_medical_case.json` | `--template medical_decision` |
 | `examples/partial_language_manipulation_case.json` | `--template speech_or_language_manipulation` |
 | `examples/partial_emergency_case.json` | `--template emergency_intervention` |
+
+The v0.5 **language** examples (each an `ActionCase` with a `language_act`); try
+them with `littleboy analyze-language` and `littleboy evaluate`:
+
+| File | Demonstrates | Verdict |
+|------|--------------|---------|
+| `examples/language_constructive_case.json` | Clear, agency-respecting, alternatives-visible language | `ACCEPTABLE` |
+| `examples/language_manipulative_case.json` | False necessity + fear + manipulated consent | `NOT_ACCEPTABLE` |
+| `examples/false_dichotomy_case.json` | "Either obey or destroy everything" | `NOT_ACCEPTABLE` |
+| `examples/testimonial_injustice_case.json` | Dismissing a vulnerable person's testimony (LB-R016) | `NOT_ACCEPTABLE` |
+| `examples/obfuscation_high_stakes_case.json` | Obscure binding notice where clarity is owed (LB-R018) | `NOT_ACCEPTABLE` |
+| `examples/semantic_compression_euthanasia_case.json` | Reducing "I want to die" to a label; framing replaced | `INSUFFICIENT_DATA` |
 
 (The v0.1 examples `simple_case.json`, `high_coercion_case.json`, and
 `insufficient_data_case.json` remain valid.)
@@ -344,28 +399,32 @@ make consequential decisions about real people.
 
 ## Current development status
 
-**v0.4 — scenario builder / case-input wizard.** Implemented on top of v0.3: a
-`case_builder` package that generates prioritised, self-explaining questions for
-a partial case; a `CaseCompletenessReport` (now embedded in every evaluation);
-ten scenario templates; a non-interactive `questions` command and an interactive
-`build-case` wizard; and a 93-test suite (all passing). Completeness is purely
-additive — verdict behaviour is unchanged, and all v0.1–v0.3 inputs remain valid.
+**v0.5 — language & coercion module.** Implemented on top of v0.4: a
+`littleboy.language` package that models a language act, scores its ethics and
+linguistic coercion, assesses constructive language, and detects manipulation
+from a transparent phrase lexicon; six new rules (LB-R013 .. LB-R018); a bridge
+that folds linguistic coercion into the main coercion model; an
+`analyze-language` CLI command; language-aware scenario templates; and a
+109-test suite (all passing). The language layer is purely additive — cases
+without a `language_act` evaluate exactly as before, and all v0.1–v0.4 inputs
+remain valid. No NLP/LLM is used.
 
 Earlier phases delivered the core models; coercion/data-quality/evidence scoring;
 consent/agency models; the tri-state Axiom 3 justification; feasibility-aware
-alternatives; the critical-data gate; the ethical experiment runner; and the
-v0.3 twelve-rule engine with four policy profiles and a full reasoning trace.
+alternatives; the critical-data gate; the ethical experiment runner; the v0.3
+rule engine with four policy profiles and a full reasoning trace (now eighteen
+rules); and the v0.4 scenario builder.
 
 **Deliberately not built:** any web UI, any LLM/API integration, any claim to
 absolute truth, any heavy frameworks.
 
 ### Recommended next steps
 
-- Richer `apply_answer` / wizard coverage for the structured fields (coercion
-  profile, evidence, alternatives, justification) so a case can be built end to
-  end without hand-editing JSON.
-- Calibrate the coercion / evidence heuristics and the policy thresholds against
-  a worked case library with golden-file regression tests.
+- **Optional** LLM-assisted language-indicator extraction behind an explicit
+  flag, with the model's suggestions shown, attributed, and editable — the
+  deterministic core staying authoritative and the audit trail preserved.
+- Calibrate the coercion / language / evidence heuristics and the policy
+  thresholds against a worked case library with golden-file regression tests.
 - Model `EthicalTruth` as explicitly derived, queryable propositions with a
   derivation trace from specific axioms and rules.
 

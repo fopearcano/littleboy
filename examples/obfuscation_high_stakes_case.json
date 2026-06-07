@@ -1,0 +1,43 @@
+{
+  "title": "Deliberately obscure high-stakes notice",
+  "description": "A binding notice with serious consequences is written in dense, evasive language where clarity is ethically required.",
+  "acting_agent": { "name": "Institution", "agent_type": "TYPE_II", "is_collective": true },
+  "affected_agents": [{ "name": "Recipients", "agent_type": "TYPE_II", "is_collective": true }],
+  "intended_goal": "Bind recipients while minimising their understanding.",
+  "consent": "UNKNOWN",
+  "available_alternatives": [],
+  "data_quality": {
+    "completeness": 0.75,
+    "source_reliability": 0.8,
+    "specificity": 0.6,
+    "recency": 0.8,
+    "corroboration": 0.6,
+    "ambiguity": 0.4
+  },
+  "responds_to_existing_coercion": false,
+  "expected_consequences": "Recipients are bound by terms they cannot readily understand.",
+  "language_act": {
+    "text": "Notwithstanding any prior representations, pursuant to the aforementioned and subject to the terms herein, the party hereinafter waives all rights not expressly reserved.",
+    "speaker_agent": "Institution",
+    "target_agents": ["Recipients"],
+    "context": {
+      "medium": "legal_notice",
+      "power_asymmetry": 0.7,
+      "urgency": 0.3,
+      "target_vulnerability": 0.4,
+      "stakes": 0.8,
+      "reversibility": 0.5,
+      "audience_scope": 0.7
+    },
+    "ethics_profile": {
+      "clarity": 0.2,
+      "truthfulness": 0.6,
+      "specificity": 0.3,
+      "context_completeness": 0.3,
+      "agency_respect": 0.4,
+      "consent_support": 0.3,
+      "ambiguity_level": 0.8,
+      "omission_risk": 0.6
+    }
+  }
+}

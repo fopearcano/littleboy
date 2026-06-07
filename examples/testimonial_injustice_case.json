@@ -1,0 +1,46 @@
+{
+  "title": "Dismissing a vulnerable person's testimony",
+  "description": "A caregiver dismisses and compresses a vulnerable person's own account of their experience, replacing it with a convenient label.",
+  "acting_agent": { "name": "Caregiver", "agent_type": "TYPE_II" },
+  "affected_agents": [{ "name": "Dependent person", "agent_type": "TYPE_II" }],
+  "intended_goal": "Override the person's stated wishes.",
+  "consent": "DISPUTED",
+  "available_alternatives": [],
+  "data_quality": {
+    "completeness": 0.7,
+    "source_reliability": 0.7,
+    "specificity": 0.6,
+    "recency": 0.8,
+    "corroboration": 0.6,
+    "ambiguity": 0.3
+  },
+  "responds_to_existing_coercion": false,
+  "expected_consequences": "The person's own account is set aside.",
+  "agency_profile": {
+    "agent_type": "TYPE_II",
+    "capacity_confidence": 0.6,
+    "vulnerability_level": 0.85
+  },
+  "language_act": {
+    "text": "She's just being dramatic; she doesn't really mean it. No one believes her anyway.",
+    "speaker_agent": "Caregiver",
+    "target_agents": ["Dependent person"],
+    "context": {
+      "medium": "intimate_conversation",
+      "power_asymmetry": 0.8,
+      "urgency": 0.2,
+      "target_vulnerability": 0.85,
+      "stakes": 0.7,
+      "reversibility": 0.6,
+      "audience_scope": 0.2
+    },
+    "ethics_profile": {
+      "clarity": 0.5,
+      "truthfulness": 0.4,
+      "agency_respect": 0.2,
+      "consent_support": 0.2,
+      "silencing_effect": 0.7,
+      "omission_risk": 0.7
+    }
+  }
+}

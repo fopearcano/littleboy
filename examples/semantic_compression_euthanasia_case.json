@@ -1,0 +1,49 @@
+{
+  "title": "Reducing 'I want to die' to a simple label",
+  "description": "An abstract ethical-language case: a third party compresses a person's grave statement ('I want to die') into a simple interpretation ('he just wants to die'), without examining the fuller meaning-field -- pain, fear, loss of dignity, social pressure, coercion, alternatives, or a request for recognition. This is treated purely as a question about language and the will, not as a medical or legal matter.",
+  "acting_agent": { "name": "Interpreter", "agent_type": "TYPE_II" },
+  "affected_agents": [{ "name": "The person who spoke", "agent_type": "TYPE_II" }],
+  "intended_goal": "Act on a single, simple reading of the statement.",
+  "consent": "UNKNOWN",
+  "available_alternatives": null,
+  "data_quality": {
+    "completeness": 0.55,
+    "source_reliability": 0.6,
+    "specificity": 0.45,
+    "recency": 0.6,
+    "corroboration": 0.45,
+    "ambiguity": 0.3
+  },
+  "responds_to_existing_coercion": false,
+  "expected_consequences": "An irreversible interpretation is acted upon while the person's fuller meaning is unexamined.",
+  "agency_profile": {
+    "agent_type": "TYPE_II",
+    "capacity_confidence": 0.5,
+    "vulnerability_level": 0.9
+  },
+  "language_act": {
+    "text": "He just wants to die. It's nothing, really; there's no need to look any closer.",
+    "speaker_agent": "Interpreter",
+    "target_agents": ["The person who spoke"],
+    "declared_intent": "Settle the matter quickly.",
+    "context": {
+      "medium": "intimate_conversation",
+      "power_asymmetry": 0.7,
+      "urgency": 0.5,
+      "target_vulnerability": 0.9,
+      "stakes": 1.0,
+      "reversibility": 0.0,
+      "audience_scope": 0.2
+    },
+    "ethics_profile": {
+      "clarity": 0.5,
+      "truthfulness": 0.5,
+      "specificity": 0.2,
+      "context_completeness": 0.2,
+      "agency_respect": 0.3,
+      "consent_support": 0.2,
+      "omission_risk": 0.8,
+      "silencing_effect": 0.5
+    }
+  }
+}

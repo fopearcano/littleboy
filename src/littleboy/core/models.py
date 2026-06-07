@@ -33,6 +33,7 @@ from littleboy.core.enums import (
     Verdict,
 )
 from littleboy.data.evidence import EvidenceSet
+from littleboy.language.models import LanguageAct, LanguageAnalysis
 
 
 class _Base(BaseModel):
@@ -570,6 +571,10 @@ class ActionCase(_Base):
     evidence: EvidenceSet | None = Field(
         default=None, description="Structured evidence backing the case's claims."
     )
+    language_act: LanguageAct | None = Field(
+        default=None,
+        description="A language act central to the case (drives linguistic-coercion analysis).",
+    )
     context_notes: str = ""
 
     # --- Consent and agency --------------------------------------------------
@@ -652,6 +657,7 @@ class EvaluationReport(_Base):
     alternatives_analysis: AlternativeAnalysis | None = None
     ethical_experiment: ExperimentSummary | None = None
     reasoning_trace: ReasoningTrace | None = None
+    language_analysis: LanguageAnalysis | None = None
 
     case_completeness: CaseCompletenessReport | None = None
     recommended_questions: list[Question] = Field(default_factory=list)

@@ -183,3 +183,20 @@ class QuestionCategory(StrEnum):
     EVIDENCE = "evidence"
     DATA_QUALITY = "data_quality"
     CONTEXT = "context"
+    LANGUAGE = "language"
+
+
+class LanguageMedium(StrEnum):
+    """The medium of a language act. Different media carry different duties of clarity."""
+
+    SPEECH = "speech"
+    WRITING = "writing"
+    CONTRACT = "contract"
+    ADVERTISEMENT = "advertisement"
+    POLITICAL_MESSAGE = "political_message"
+    MEDICAL_CONSENT = "medical_consent"
+    LEGAL_NOTICE = "legal_notice"
+    INTIMATE_CONVERSATION = "intimate_conversation"
+    PUBLIC_STATEMENT = "public_statement"
+    EDUCATIONAL = "educational"
+    UNKNOWN = "unknown"

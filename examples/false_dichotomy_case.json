@@ -1,0 +1,40 @@
+{
+  "title": "Either obey or destroy everything",
+  "description": "A leader frames a complex situation as a stark choice between obedience and catastrophe, hiding the real range of options.",
+  "acting_agent": { "name": "Leader", "agent_type": "TYPE_II" },
+  "affected_agents": [{ "name": "Group member", "agent_type": "TYPE_II", "is_collective": true }],
+  "intended_goal": "Force compliance by collapsing the options.",
+  "consent": "UNKNOWN",
+  "available_alternatives": null,
+  "data_quality": {
+    "completeness": 0.7,
+    "source_reliability": 0.7,
+    "specificity": 0.7,
+    "recency": 0.8,
+    "corroboration": 0.6,
+    "ambiguity": 0.3
+  },
+  "responds_to_existing_coercion": false,
+  "expected_consequences": "Members comply, believing they had no other option.",
+  "language_act": {
+    "text": "Either you obey or you destroy everything. There is no other option.",
+    "speaker_agent": "Leader",
+    "target_agents": ["Group member"],
+    "context": {
+      "medium": "political_message",
+      "power_asymmetry": 0.7,
+      "urgency": 0.6,
+      "target_vulnerability": 0.4,
+      "stakes": 0.7,
+      "reversibility": 0.6,
+      "audience_scope": 0.8
+    },
+    "ethics_profile": {
+      "clarity": 0.5,
+      "truthfulness": 0.4,
+      "agency_respect": 0.3,
+      "false_dichotomy": 0.8,
+      "false_necessity": 0.7
+    }
+  }
+}

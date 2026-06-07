@@ -1,0 +1,43 @@
+{
+  "title": "Clear, voluntary explanation of options",
+  "description": "An advisor explains a decision to a person, laying out the real options, what is known and unknown, and inviting questions and refusal.",
+  "acting_agent": { "name": "Advisor", "agent_type": "TYPE_II" },
+  "affected_agents": [{ "name": "Person", "agent_type": "TYPE_II" }],
+  "intended_goal": "Help the person decide freely and well.",
+  "consent": "GIVEN",
+  "available_alternatives": [],
+  "data_quality": {
+    "completeness": 0.85,
+    "source_reliability": 0.85,
+    "specificity": 0.8,
+    "recency": 0.85,
+    "corroboration": 0.8,
+    "ambiguity": 0.15
+  },
+  "responds_to_existing_coercion": false,
+  "expected_consequences": "The person makes an informed, unpressured choice.",
+  "language_act": {
+    "text": "Here are your three options, with the benefits, the drawbacks, and what we don't yet know. Take your time, ask anything, and you are free to say no.",
+    "speaker_agent": "Advisor",
+    "target_agents": ["Person"],
+    "declared_intent": "Inform without pressure.",
+    "context": {
+      "medium": "educational",
+      "power_asymmetry": 0.2,
+      "urgency": 0.1,
+      "target_vulnerability": 0.2,
+      "stakes": 0.5,
+      "reversibility": 1.0,
+      "audience_scope": 0.0
+    },
+    "ethics_profile": {
+      "clarity": 0.9,
+      "truthfulness": 0.9,
+      "specificity": 0.85,
+      "context_completeness": 0.85,
+      "agency_respect": 0.9,
+      "consent_support": 0.9,
+      "constructive_potential": 0.9
+    }
+  }
+}

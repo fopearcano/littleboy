@@ -15,6 +15,7 @@ from littleboy.core.enums import (
     AgentType,
     ConsentStatus,
     EpistemicStatus,
+    LanguageMedium,
     RuleResultStatus,
     RuleSeverity,
     Verdict,
@@ -22,6 +23,14 @@ from littleboy.core.enums import (
 from littleboy.core.models import RuleResult
 from littleboy.rules.base import Rule, RuleContext
 from littleboy.rules.registry import RuleRegistry
+
+# Media in which clarity carries a heightened ethical duty (used by LB-R018).
+_CLARITY_REQUIRED_MEDIA = (
+    LanguageMedium.MEDICAL_CONSENT,
+    LanguageMedium.LEGAL_NOTICE,
+    LanguageMedium.CONTRACT,
+    LanguageMedium.EDUCATIONAL,
+)
 
 _S = RuleResultStatus
 _V = RuleSeverity
@@ -501,6 +510,243 @@ class ContradictionRule(Rule):
         )
 
 
+class LinguisticCoercionRule(Rule):
+    rule_id = "LB-R013"
+    name = "Linguistic Coercion Rule"
+    description = (
+        "If language significantly restricts agency, consent, alternatives, or "
+        "self-expression, it is flagged as coercion."
+    )
+    axioms_invoked = ("A0", "A2")
+
+    def evaluate(self, ctx: RuleContext) -> RuleResult:
+        if not ctx.language_present:
+            return self.not_applicable("the case contains no language act")
+        p = ctx.language_profile
+        restricts = ctx.linguistic_coercion >= ctx.policy.coercion_moderate or (
+            p is not None and (p.agency_respect < 0.4 or p.silencing_effect >= 0.5)
+        )
+        if restricts:
+            return self.result(
+                status=_S.FAILED,
+                severity=_V.DOWNGRADE,
+                message=(
+                    "Language significantly restricts agency/consent/alternatives/"
+                    f"self-expression (linguistic coercion {ctx.linguistic_coercion:.2f}); "
+                    "counted as coercion (A0/A2)."
+                ),
+                verdict_delta=1,
+                confidence_delta=-0.05,
+            )
+        return self.result(
+            status=_S.PASSED,
+            severity=_V.INFO,
+            message=f"Language does not significantly restrict agency (linguistic "
+            f"coercion {ctx.linguistic_coercion:.2f}).",
+        )
+
+
+class ManipulativeFramingRule(Rule):
+    rule_id = "LB-R014"
+    name = "Manipulative Framing Rule"
+    description = (
+        "False necessity, false dichotomy, shame pressure, or fear pressure in the "
+        "language downgrades the action."
+    )
+    axioms_invoked = ("A0", "A2")
+
+    _LABELS = (
+        ("false_necessity", "false necessity"),
+        ("false_dichotomy", "false dichotomy"),
+        ("shame_pressure", "shame pressure"),
+        ("fear_pressure", "fear pressure"),
+    )
+
+    def evaluate(self, ctx: RuleContext) -> RuleResult:
+        if not ctx.language_present or ctx.language_profile is None:
+            return self.not_applicable("the case contains no language act")
+        p = ctx.language_profile
+        present = [label for field, label in self._LABELS if getattr(p, field) >= 0.5]
+        framing = max(p.false_necessity, p.false_dichotomy, p.shame_pressure, p.fear_pressure)
+        if present:
+            return self.result(
+                status=_S.FAILED,
+                severity=_V.DOWNGRADE,
+                message="Manipulative framing detected: " + ", ".join(present) + ".",
+                verdict_delta=1,
+                confidence_delta=-0.05,
+            )
+        if framing > 0.0:
+            return self.result(
+                status=_S.PASSED,
+                severity=_V.WARNING,
+                message="Mild manipulative framing is present but below the downgrade threshold.",
+            )
+        return self.result(
+            status=_S.PASSED, severity=_V.INFO, message="No manipulative framing detected."
+        )
+
+
+class ConsentLanguageIntegrityRule(Rule):
+    rule_id = "LB-R015"
+    name = "Consent-Language Integrity Rule"
+    description = (
+        "If consent is sought or affected through unclear, manipulative, incomplete, "
+        "or high-pressure language, consent quality is reduced and confident approval "
+        "is withheld."
+    )
+    axioms_invoked = ("A0", "A2", "A3")
+
+    def evaluate(self, ctx: RuleContext) -> RuleResult:
+        if not ctx.language_present or ctx.language_profile is None:
+            return self.not_applicable("the case contains no language act")
+        if not ctx.language_affects_consent:
+            return self.result(
+                status=_S.PASSED,
+                severity=_V.INFO,
+                message="The language does not bear on consent.",
+            )
+        p = ctx.language_profile
+        poor = (
+            p.clarity < 0.5
+            or p.manipulation_risk >= 0.5
+            or p.context_completeness < 0.5
+            or ctx.linguistic_coercion >= ctx.policy.coercion_moderate
+        )
+        if not poor:
+            return self.result(
+                status=_S.PASSED,
+                severity=_V.INFO,
+                message="Consent-bearing language is clear and non-manipulative.",
+            )
+        # Consent already 'given' on top of manipulative language must not yield
+        # confident approval.
+        cap = (
+            Verdict.ETHICALLY_SUSPICIOUS
+            if ctx.consent.effective_status == ConsentStatus.GIVEN
+            else None
+        )
+        extra = (
+            " Consent rests on manipulative language; confident approval is withheld."
+            if cap
+            else ""
+        )
+        return self.result(
+            status=_S.FAILED,
+            severity=_V.DOWNGRADE if cap is None else _V.BLOCKER,
+            message="Consent is sought or affected through unclear/manipulative/high-pressure "
+            "language; consent quality is reduced." + extra,
+            verdict_delta=1,
+            verdict_cap=cap,
+            confidence_delta=-0.1,
+            missing_data=["whether consent would stand under clear, non-manipulative language"],
+        )
+
+
+class TestimonialInjusticeRule(Rule):
+    rule_id = "LB-R016"
+    name = "Testimonial Injustice Rule"
+    description = (
+        "If the language dismisses or compresses the testimony of a vulnerable or "
+        "low-status agent, warn or downgrade."
+    )
+    axioms_invoked = ("A0", "A1")
+
+    def evaluate(self, ctx: RuleContext) -> RuleResult:
+        if not ctx.language_present:
+            return self.not_applicable("the case contains no language act")
+        if not ctx.language_replaces_framing:
+            return self.result(
+                status=_S.PASSED,
+                severity=_V.INFO,
+                message="The language does not appear to dismiss or compress the "
+                "subject's testimony.",
+            )
+        if ctx.agency.high_vulnerability:
+            return self.result(
+                status=_S.FAILED,
+                severity=_V.DOWNGRADE,
+                message="Language dismisses or compresses the testimony of a vulnerable agent "
+                "(testimonial injustice); their own framing of their will is being replaced.",
+                verdict_delta=1,
+                confidence_delta=-0.05,
+            )
+        return self.result(
+            status=_S.FAILED,
+            severity=_V.WARNING,
+            message="Language may dismiss or compress the subject's own testimony/framing; "
+            "examine the fuller meaning-field before judging.",
+        )
+
+
+class ConstructiveLanguageDutyRule(Rule):
+    rule_id = "LB-R017"
+    name = "Constructive Language Duty Rule"
+    description = (
+        "For Type II agents, when the action centrally involves language at moderate/high "
+        "stakes, there is a duty to use language consciously and constructively."
+    )
+    axioms_invoked = ("A1", "A2")
+
+    def evaluate(self, ctx: RuleContext) -> RuleResult:
+        if not ctx.language_present:
+            return self.not_applicable("the case contains no language act")
+        stakes = ctx.language_context.stakes if ctx.language_context else 0.0
+        if ctx.case.effective_agent_type() != AgentType.TYPE_II or stakes < 0.5:
+            return self.not_applicable(
+                "the constructive-language duty applies to Type II agents at moderate/high stakes"
+            )
+        score = ctx.constructive.constructive_score if ctx.constructive else 0.0
+        if score < 0.5:
+            return self.result(
+                status=_S.FAILED,
+                severity=_V.WARNING,
+                message="A Type II agent has a duty to use language consciously and "
+                f"constructively at these stakes; the constructive score is low ({score:.2f}).",
+                confidence_delta=-0.05,
+            )
+        return self.result(
+            status=_S.PASSED,
+            severity=_V.INFO,
+            message="The constructive-language duty is satisfied "
+            f"(constructive score {score:.2f}).",
+        )
+
+
+class ObfuscationUnderHighStakesRule(Rule):
+    rule_id = "LB-R018"
+    name = "Obfuscation Under High Stakes Rule"
+    description = (
+        "If language is obscure in a high-stakes context where clarity is ethically "
+        "required, downgrade."
+    )
+    axioms_invoked = ("A1", "A5")
+
+    def evaluate(self, ctx: RuleContext) -> RuleResult:
+        if not ctx.language_present or ctx.language_profile is None:
+            return self.not_applicable("the case contains no language act")
+        context = ctx.language_context
+        clarity_required = context is not None and (
+            context.medium in _CLARITY_REQUIRED_MEDIA or context.stakes >= 0.6
+        )
+        p = ctx.language_profile
+        obscure = p.ambiguity_level >= 0.5 or p.clarity < 0.4
+        if clarity_required and obscure:
+            return self.result(
+                status=_S.FAILED,
+                severity=_V.DOWNGRADE,
+                message="Language is obscure in a high-stakes context where clarity is "
+                "ethically required (Axiom 5).",
+                verdict_delta=1,
+                confidence_delta=-0.05,
+            )
+        return self.result(
+            status=_S.PASSED,
+            severity=_V.INFO,
+            message="Clarity is adequate for the context.",
+        )
+
+
 # The canonical, ordered list of built-in rules.
 BUILTIN_RULES: tuple[type[Rule], ...] = (
     TypeIIDutyRule,
@@ -515,6 +761,12 @@ BUILTIN_RULES: tuple[type[Rule], ...] = (
     IrreversibilityRule,
     CessationRule,
     ContradictionRule,
+    LinguisticCoercionRule,
+    ManipulativeFramingRule,
+    ConsentLanguageIntegrityRule,
+    TestimonialInjusticeRule,
+    ConstructiveLanguageDutyRule,
+    ObfuscationUnderHighStakesRule,
 )
 
 
