@@ -16,6 +16,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from littleboy.core.enums import Verdict
 from littleboy.core.models import ActionCase
 
 
@@ -87,4 +88,72 @@ class CalibrationReport(_CalBase):
     false_alarm_rate: float = Field(default=0.0, ge=0.0, le=1.0)
     outcomes: list[CalibrationOutcome] = Field(default_factory=list)
     digests: list[CaseDigest] = Field(default_factory=list)
+    notes: list[str] = Field(default_factory=list)
+
+
+# =============================================================================
+# Scoring-layer calibration (v0.10): coercion / data-sufficiency / temporal
+# =============================================================================
+
+
+class LayerExpectation(_CalBase):
+    """Per-layer labels for one case (each optional; only labelled layers are scored).
+
+    Each layer is a binary detector with a known answer, so a *miss* (labelled
+    positive but not detected) and a *false alarm* (labelled negative but detected)
+    are well-defined.
+    """
+
+    coercive: bool | None = Field(
+        default=None, description="Should the coercion layer score this at least moderate?"
+    )
+    adequate_data: bool | None = Field(
+        default=None, description="Is there enough trustworthy data to reach a verdict?"
+    )
+    rising_coercion: bool | None = Field(
+        default=None, description="Should the temporal layer see a rising-coercion trend?"
+    )
+    verdict: Verdict | None = Field(default=None, description="Expected end-to-end verdict.")
+
+
+class ScoringCorpusEntry(_CalBase):
+    """One labelled case for calibrating the scoring layers (not the audit)."""
+
+    id: str
+    description: str = ""
+    case: ActionCase
+    policy: str = "standard"
+    expect: LayerExpectation = Field(default_factory=LayerExpectation)
+
+
+class ScoringCorpus(_CalBase):
+    """A labelled corpus for calibrating LittleBoy's scoring layers."""
+
+    title: str = ""
+    description: str = ""
+    entries: list[ScoringCorpusEntry] = Field(default_factory=list)
+
+
+class LayerMetrics(_CalBase):
+    """A confusion matrix and the two rates for one scoring layer."""
+
+    layer: str
+    n_labelled: int = 0
+    true_positive: int = 0
+    false_positive: int = 0
+    false_negative: int = 0
+    true_negative: int = 0
+    miss_rate: float = Field(default=0.0, ge=0.0, le=1.0)
+    false_alarm_rate: float = Field(default=0.0, ge=0.0, le=1.0)
+
+
+class ScoringCalibrationReport(_CalBase):
+    """Aggregate scoring-layer calibration over the corpus."""
+
+    n_cases: int = 0
+    layers: list[LayerMetrics] = Field(default_factory=list)
+    verdict_labelled: int = 0
+    verdict_correct: int = 0
+    verdict_accuracy: float = Field(default=0.0, ge=0.0, le=1.0)
+    verdict_mismatches: list[str] = Field(default_factory=list)
     notes: list[str] = Field(default_factory=list)

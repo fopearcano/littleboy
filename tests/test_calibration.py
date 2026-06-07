@@ -12,9 +12,15 @@ from littleboy import ActionCase
 from littleboy.calibration import (
     AuditCorpus,
     CorpusEntry,
+    LayerExpectation,
+    ScoringCorpus,
+    ScoringCorpusEntry,
     default_corpus,
+    default_scoring_corpus,
     golden_payload,
     run_corpus,
+    run_scoring_corpus,
+    scoring_golden_payload,
 )
 from littleboy.cli import app
 
@@ -107,5 +113,70 @@ def test_a_false_alarm_raises_the_false_alarm_rate():
 def test_cli_calibrate_works():
     result = runner.invoke(app, ["calibrate"])
     assert result.exit_code == 0
-    assert "CALIBRATION:" in result.stdout
+    assert "CALIBRATION (audit)" in result.stdout
+    assert "CALIBRATION (scoring)" in result.stdout
     assert "miss_rate=" in result.stdout
+
+
+# --- scoring-layer calibration (v0.10) ---------------------------------------
+
+
+SCORING_GOLDEN = Path(__file__).resolve().parent / "golden" / "scoring_corpus.golden.json"
+
+
+def test_scoring_corpus_runs_clean():
+    report = run_scoring_corpus(default_scoring_corpus())
+    assert report.verdict_accuracy == 1.0
+    assert report.verdict_mismatches == []
+    for layer in report.layers:
+        assert layer.miss_rate == 0.0
+        assert layer.false_alarm_rate == 0.0
+
+
+def test_scoring_layers_cover_coercion_evidence_temporal():
+    report = run_scoring_corpus(default_scoring_corpus())
+    layers = {layer.layer for layer in report.layers}
+    assert {"coercion", "data_sufficiency", "temporal"} <= layers
+
+
+def test_scoring_golden_regression():
+    payload = scoring_golden_payload(run_scoring_corpus(default_scoring_corpus()))
+    if os.environ.get("LITTLEBOY_UPDATE_GOLDEN"):
+        SCORING_GOLDEN.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n")
+    expected = json.loads(SCORING_GOLDEN.read_text())
+    assert payload == expected, (
+        "scoring calibration drifted from the golden file; "
+        "re-run with LITTLEBOY_UPDATE_GOLDEN=1 if the change is intended"
+    )
+
+
+def test_scoring_miss_is_detected():
+    # Mislabel a clearly low-coercion case as coercive: the coercion layer must miss it.
+    corpus = ScoringCorpus(
+        entries=[
+            ScoringCorpusEntry(
+                id="planted_coercion_miss",
+                case=_load("low_coercion_good_data.json"),
+                expect=LayerExpectation(coercive=True),
+            )
+        ]
+    )
+    report = run_scoring_corpus(corpus)
+    coercion = next(layer for layer in report.layers if layer.layer == "coercion")
+    assert coercion.miss_rate == 1.0
+
+
+def test_scoring_false_alarm_is_detected():
+    # Mislabel a high-coercion case as non-coercive: the coercion layer must false-alarm.
+    corpus = ScoringCorpus(
+        entries=[
+            ScoringCorpusEntry(
+                id="planted_coercion_false_alarm",
+                case=_load("high_coercion_case.json"),
+                expect=LayerExpectation(coercive=False),
+            )
+        ]
+    )
+    report = run_scoring_corpus(corpus)
+    coercion = next(layer for layer in report.layers if layer.layer == "coercion")
+    assert coercion.false_alarm_rate == 1.0

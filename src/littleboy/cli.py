@@ -23,7 +23,13 @@ from pydantic import ValidationError
 
 from littleboy import __version__
 from littleboy.audit.report import render_audit_json, render_audit_text
-from littleboy.calibration import default_corpus, load_corpus, run_corpus
+from littleboy.calibration import (
+    default_corpus,
+    default_scoring_corpus,
+    load_corpus,
+    run_corpus,
+    run_scoring_corpus,
+)
 from littleboy.case_builder import (
     CaseBuilder,
     build_case_from_answers,
@@ -44,6 +50,8 @@ from littleboy.deliberation.report import (
     render_comparison_deliberation_text,
     render_deliberation_json,
     render_deliberation_text,
+    render_question_plan_json,
+    render_question_plan_text,
 )
 from littleboy.language import analyze_language
 from littleboy.reasoning.experiment import EthicalExperiment
@@ -166,6 +174,12 @@ def questions(
     template: str | None = typer.Option(
         None, "--template", "-t", help=f"Scenario template: {_TEMPLATE_CHOICES}."
     ),
+    minimal: bool = typer.Option(
+        False,
+        "--minimal",
+        "-m",
+        help="Ask only the questions that could change the verdict, in priority order.",
+    ),
 ) -> None:
     """Show what a case is missing and which questions to answer before judging it."""
     if output_format not in {"json", "text"}:
@@ -176,6 +190,13 @@ def questions(
 
     case = _load_case(case_path)
     builder = CaseBuilder(policy_mode)
+    if minimal:
+        plan = builder.minimal_questions(case)
+        if output_format == "json":
+            typer.echo(render_question_plan_json(plan))
+        else:
+            typer.echo(render_question_plan_text(plan))
+        return
     question_set = builder.generate_questions(case, template=tpl)
     report = builder.completeness_report(case, template=tpl)
     if output_format == "json":
@@ -417,35 +438,72 @@ def calibrate(
         exists=True,
         dir_okay=False,
         readable=True,
-        help="Path to a corpus JSON (defaults to the packaged calibration corpus).",
+        help="Path to an audit corpus JSON (defaults to the packaged corpus).",
     ),
     output_format: str = typer.Option(
         "text", "--format", "-f", help="Output format: 'json' or 'text'."
     ),
+    scope: str = typer.Option(
+        "all", "--scope", "-s", help="Which corpora to run: 'audit', 'scoring', or 'all'."
+    ),
 ) -> None:
-    """Run the adversarial calibration corpus and report miss / false-alarm rates."""
+    """Run the calibration corpora and report per-layer miss / false-alarm rates."""
     if output_format not in {"json", "text"}:
         typer.echo(f"Unknown format '{output_format}'; use 'json' or 'text'.", err=True)
         raise typer.Exit(code=2)
-    corpus = load_corpus(corpus_path) if corpus_path is not None else default_corpus()
-    report = run_corpus(corpus)
+    if scope not in {"audit", "scoring", "all"}:
+        typer.echo(f"Unknown scope '{scope}'; use 'audit', 'scoring', or 'all'.", err=True)
+        raise typer.Exit(code=2)
+
+    audit_report = None
+    scoring_report = None
+    if scope in {"audit", "all"}:
+        corpus = load_corpus(corpus_path) if corpus_path is not None else default_corpus()
+        audit_report = run_corpus(corpus)
+    if scope in {"scoring", "all"}:
+        scoring_report = run_scoring_corpus(default_scoring_corpus())
+
     if output_format == "json":
-        typer.echo(json.dumps(report.model_dump(mode="json"), indent=2, ensure_ascii=False))
+        payload: dict = {}
+        if audit_report is not None:
+            payload["audit"] = audit_report.model_dump(mode="json")
+        if scoring_report is not None:
+            payload["scoring"] = scoring_report.model_dump(mode="json")
+        typer.echo(json.dumps(payload, indent=2, ensure_ascii=False))
         return
-    typer.echo(
-        f"CALIBRATION: {report.n_passed}/{report.n_cases} entries passed   "
-        f"miss_rate={report.miss_rate:.2f}  false_alarm_rate={report.false_alarm_rate:.2f}"
-    )
-    typer.echo(f"  adversarial={report.n_adversarial}  clean={report.n_clean}")
-    for o in report.outcomes:
-        status = "PASS" if o.passed else "FAIL"
-        typer.echo(f"  [{status}] {o.id} ({o.label})")
-        if o.missing_expected:
-            typer.echo(f"      missed: {', '.join(o.missing_expected)}")
-        if o.false_alarms:
-            typer.echo(f"      false alarm: {', '.join(o.false_alarms)}")
-        if not o.stability_ok:
-            typer.echo("      stability mismatch")
+
+    if audit_report is not None:
+        r = audit_report
+        typer.echo(
+            f"CALIBRATION (audit): {r.n_passed}/{r.n_cases} entries passed   "
+            f"miss_rate={r.miss_rate:.2f}  false_alarm_rate={r.false_alarm_rate:.2f}"
+        )
+        typer.echo(f"  adversarial={r.n_adversarial}  clean={r.n_clean}")
+        for o in r.outcomes:
+            status = "PASS" if o.passed else "FAIL"
+            typer.echo(f"  [{status}] {o.id} ({o.label})")
+            if o.missing_expected:
+                typer.echo(f"      missed: {', '.join(o.missing_expected)}")
+            if o.false_alarms:
+                typer.echo(f"      false alarm: {', '.join(o.false_alarms)}")
+            if not o.stability_ok:
+                typer.echo("      stability mismatch")
+
+    if scoring_report is not None:
+        s = scoring_report
+        if audit_report is not None:
+            typer.echo("")
+        typer.echo(
+            f"CALIBRATION (scoring): verdict_accuracy={s.verdict_accuracy:.2f} "
+            f"({s.verdict_correct}/{s.verdict_labelled})"
+        )
+        for layer in s.layers:
+            typer.echo(
+                f"  {layer.layer}: miss_rate={layer.miss_rate:.2f}  "
+                f"false_alarm_rate={layer.false_alarm_rate:.2f}  (n={layer.n_labelled})"
+            )
+        for mismatch in s.verdict_mismatches:
+            typer.echo(f"  verdict mismatch: {mismatch}")
 
 
 @app.command()

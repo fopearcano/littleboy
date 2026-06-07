@@ -52,6 +52,27 @@ and a one-line `swing` summary (e.g. *"verdict can move from
 ACCEPTABLE_WITH_RESERVATIONS to ETHICALLY_SUSPICIOUS depending on the
 resolution"*).
 
+## Multi-fact value of information (v0.10)
+
+Single-fact VoI treats each unknown alone. But a verdict can survive every single
+resolution yet flip when two (or more) facts move **together**. `minimal_flip_sets`
+finds the *smallest combination* of unknowns whose joint resolution changes the
+verdict:
+
+- probes expose their resolutions as *transforms* (`case -> case`) over distinct
+  fields, so resolutions of different unknowns **compose**;
+- the search tries combinations of increasing size (1, 2, … up to a small bound)
+  and, for each, the cartesian product of the chosen unknowns' resolutions,
+  re-evaluating each joint counterfactual;
+- it **stops at the first size that yields a flip**, so every returned set is
+  *minimal*: no proper subset flips the verdict on its own. A single pivotal fact
+  yields a size-1 set; a genuinely interacting pair yields a size-2 set.
+
+`smallest_flip_size` is the size of the smallest sufficient set, or `None` when no
+combination up to the bound changes the verdict (the verdict is *robust to
+combinations*). This drives the minimal-sufficient-case planner
+(see [`MINIMAL_SUFFICIENT_CASE.md`](MINIMAL_SUFFICIENT_CASE.md)).
+
 ## Comparisons
 
 For a comparison, the same probes are applied to each option's case; the comparison
@@ -73,11 +94,13 @@ option wins, so the ranking is reported as not robust.
 
 ## Limitations
 
-- VoI is computed over a **finite, documented set of probes**, and treats each
-  unknown **independently** — it does not search for combinations of facts that
-  jointly change the verdict.
+- VoI is computed over a **finite, documented set of probes**. Single-fact VoI
+  ranks each unknown alone; multi-fact search finds minimal *combinations* up to a
+  small size bound (default 3), but will not find a sufficient set larger than the
+  bound, nor one involving an unknown that has no probe.
 - The resolutions are deliberate counterfactuals, not a calibrated probability
   distribution; the value is a decision-relevance score, not expected information
   gain in bits.
-- Probing re-runs the evaluator many times; it is intended for one case (or a
+- Probing re-runs the evaluator many times (and the multi-fact search re-runs it
+  over subsets and their joint resolutions); it is intended for one case (or a
   small comparison set) at a time, not bulk scoring.

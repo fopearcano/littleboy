@@ -1,0 +1,38 @@
+{
+  "n_cases": 11,
+  "verdict_labelled": 11,
+  "verdict_correct": 11,
+  "verdict_accuracy": 1.0,
+  "layers": [
+    {
+      "layer": "coercion",
+      "n_labelled": 11,
+      "true_positive": 7,
+      "false_positive": 0,
+      "false_negative": 0,
+      "true_negative": 4,
+      "miss_rate": 0.0,
+      "false_alarm_rate": 0.0
+    },
+    {
+      "layer": "data_sufficiency",
+      "n_labelled": 11,
+      "true_positive": 8,
+      "false_positive": 0,
+      "false_negative": 0,
+      "true_negative": 3,
+      "miss_rate": 0.0,
+      "false_alarm_rate": 0.0
+    },
+    {
+      "layer": "temporal",
+      "n_labelled": 3,
+      "true_positive": 1,
+      "false_positive": 0,
+      "false_negative": 0,
+      "true_negative": 2,
+      "miss_rate": 0.0,
+      "false_alarm_rate": 0.0
+    }
+  ]
+}

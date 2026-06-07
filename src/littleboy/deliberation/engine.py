@@ -13,16 +13,23 @@ from littleboy.comparison.engine import ComparisonEngine
 from littleboy.comparison.models import ActionComparisonSet
 from littleboy.core.evaluator import EthicalEvaluator
 from littleboy.core.models import ActionCase
+from littleboy.deliberation.minimal_case import plan_minimal_questions
 from littleboy.deliberation.models import (
     ComparisonDeliberationReport,
     DeliberationReport,
+    MinimalQuestionPlan,
 )
 from littleboy.deliberation.narrate import narrate_comparison, narrate_evaluation
 from littleboy.deliberation.voi import (
     comparison_value_of_information,
+    minimal_flip_sets,
     value_of_information,
 )
 from littleboy.rules.policy import PolicyMode, PolicyProfile
+
+# How many unknowns to combine when searching for a verdict flip (kept small: the
+# search is exhaustive over subsets and their joint resolutions).
+_MAX_FLIP_SET_SIZE = 3
 
 
 class Deliberator:
@@ -31,16 +38,20 @@ class Deliberator:
     def __init__(self, policy: PolicyMode | PolicyProfile | str | None = None) -> None:
         self.policy = policy
 
-    def deliberate(self, case: ActionCase) -> DeliberationReport:
-        """Narrate a single case's verdict and rank its unknowns by value of information."""
-        report = EthicalEvaluator(self.policy).evaluate(case)
+    def _probe_evaluator(self) -> EthicalEvaluator:
         # A lighter evaluator for the many counterfactual re-runs (no completeness pass).
-        probe_evaluator = EthicalEvaluator(self.policy, include_completeness=False)
+        return EthicalEvaluator(self.policy, include_completeness=False)
+
+    def deliberate(self, case: ActionCase) -> DeliberationReport:
+        """Narrate a verdict, rank unknowns by value of information, and find minimal flip sets."""
+        report = EthicalEvaluator(self.policy).evaluate(case)
+        probe_evaluator = self._probe_evaluator()
         ivs = value_of_information(case, probe_evaluator)
+        flip_sets, smallest = minimal_flip_sets(case, probe_evaluator, max_size=_MAX_FLIP_SET_SIZE)
 
         headline, steps, decisive = narrate_evaluation(report)
         most = ivs[0] if ivs else None
-        stable = not (most is not None and most.changes_verdict)
+        stable = smallest is None
 
         notes = [
             "value of information is measured by re-running the deterministic evaluator under "
@@ -52,8 +63,13 @@ class Deliberator:
             )
         elif stable:
             notes.append(
-                "no single resolvable unknown would change the verdict "
-                "(but several lower confidence)"
+                "no resolvable combination of unknowns (searched up to "
+                f"{_MAX_FLIP_SET_SIZE}) would change the verdict (some lower confidence)"
+            )
+        elif smallest is not None and smallest >= 2:
+            notes.append(
+                "no single unknown changes the verdict; the smallest sufficient combination has "
+                f"{smallest} facts"
             )
 
         return DeliberationReport(
@@ -66,8 +82,16 @@ class Deliberator:
             information_values=ivs,
             most_informative=most,
             stable_under_information=stable,
+            minimal_flip_sets=flip_sets,
+            smallest_flip_size=smallest,
+            verdict_robust_to_combinations=stable,
+            searched_max_size=_MAX_FLIP_SET_SIZE,
             notes=notes,
         )
+
+    def question_plan(self, case: ActionCase) -> MinimalQuestionPlan:
+        """Return only the questions that could change the verdict, in priority order."""
+        return plan_minimal_questions(case, self._probe_evaluator(), max_size=_MAX_FLIP_SET_SIZE)
 
     def deliberate_comparison(
         self, comparison_set: ActionComparisonSet

@@ -71,9 +71,43 @@ LITTLEBOY_UPDATE_GOLDEN=1 pytest tests/test_calibration.py::test_golden_regressi
    discovered, so the metrics keep pace with the threats.
 
 ```bash
-littleboy calibrate                         # run the packaged corpus
+littleboy calibrate                         # run both corpora (audit + scoring)
+littleboy calibrate --scope audit           # just the audit corpus
 littleboy calibrate my_corpus.json --format json
 ```
+
+## Scoring-layer calibration (v0.10)
+
+The audit corpus measures whether the *audit* flags the right cases. v0.10 extends
+the same discipline to the underlying **scoring layers**, so every layer — not only
+the audit — has measured miss and false-alarm rates. A `ScoringCorpus` of labelled
+cases is run through the full evaluator, and each layer is treated as a transparent
+binary detector over the report:
+
+| Layer | Detector (predicts "positive" iff …) | Label |
+|-------|--------------------------------------|-------|
+| **coercion** | `coercion_score >= policy.coercion_moderate` | `coercive` |
+| **data_sufficiency** | verdict is not `INSUFFICIENT_DATA` | `adequate_data` |
+| **temporal** | temporal projection has data and trend is `rising` | `rising_coercion` |
+
+For each labelled layer, a labelled-positive the detector misses is a **miss**, and
+a labelled-negative it flags is a **false alarm**, giving a per-layer `miss_rate`
+and `false_alarm_rate`. The end-to-end `verdict` label gives a **verdict accuracy**.
+The packaged scoring corpus runs at miss 0.0 / false-alarm 0.0 on every layer and
+verdict accuracy 1.0 — pinned by its own golden file
+(`tests/golden/scoring_corpus.golden.json`). `littleboy calibrate --scope scoring`
+runs it:
+
+```text
+CALIBRATION (scoring): verdict_accuracy=1.00 (11/11)
+  coercion: miss_rate=0.00  false_alarm_rate=0.00  (n=11)
+  data_sufficiency: miss_rate=0.00  false_alarm_rate=0.00  (n=11)
+  temporal: miss_rate=0.00  false_alarm_rate=0.00  (n=3)
+```
+
+Changing a coercion or temporal threshold now moves a measurable number: a wrong
+change shows up as a miss or false alarm on the relevant layer, or as a verdict
+mismatch, and fails the golden test.
 
 ## Limitations
 
@@ -82,6 +116,8 @@ littleboy calibrate my_corpus.json --format json
   maintainers' judgement of what *should* fire.
 - Golden-file pinning catches drift but does not *validate* correctness — a wrong
   expectation, once frozen, stays wrong until a human revisits it.
-- Calibration measures the **audit's** behaviour; it does not calibrate the
-  coercion, evidence, or temporal heuristics, which would need their own labelled
-  corpora.
+- The scoring-layer detectors are deliberately coarse (a coercion band, the
+  data gate, a rising trend); they measure whether each layer behaves as labelled,
+  not whether the underlying heuristic is *well-calibrated against the world*.
+- Both corpora are small; expanding them (more adversarial patterns, more clean
+  and labelled cases) is the main lever for making the rates meaningful.

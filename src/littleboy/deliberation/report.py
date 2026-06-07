@@ -7,6 +7,7 @@ import json
 from littleboy.deliberation.models import (
     ComparisonDeliberationReport,
     DeliberationReport,
+    MinimalQuestionPlan,
 )
 
 
@@ -61,7 +62,58 @@ def render_deliberation_text(report: DeliberationReport) -> str:
                 for r in report.most_informative.resolutions
             ],
         )
+
+    lines.append("")
+    if report.smallest_flip_size is None:
+        lines.append(
+            f"Smallest set of facts that would change the verdict: none "
+            f"(robust to combinations up to {report.searched_max_size})"
+        )
+    else:
+        lines.append(
+            f"Smallest set of facts that would change the verdict: {report.smallest_flip_size}"
+        )
+    _section(
+        "Minimal flip sets",
+        [
+            f"{{{', '.join(fs.fields)}}} -> {fs.resulting_verdict.value}  "
+            f"[{'; '.join(f'{r.field}: {r.label}' for r in fs.resolution)}]"
+            for fs in report.minimal_flip_sets
+        ],
+    )
     _section("Notes", report.notes)
+    return "\n".join(lines)
+
+
+def render_question_plan_json(report: MinimalQuestionPlan, *, indent: int = 2) -> str:
+    return json.dumps(report.model_dump(mode="json"), indent=indent, ensure_ascii=False)
+
+
+def render_question_plan_text(report: MinimalQuestionPlan) -> str:
+    """Render a minimal-sufficient question plan as a readable text block."""
+    lines: list[str] = ["MINIMAL QUESTION PLAN (only what could change the verdict)"]
+    if report.verdict is not None:
+        lines.append(
+            f"  current verdict={report.verdict.value}  confidence={report.confidence:.2f}  "
+            f"verdict_robust={report.verdict_robust}"
+        )
+    if report.smallest_flip_size is not None:
+        lines.append(f"  smallest sufficient set: {report.smallest_flip_size} question(s)")
+
+    lines.append("")
+    lines.append("Questions:")
+    if not report.questions:
+        lines.append("  (none — no answerable question would change the verdict)")
+    for q in report.questions:
+        scope = "alone changes the verdict" if q.alone_changes_verdict else "in a minimal set"
+        lines.append(f"  [{q.priority}/{q.category}] {q.question}  (value {q.value:.2f}; {scope})")
+        lines.append(f"      why it matters: {q.why_it_matters}")
+
+    if report.notes:
+        lines.append("")
+        lines.append("Notes:")
+        for n in report.notes:
+            lines.append(f"  - {n}")
     return "\n".join(lines)
 
 

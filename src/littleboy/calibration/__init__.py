@@ -21,6 +21,17 @@ from littleboy.calibration.models import (
     CalibrationReport,
     CaseDigest,
     CorpusEntry,
+    LayerExpectation,
+    LayerMetrics,
+    ScoringCalibrationReport,
+    ScoringCorpus,
+    ScoringCorpusEntry,
+)
+from littleboy.calibration.scoring import (
+    default_scoring_corpus,
+    load_scoring_corpus,
+    run_scoring_corpus,
+    scoring_golden_payload,
 )
 
 __all__ = [
@@ -29,10 +40,19 @@ __all__ = [
     "CalibrationReport",
     "CaseDigest",
     "CorpusEntry",
+    "LayerExpectation",
+    "LayerMetrics",
+    "ScoringCalibrationReport",
+    "ScoringCorpus",
+    "ScoringCorpusEntry",
     "aggregate",
     "default_corpus",
+    "default_scoring_corpus",
     "golden_payload",
     "load_corpus",
+    "load_scoring_corpus",
     "run_corpus",
+    "run_scoring_corpus",
     "score_entry",
+    "scoring_golden_payload",
 ]

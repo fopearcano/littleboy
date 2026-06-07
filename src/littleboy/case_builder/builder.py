@@ -79,6 +79,19 @@ class CaseBuilder:
         """
         return AdversarialStressTester(self.policy).audit_case(case)
 
+    def minimal_questions(self, case: ActionCase):
+        """Ask only the questions that could change the verdict, in priority order.
+
+        Unlike :meth:`generate_questions` (which asks for everything missing), this
+        uses single- and multi-fact value of information to keep only the unknowns
+        whose resolution could actually flip the verdict, ordered by priority.
+        Returns a :class:`~littleboy.deliberation.models.MinimalQuestionPlan`.
+        Imported lazily to avoid an import cycle with the evaluator.
+        """
+        from littleboy.deliberation.engine import Deliberator
+
+        return Deliberator(self.policy).question_plan(case)
+
     def apply_answer(self, case: ActionCase, question_id: str, answer: object) -> ActionCase:
         """Return a copy of ``case`` with one simple answer applied.
 

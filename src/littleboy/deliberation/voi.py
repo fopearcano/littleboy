@@ -1,19 +1,25 @@
-"""Value of information: which single unknown would most change the verdict?
+"""Value of information: which unknowns would change the verdict?
 
-The method is deliberately simple and fully auditable: for each thing LittleBoy
-does not currently know, we *resolve it to each plausible value*, re-run the
-**deterministic** evaluator, and measure how far the verdict and confidence move.
-The unknown whose resolution moves the outcome most has the highest value of
-information. No probabilities are invented and no model is consulted; every number
-traces to an explicit counterfactual re-evaluation.
+Two questions, both answered by re-running the **deterministic** evaluator under
+explicit counterfactual resolutions (no probabilities invented):
 
-A "probe" is one unknown plus the concrete resolutions to try. Probes only fire
-when the fact is genuinely unknown, so a fully-specified case yields no probes
-(its verdict is already information-stable).
+1. *Single-fact* VoI (v0.9): for each unknown on its own, how far does resolving
+   it move the verdict and confidence?
+2. *Multi-fact* VoI (v0.10): what is the **smallest combination** of unknowns
+   that, jointly resolved, would change the verdict? Some verdicts survive every
+   single resolution yet flip when two facts move together.
+
+A "probe" is one unknown plus the concrete resolutions to try, each expressed as
+a *transform* ``case -> case`` so that resolutions of different unknowns can be
+**composed** to test combinations. Probes only fire when the fact is genuinely
+unknown, so a fully-specified case yields no probes (and is verdict-robust).
 """
 
 from __future__ import annotations
 
+from collections.abc import Callable
+from dataclasses import dataclass
+from itertools import combinations, product
 from typing import TYPE_CHECKING
 
 from littleboy.core.enums import (
@@ -32,7 +38,9 @@ from littleboy.core.models import (
 from littleboy.deliberation.models import (
     ComparisonInformationValue,
     ComparisonResolutionOutcome,
+    FactResolution,
     InformationValue,
+    MinimalFlipSet,
     ResolutionOutcome,
 )
 from littleboy.temporal.models import ConsequenceEstimate, ConsequenceSet
@@ -61,141 +69,100 @@ def verdict_distance(base: Verdict, other: Verdict) -> float:
 
 
 # =============================================================================
-# Probe construction
+# Probe construction (transform-based, so resolutions can be composed)
 # =============================================================================
 
-# A probe: (field, question, why_it_matters, axioms, [(label, mutated_case), ...]).
-_Probe = tuple[str, str, str, list[str], list[tuple[str, ActionCase]]]
+_Transform = Callable[[ActionCase], ActionCase]
 
 
-def _with_coercion(case: ActionCase, **updates) -> ActionCase:
-    cp = case.coercion_profile.model_copy(update=updates)
-    return case.model_copy(update={"coercion_profile": cp})
+@dataclass(frozen=True)
+class ProbeSpec:
+    """One unknown plus the concrete resolutions to try, each a ``case -> case`` transform."""
+
+    field: str
+    question: str
+    why: str
+    axioms: tuple[str, ...]
+    resolutions: tuple[tuple[str, _Transform], ...]
 
 
-def _with_consent(case: ActionCase, status: ConsentStatus) -> ActionCase:
+def _set_agent_type(case: ActionCase, agent_type: AgentType) -> ActionCase:
+    base = case.acting_agent or MoralAgent(name="acting agent")
+    return case.model_copy(
+        update={"acting_agent": base.model_copy(update={"agent_type": agent_type})}
+    )
+
+
+def _set_consent(case: ActionCase, status: ConsentStatus) -> ActionCase:
     if case.consent_profile is not None:
-        cp = case.consent_profile.model_copy(update={"status": status})
-        return case.model_copy(update={"consent_profile": cp})
+        return case.model_copy(
+            update={"consent_profile": case.consent_profile.model_copy(update={"status": status})}
+        )
     return case.model_copy(update={"consent": status})
 
 
-def _probe_agent_type(case: ActionCase) -> _Probe | None:
-    if case.effective_agent_type() is not None:
-        return None
-    base = case.acting_agent or MoralAgent(name="acting agent")
-    muts = [
-        (
-            "acting agent is Type II (duty-bearing)",
-            case.model_copy(
-                update={"acting_agent": base.model_copy(update={"agent_type": AgentType.TYPE_II})}
-            ),
-        ),
-        (
-            "acting agent is Type I (cannot bear duties)",
-            case.model_copy(
-                update={"acting_agent": base.model_copy(update={"agent_type": AgentType.TYPE_I})}
-            ),
-        ),
-    ]
-    return (
-        "acting_agent.agent_type",
-        "Is the acting agent a Type II (duty-bearing) agent?",
-        "Duties bind only Type II agents (A4); the type changes whether the action is morally "
-        "evaluable at all.",
-        ["A4"],
-        muts,
-    )
+def _set_reversibility(case: ActionCase, value: float) -> ActionCase:
+    cp = case.coercion_profile.model_copy(update={"reversibility": value})
+    return case.model_copy(update={"coercion_profile": cp})
 
 
-def _probe_consent(case: ActionCase) -> _Probe | None:
-    if case.effective_consent_status() != ConsentStatus.UNKNOWN:
-        return None
-    muts = [
-        ("consent = GIVEN", _with_consent(case, ConsentStatus.GIVEN)),
-        ("consent = REFUSED", _with_consent(case, ConsentStatus.REFUSED)),
-    ]
-    return (
-        "consent",
-        "Did the affected agent give, or refuse, valid consent?",
-        "Consent bears directly on coercion (A0/A2): refusal makes the action presumptively "
-        "coercive, while valid consent supports it.",
-        ["A0", "A2"],
-        muts,
-    )
+def _set_alternatives(case: ActionCase, alts: list[AlternativeAction]) -> ActionCase:
+    return case.model_copy(update={"available_alternatives": alts})
 
 
-def _probe_reversibility(case: ActionCase) -> _Probe | None:
-    cp = case.coercion_profile
-    if cp is None or cp.reversibility_is_known:
-        return None
-    muts = [
-        ("coercion is fully reversible (1.0)", _with_coercion(case, reversibility=1.0)),
-        ("coercion is irreversible (0.0)", _with_coercion(case, reversibility=0.0)),
-    ]
-    return (
-        "coercion.reversibility",
-        "Is the coercion reversible, and at what cost?",
-        "Irreversibility raises the evidential bar (A3/A5) and, on weak data, can block approval.",
-        ["A3", "A5"],
-        muts,
-    )
+def _set_data_quality(case: ActionCase, dq: DataQualityProfile) -> ActionCase:
+    return case.model_copy(update={"data_quality": dq})
 
 
-def _probe_alternatives(case: ActionCase) -> _Probe | None:
-    if case.available_alternatives is not None:
-        return None
-    feasible = AlternativeAction(
-        title="a feasible, clearly less-coercive option",
-        estimated_coercion_score=0.05,
-        feasibility=1.0,
-    )
-    muts = [
-        (
-            "a feasible less-coercive alternative exists",
-            case.model_copy(update={"available_alternatives": [feasible]}),
-        ),
-        (
-            "no less-coercive alternative exists",
-            case.model_copy(update={"available_alternatives": []}),
-        ),
-    ]
-    return (
-        "available_alternatives",
-        "Was there a feasible, less-coercive alternative?",
-        "Axiom 2 requires the least-coercive feasible path; a feasible less-coercive option "
-        "downgrades the verdict.",
-        ["A2"],
-        muts,
-    )
+def _set_consequences(case: ActionCase, cs: ConsequenceSet) -> ActionCase:
+    return case.model_copy(update={"consequences": cs})
 
 
-def _probe_data_quality(case: ActionCase) -> _Probe | None:
-    if case.data_quality is not None or case.evidence is not None:
-        return None
-    good = DataQualityProfile(
-        completeness=0.85,
-        source_reliability=0.85,
-        specificity=0.85,
-        recency=0.85,
-        corroboration=0.8,
-        ambiguity=0.15,
-    )
-    muts = [
-        (
-            "the information is complete, reliable, and corroborated",
-            case.model_copy(update={"data_quality": good}),
+def _set_justification(case: ActionCase, **updates) -> ActionCase:
+    return case.model_copy(update={"justification": case.justification.model_copy(update=updates)})
+
+
+_GOOD_DATA = DataQualityProfile(
+    completeness=0.85,
+    source_reliability=0.85,
+    specificity=0.85,
+    recency=0.85,
+    corroboration=0.8,
+    ambiguity=0.15,
+)
+_FEASIBLE_ALT = AlternativeAction(
+    title="a feasible, clearly less-coercive option",
+    estimated_coercion_score=0.05,
+    feasibility=1.0,
+)
+_WORSE_FUTURE = ConsequenceSet(
+    consequences=[
+        ConsequenceEstimate(
+            description="coercion grows and entrenches over the long term",
+            horizon=TimeHorizon.LONG_TERM,
+            coercion_delta=0.7,
+            severity=0.7,
+            probability=0.8,
+            confidence=0.7,
+            reversibility=0.3,
+            evidence_quality=0.6,
         )
     ]
-    return (
-        "data_quality",
-        "Is the underlying information complete, reliable, and corroborated?",
-        "A confident verdict requires an adequate epistemic basis (A5); missing data can force "
-        "INSUFFICIENT_DATA.",
-        ["A5"],
-        muts,
-    )
-
+)
+_BENIGN_FUTURE = ConsequenceSet(
+    consequences=[
+        ConsequenceEstimate(
+            description="the coercion winds down on its own",
+            horizon=TimeHorizon.LONG_TERM,
+            coercion_delta=-0.3,
+            severity=0.3,
+            probability=0.7,
+            confidence=0.7,
+            reversibility=0.9,
+            evidence_quality=0.6,
+        )
+    ]
+)
 
 _JUSTIFICATION_CONDITIONS = (
     "responds_to_existing_or_imminent_coercion",
@@ -207,109 +174,163 @@ _JUSTIFICATION_CONDITIONS = (
 )
 
 
-def _probe_justification(case: ActionCase) -> _Probe | None:
+def build_probe_specs(case: ActionCase) -> list[ProbeSpec]:
+    """Return the applicable counterfactual probes for a case's genuine unknowns."""
+    specs: list[ProbeSpec] = []
+
+    if case.effective_agent_type() is None:
+        specs.append(
+            ProbeSpec(
+                "acting_agent.agent_type",
+                "Is the acting agent a Type II (duty-bearing) agent?",
+                "Duties bind only Type II agents (A4); the type changes whether the action is "
+                "morally evaluable at all.",
+                ("A4",),
+                (
+                    (
+                        "acting agent is Type II (duty-bearing)",
+                        lambda c: _set_agent_type(c, AgentType.TYPE_II),
+                    ),
+                    (
+                        "acting agent is Type I (cannot bear duties)",
+                        lambda c: _set_agent_type(c, AgentType.TYPE_I),
+                    ),
+                ),
+            )
+        )
+
+    if case.effective_consent_status() == ConsentStatus.UNKNOWN:
+        specs.append(
+            ProbeSpec(
+                "consent",
+                "Did the affected agent give, or refuse, valid consent?",
+                "Consent bears directly on coercion (A0/A2): refusal makes the action "
+                "presumptively coercive, while valid consent supports it.",
+                ("A0", "A2"),
+                (
+                    ("consent = GIVEN", lambda c: _set_consent(c, ConsentStatus.GIVEN)),
+                    ("consent = REFUSED", lambda c: _set_consent(c, ConsentStatus.REFUSED)),
+                ),
+            )
+        )
+
+    cp = case.coercion_profile
+    if cp is not None and not cp.reversibility_is_known:
+        specs.append(
+            ProbeSpec(
+                "coercion.reversibility",
+                "Is the coercion reversible, and at what cost?",
+                "Irreversibility raises the evidential bar (A3/A5) and, on weak data, can block "
+                "approval.",
+                ("A3", "A5"),
+                (
+                    ("coercion is fully reversible (1.0)", lambda c: _set_reversibility(c, 1.0)),
+                    ("coercion is irreversible (0.0)", lambda c: _set_reversibility(c, 0.0)),
+                ),
+            )
+        )
+
+    if case.available_alternatives is None:
+        specs.append(
+            ProbeSpec(
+                "available_alternatives",
+                "Was there a feasible, less-coercive alternative?",
+                "Axiom 2 requires the least-coercive feasible path; a feasible less-coercive "
+                "option downgrades the verdict.",
+                ("A2",),
+                (
+                    (
+                        "a feasible less-coercive alternative exists",
+                        lambda c: _set_alternatives(c, [_FEASIBLE_ALT]),
+                    ),
+                    ("no less-coercive alternative exists", lambda c: _set_alternatives(c, [])),
+                ),
+            )
+        )
+
+    if case.data_quality is None and case.evidence is None:
+        specs.append(
+            ProbeSpec(
+                "data_quality",
+                "Is the underlying information complete, reliable, and corroborated?",
+                "A confident verdict requires an adequate epistemic basis (A5); missing data can "
+                "force INSUFFICIENT_DATA.",
+                ("A5",),
+                (
+                    (
+                        "the information is complete, reliable, and corroborated",
+                        lambda c: _set_data_quality(c, _GOOD_DATA),
+                    ),
+                ),
+            )
+        )
+
     j = case.justification
-    if j is None:
-        return None
-    unresolved = [c for c in _JUSTIFICATION_CONDITIONS if getattr(j, c).is_unresolved]
-    if not unresolved:
-        return None
-    confirmed_updates = {c: EpistemicStatus.CONFIRMED for c in _JUSTIFICATION_CONDITIONS}
-    if j.expected_total_coercion_reduction is None or j.expected_total_coercion_reduction <= 0:
-        confirmed_updates["expected_total_coercion_reduction"] = 0.6
-    confirmed = j.model_copy(update=confirmed_updates)
-    refuted = j.model_copy(
-        update={
+    if j is not None and any(getattr(j, c).is_unresolved for c in _JUSTIFICATION_CONDITIONS):
+        confirmed = {c: EpistemicStatus.CONFIRMED for c in _JUSTIFICATION_CONDITIONS}
+        if j.expected_total_coercion_reduction is None or j.expected_total_coercion_reduction <= 0:
+            confirmed["expected_total_coercion_reduction"] = 0.6
+        refuted = {
             "necessity": EpistemicStatus.DISPUTED,
             "no_less_coercive_alternative_available": EpistemicStatus.DISPUTED,
             "expected_total_coercion_reduction": -0.2,
         }
-    )
-    muts = [
-        (
-            "the Axiom 3 justification is fully established",
-            case.model_copy(update={"justification": confirmed}),
-        ),
-        ("the Axiom 3 justification fails", case.model_copy(update={"justification": refuted})),
-    ]
-    return (
-        "justification",
-        "Are all six Axiom 3 conditions for justified coercion established?",
-        "Coercion is justified only if every A3 condition holds; resolving them can flip a "
-        "coercive action between acceptable and not.",
-        ["A3"],
-        muts,
-    )
-
-
-def _probe_consequences(case: ActionCase) -> _Probe | None:
-    if case.coercion_profile is None:
-        return None
-    if case.consequences is not None or case.temporal_profile is not None:
-        return None
-    worse = ConsequenceSet(
-        consequences=[
-            ConsequenceEstimate(
-                description="coercion grows and entrenches over the long term",
-                horizon=TimeHorizon.LONG_TERM,
-                coercion_delta=0.7,
-                severity=0.7,
-                probability=0.8,
-                confidence=0.7,
-                reversibility=0.3,
-                evidence_quality=0.6,
+        specs.append(
+            ProbeSpec(
+                "justification",
+                "Are all six Axiom 3 conditions for justified coercion established?",
+                "Coercion is justified only if every A3 condition holds; resolving them can flip "
+                "a coercive action between acceptable and not.",
+                ("A3",),
+                (
+                    (
+                        "the Axiom 3 justification is fully established",
+                        lambda c: _set_justification(c, **confirmed),
+                    ),
+                    ("the Axiom 3 justification fails", lambda c: _set_justification(c, **refuted)),
+                ),
             )
-        ]
-    )
-    better = ConsequenceSet(
-        consequences=[
-            ConsequenceEstimate(
-                description="the coercion winds down on its own",
-                horizon=TimeHorizon.LONG_TERM,
-                coercion_delta=-0.3,
-                severity=0.3,
-                probability=0.7,
-                confidence=0.7,
-                reversibility=0.9,
-                evidence_quality=0.6,
+        )
+
+    if cp is not None and case.consequences is None and case.temporal_profile is None:
+        specs.append(
+            ProbeSpec(
+                "consequences",
+                "What are the medium and long-term consequences?",
+                "An action can look acceptable now yet accumulate hidden, delayed, or cumulative "
+                "coercion later (temporal instability).",
+                ("A2",),
+                (
+                    (
+                        "long-term consequences are worse than described",
+                        lambda c: _set_consequences(c, _WORSE_FUTURE),
+                    ),
+                    (
+                        "long-term consequences are benign",
+                        lambda c: _set_consequences(c, _BENIGN_FUTURE),
+                    ),
+                ),
             )
-        ]
-    )
-    muts = [
-        (
-            "long-term consequences are worse than described",
-            case.model_copy(update={"consequences": worse}),
-        ),
-        ("long-term consequences are benign", case.model_copy(update={"consequences": better})),
-    ]
-    return (
-        "consequences",
-        "What are the medium and long-term consequences?",
-        "An action can look acceptable now yet accumulate hidden, delayed, or cumulative "
-        "coercion later (temporal instability).",
-        ["A2"],
-        muts,
-    )
+        )
+
+    return specs
 
 
-_PROBE_BUILDERS = (
-    _probe_agent_type,
-    _probe_consent,
-    _probe_reversibility,
-    _probe_alternatives,
-    _probe_data_quality,
-    _probe_justification,
-    _probe_consequences,
-)
+# A probe tuple, kept for callers that want pre-built mutated cases.
+_Probe = tuple[str, str, str, list[str], list[tuple[str, ActionCase]]]
 
 
 def build_probes(case: ActionCase) -> list[_Probe]:
-    """Return the applicable counterfactual probes for a case's genuine unknowns."""
-    return [p for builder in _PROBE_BUILDERS if (p := builder(case)) is not None]
+    """Return probes as ``(field, question, why, axioms, [(label, mutated_case), ...])``."""
+    out: list[_Probe] = []
+    for spec in build_probe_specs(case):
+        muts = [(label, transform(case)) for label, transform in spec.resolutions]
+        out.append((spec.field, spec.question, spec.why, list(spec.axioms), muts))
+    return out
 
 
 # =============================================================================
-# Value-of-information computation
+# Single-fact value of information
 # =============================================================================
 
 
@@ -324,16 +345,16 @@ def _swing_summary(base_verdict: Verdict, resolutions: list[ResolutionOutcome]) 
 
 
 def value_of_information(case: ActionCase, evaluator: EthicalEvaluator) -> list[InformationValue]:
-    """Rank the case's unknowns by how much resolving each would change the verdict."""
+    """Rank the case's unknowns by how much resolving each *alone* would change the verdict."""
     base = evaluator.evaluate(case)
     out: list[InformationValue] = []
-    for field, question, why, axioms, muts in build_probes(case):
+    for spec in build_probe_specs(case):
         resolutions: list[ResolutionOutcome] = []
         max_vdist = 0.0
         max_cdist = 0.0
         changes = False
-        for label, mcase in muts:
-            r = evaluator.evaluate(mcase)
+        for label, transform in spec.resolutions:
+            r = evaluator.evaluate(transform(case))
             vd = verdict_distance(base.verdict, r.verdict)
             cd = abs(r.confidence - base.confidence)
             changed = r.verdict != base.verdict
@@ -351,18 +372,80 @@ def value_of_information(case: ActionCase, evaluator: EthicalEvaluator) -> list[
         value = round(min(1.0, 0.7 * max_vdist + 0.3 * max_cdist), 4)
         out.append(
             InformationValue(
-                field=field,
-                question=question,
-                why_it_matters=why,
+                field=spec.field,
+                question=spec.question,
+                why_it_matters=spec.why,
                 value=value,
                 changes_verdict=changes,
                 swing=_swing_summary(base.verdict, resolutions),
                 resolutions=resolutions,
-                related_axioms=axioms,
+                related_axioms=list(spec.axioms),
             )
         )
     out.sort(key=lambda iv: (iv.value, iv.changes_verdict), reverse=True)
     return out
+
+
+# =============================================================================
+# Multi-fact value of information: the smallest combination that flips the verdict
+# =============================================================================
+
+
+def minimal_flip_sets(
+    case: ActionCase, evaluator: EthicalEvaluator, *, max_size: int = 3
+) -> tuple[list[MinimalFlipSet], int | None]:
+    """Find the smallest combination(s) of unknowns whose joint resolution flips the verdict.
+
+    Returns ``(flip_sets, smallest_size)``. Searches combinations of increasing size and stops
+    at the first size that yields any flip, so every returned set is *minimal* (no proper subset
+    flips the verdict). ``smallest_size`` is ``None`` when no combination up to ``max_size`` flips.
+    """
+    base_verdict = evaluator.evaluate(case).verdict
+    specs = build_probe_specs(case)
+    if not specs:
+        return [], None
+
+    upper = min(max_size, len(specs))
+    for k in range(1, upper + 1):
+        found: list[MinimalFlipSet] = []
+        for combo in combinations(range(len(specs)), k):
+            best: tuple[float, Verdict, float, tuple] | None = None
+            for choice in product(*(specs[i].resolutions for i in combo)):
+                mcase = case
+                for _label, transform in choice:
+                    mcase = transform(mcase)
+                result = evaluator.evaluate(mcase)
+                if result.verdict != base_verdict:
+                    dist = verdict_distance(base_verdict, result.verdict)
+                    if best is None or dist > best[0]:
+                        best = (dist, result.verdict, result.confidence, choice)
+            if best is not None:
+                dist, verdict, _confidence, choice = best
+                resolution = [
+                    FactResolution(
+                        field=specs[i].field,
+                        question=specs[i].question,
+                        label=label,
+                    )
+                    for i, (label, _t) in zip(combo, choice, strict=True)
+                ]
+                found.append(
+                    MinimalFlipSet(
+                        fields=[specs[i].field for i in combo],
+                        size=k,
+                        resolution=resolution,
+                        resulting_verdict=verdict,
+                        verdict_distance=round(dist, 4),
+                        note=(
+                            f"jointly resolving {', '.join(specs[i].field for i in combo)} "
+                            f"can move the verdict to {verdict.value}"
+                        ),
+                    )
+                )
+        if found:
+            found.sort(key=lambda fs: fs.verdict_distance, reverse=True)
+            return found, k
+    return [], None
 
 
 # =============================================================================

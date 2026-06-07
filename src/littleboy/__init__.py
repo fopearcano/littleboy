@@ -28,8 +28,12 @@ from littleboy.calibration import (
     AuditCorpus,
     CalibrationReport,
     CorpusEntry,
+    ScoringCalibrationReport,
+    ScoringCorpus,
     default_corpus,
+    default_scoring_corpus,
     run_corpus,
+    run_scoring_corpus,
 )
 from littleboy.case_builder import (
     CaseBuilder,
@@ -104,7 +108,11 @@ from littleboy.deliberation import (
     DeliberationReport,
     Deliberator,
     InformationValue,
+    MinimalFlipSet,
+    MinimalQuestionPlan,
     comparison_value_of_information,
+    minimal_flip_sets,
+    plan_minimal_questions,
     value_of_information,
 )
 from littleboy.language import (
@@ -146,7 +154,7 @@ from littleboy.temporal import (
     score_reversibility,
 )
 
-__version__ = "0.9.0"
+__version__ = "0.10.0"
 
 __all__ = [
     "AuditCorpus",
@@ -156,9 +164,17 @@ __all__ = [
     "DeliberationReport",
     "Deliberator",
     "InformationValue",
+    "MinimalFlipSet",
+    "MinimalQuestionPlan",
+    "ScoringCalibrationReport",
+    "ScoringCorpus",
     "comparison_value_of_information",
     "default_corpus",
+    "default_scoring_corpus",
+    "minimal_flip_sets",
+    "plan_minimal_questions",
     "run_corpus",
+    "run_scoring_corpus",
     "value_of_information",
     "BUILTIN_RULES",
     "ActionCase",

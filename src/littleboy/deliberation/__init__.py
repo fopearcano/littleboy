@@ -13,13 +13,18 @@ Two capabilities built *on top of* the evaluator and comparison engine:
 from __future__ import annotations
 
 from littleboy.deliberation.engine import Deliberator
+from littleboy.deliberation.minimal_case import plan_minimal_questions
 from littleboy.deliberation.models import (
     ComparisonDeliberationReport,
     ComparisonInformationValue,
     ComparisonResolutionOutcome,
     DeliberationReport,
     DeliberationStep,
+    FactResolution,
     InformationValue,
+    MinimalFlipSet,
+    MinimalQuestionPlan,
+    PlannedQuestion,
     ResolutionOutcome,
 )
 from littleboy.deliberation.narrate import narrate_comparison, narrate_evaluation
@@ -28,9 +33,12 @@ from littleboy.deliberation.report import (
     render_comparison_deliberation_text,
     render_deliberation_json,
     render_deliberation_text,
+    render_question_plan_json,
+    render_question_plan_text,
 )
 from littleboy.deliberation.voi import (
     comparison_value_of_information,
+    minimal_flip_sets,
     value_of_information,
     verdict_distance,
 )
@@ -42,15 +50,23 @@ __all__ = [
     "Deliberator",
     "DeliberationReport",
     "DeliberationStep",
+    "FactResolution",
     "InformationValue",
+    "MinimalFlipSet",
+    "MinimalQuestionPlan",
+    "PlannedQuestion",
     "ResolutionOutcome",
     "comparison_value_of_information",
+    "minimal_flip_sets",
     "narrate_comparison",
     "narrate_evaluation",
+    "plan_minimal_questions",
     "render_comparison_deliberation_json",
     "render_comparison_deliberation_text",
     "render_deliberation_json",
     "render_deliberation_text",
+    "render_question_plan_json",
+    "render_question_plan_text",
     "value_of_information",
     "verdict_distance",
 ]

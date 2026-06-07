@@ -55,6 +55,30 @@ class InformationValue(_DelibBase):
     related_axioms: list[str] = Field(default_factory=list)
 
 
+class FactResolution(_DelibBase):
+    """One unknown resolved to one concrete value, as part of a joint resolution."""
+
+    field: str
+    question: str
+    label: str = Field(description="The resolution that contributes to the flip.")
+
+
+class MinimalFlipSet(_DelibBase):
+    """A minimal set of unknowns whose joint resolution would change the verdict.
+
+    *Minimal* means no proper subset of these fields, resolved alone, changes the
+    verdict -- it takes all of them together. The ``resolution`` records the
+    specific joint counterfactual that achieves the flip.
+    """
+
+    fields: list[str]
+    size: int
+    resolution: list[FactResolution] = Field(default_factory=list)
+    resulting_verdict: Verdict
+    verdict_distance: float = Field(default=0.0, ge=0.0, le=1.0)
+    note: str = ""
+
+
 class DeliberationStep(_DelibBase):
     """One step in the explanation of why the verdict came out as it did."""
 
@@ -78,9 +102,54 @@ class DeliberationReport(_DelibBase):
     most_informative: InformationValue | None = None
     stable_under_information: bool = Field(
         default=True,
-        description="True if no single resolvable unknown would change the verdict.",
+        description="True if no resolvable combination of unknowns (up to the search size) "
+        "would change the verdict.",
     )
 
+    # Multi-fact value of information (v0.10).
+    minimal_flip_sets: list[MinimalFlipSet] = Field(default_factory=list)
+    smallest_flip_size: int | None = Field(
+        default=None,
+        description="Size of the smallest combination of unknowns that flips the verdict; "
+        "None if no combination up to the search size does.",
+    )
+    verdict_robust_to_combinations: bool = True
+    searched_max_size: int = 0
+
+    notes: list[str] = Field(default_factory=list)
+
+
+class PlannedQuestion(_DelibBase):
+    """A single question worth asking because it could change the verdict."""
+
+    field: str
+    question: str
+    why_it_matters: str = ""
+    category: str = ""
+    priority: str = Field(default="medium", description="critical | high | medium")
+    value: float = Field(default=0.0, ge=0.0, le=1.0)
+    alone_changes_verdict: bool = False
+    in_minimal_set: bool = False
+    related_axioms: list[str] = Field(default_factory=list)
+
+
+class MinimalQuestionPlan(_DelibBase):
+    """The smallest, priority-ordered set of questions that could change the verdict.
+
+    Questions that can only lower confidence -- never change the verdict, alone or
+    in any minimal combination -- are deliberately omitted: answering them cannot
+    settle the case.
+    """
+
+    target: str = "evaluation"
+    verdict: Verdict | None = None
+    confidence: float | None = None
+    questions: list[PlannedQuestion] = Field(default_factory=list)
+    smallest_flip_size: int | None = None
+    verdict_robust: bool = Field(
+        default=True,
+        description="True if no resolvable combination of unknowns would change the verdict.",
+    )
     notes: list[str] = Field(default_factory=list)
 
 
