@@ -11,15 +11,15 @@ and returns a **transparent, explained verdict** with an honest account of its
 own uncertainty. It is a reasoning engine, not a user interface and not a
 language model.
 
-This is **v0.8**, which adds **Adversarial Audit & Bias Testing**: LittleBoy can
-now test its own evaluations against the *way a case is described* — manipulative
-descriptions, missing or distorted evidence, ideological framing, hidden coercion,
-false consent, fake alternatives, under-reported vulnerability, overconfident
-conclusions, and framings designed to lead it toward a desired verdict. The
-guiding thesis: **LittleBoy must judge not only the action, but also the
-description through which the action becomes visible.** (v0.7 added temporal &
-consequence modeling; v0.6 the comparison engine; v0.5 the language module; v0.4
-the scenario builder; v0.3 the rule engine and policy layer.) See
+This is **v0.9**, which adds a **Deliberation & Value-of-Information** layer:
+LittleBoy now narrates *why* a verdict (or the winning option) came out as it did
+and computes **which single missing fact would most change it** — by re-running
+the deterministic evaluator under explicit counterfactual resolutions, not by
+guessing. v0.9 also ships an **adversarial calibration corpus** with golden-file
+regression tests, so the audit's miss and false-alarm rates can be measured and
+tuned without silent drift. (v0.8 added adversarial audit & bias testing; v0.7
+temporal & consequence modeling; v0.6 the comparison engine; v0.5 the language
+module; v0.4 the scenario builder; v0.3 the rule engine and policy layer.) See
 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md),
 [`docs/ETHICAL_MODEL.md`](docs/ETHICAL_MODEL.md),
 [`docs/RULE_ENGINE.md`](docs/RULE_ENGINE.md),
@@ -34,8 +34,11 @@ the scenario builder; v0.3 the rule engine and policy layer.) See
 [`docs/CONSEQUENCE_MODELING.md`](docs/CONSEQUENCE_MODELING.md),
 [`docs/CUMULATIVE_COERCION.md`](docs/CUMULATIVE_COERCION.md),
 [`docs/ADVERSARIAL_AUDIT.md`](docs/ADVERSARIAL_AUDIT.md),
-[`docs/BIAS_TESTING.md`](docs/BIAS_TESTING.md), and
-[`docs/RED_FLAGS.md`](docs/RED_FLAGS.md) for the full design and formal model.
+[`docs/BIAS_TESTING.md`](docs/BIAS_TESTING.md),
+[`docs/RED_FLAGS.md`](docs/RED_FLAGS.md),
+[`docs/DELIBERATION.md`](docs/DELIBERATION.md),
+[`docs/VALUE_OF_INFORMATION.md`](docs/VALUE_OF_INFORMATION.md), and
+[`docs/CALIBRATION.md`](docs/CALIBRATION.md) for the full design and formal model.
 
 ---
 
@@ -291,6 +294,44 @@ competitors are missing, the ranking is marked unstable. CLI:
 [`docs/BIAS_TESTING.md`](docs/BIAS_TESTING.md), and
 [`docs/RED_FLAGS.md`](docs/RED_FLAGS.md).
 
+## LittleBoy v0.9: Deliberation & Value of Information
+
+> A verdict is not an explanation. LittleBoy should say **why** the verdict (or
+> the winning option) came out as it did, and **what single fact would most
+> change it.**
+
+A bare verdict hides which factor was decisive and how close the call was. The
+`littleboy.deliberation` layer (built on top of the evaluator and comparison
+engine) adds two things, deterministically and with no LLM:
+
+- **Narration** — orders the factors that drove the verdict into *decisive*
+  (blockers / caps / downgrades, from the reasoning trace), *supporting* (coercion
+  level, consent, Axiom 3 justification, alternatives), and *context*
+  (confidence); for a comparison it names the lexicographic layer on which the
+  runner-up lost.
+- **Value of information** — among the genuine unknowns, which one, if resolved,
+  would most change the verdict? Each unknown is resolved to each plausible value
+  (consent GIVEN/REFUSED, reversibility 1.0/0.0, a feasible less-coercive
+  alternative or none, the Axiom 3 conditions established or refuted, …), the
+  **deterministic evaluator is re-run**, and the swing in verdict and confidence
+  is measured. The unknown with the largest swing is the `most_informative` one,
+  with the exact counterfactual resolutions recorded. A case with no material
+  unknowns is reported `stable_under_information`; a comparison whose winner would
+  change is `ranking_robust = False`.
+
+No probabilities are invented — every value traces to an explicit re-evaluation.
+
+v0.9 also ships an **adversarial calibration corpus** (`littleboy.calibration`):
+labelled adversarial and clean cases, scored by the audit into a **miss rate**
+(expected flags that did not fire) and a **false-alarm rate** (clean cases flagged
+anyway), pinned by **golden-file regression** so any drift in the audit's
+behaviour fails a test. The default corpus runs at miss rate 0.0 / false-alarm
+rate 0.0 — the baseline to preserve while tuning thresholds. CLI:
+`littleboy deliberate <case.json>` (add `-c` for a comparison set) and
+`littleboy calibrate`. See [`docs/DELIBERATION.md`](docs/DELIBERATION.md),
+[`docs/VALUE_OF_INFORMATION.md`](docs/VALUE_OF_INFORMATION.md), and
+[`docs/CALIBRATION.md`](docs/CALIBRATION.md).
+
 ## How evidence is represented
 
 An `EvidenceSet` holds `EvidenceItem`s, each a `claim` plus its `source_type`
@@ -396,17 +437,29 @@ src/littleboy/
     adversarial.py  # AdversarialRiskProfile, ideological-capture checks, verdict adjustment
     stress.py       # AdversarialStressTester (audit_case / audit_evaluation / audit_comparison)
     report.py       # audit JSON / text rendering
+  deliberation/
+    models.py       # DeliberationReport, InformationValue, ResolutionOutcome, ...
+    voi.py          # value of information: counterfactual probes + scoring
+    narrate.py      # narrate why a verdict / top option holds
+    engine.py       # Deliberator (deliberate / deliberate_comparison)
+    report.py       # deliberation JSON / text rendering
+  calibration/
+    models.py       # AuditCorpus, CorpusEntry, CaseDigest, CalibrationReport
+    metrics.py      # per-entry scoring + miss / false-alarm aggregation
+    corpus.py       # load / run the corpus, build digests, golden payload
+    audit_corpus.json   # the packaged, self-contained calibration corpus
   reasoning/
     report.py       # JSON / text rendering
     experiment.py   # EthicalExperiment runner (falsificatory + heuristic)
-  cli.py            # evaluate / experiment / questions / build-case / templates / analyze-language / compare / temporal / audit
-tests/              # pytest suite
-examples/           # sample JSON cases (incl. partial_*, language_*, comparison_*, temporal_*, audit_*)
+  cli.py            # evaluate / experiment / questions / build-case / templates / analyze-language / compare / temporal / audit / deliberate / calibrate
+tests/              # pytest suite (incl. golden/ for calibration regression)
+examples/           # sample JSON cases (incl. partial_*, language_*, comparison_*, temporal_*, audit_*, voi_*)
 docs/               # ARCHITECTURE, ETHICAL_MODEL, RULE_ENGINE, POLICY_PROFILES,
                     #   CASE_BUILDER, SCENARIO_TEMPLATES, LANGUAGE_ETHICS,
                     #   LINGUISTIC_COERCION, COMPARISON_ENGINE, TRADEOFF_ANALYSIS,
                     #   TEMPORAL_MODEL, CONSEQUENCE_MODELING, CUMULATIVE_COERCION,
-                    #   ADVERSARIAL_AUDIT, BIAS_TESTING, RED_FLAGS
+                    #   ADVERSARIAL_AUDIT, BIAS_TESTING, RED_FLAGS,
+                    #   DELIBERATION, VALUE_OF_INFORMATION, CALIBRATION
 ```
 
 ## Installation
@@ -422,7 +475,7 @@ pip install -e ".[dev]"     # pydantic, pytest, typer, ruff
 ## Running the tests
 
 ```bash
-pytest                      # 158 tests
+pytest                      # 175 tests
 ruff check src tests        # lint (optional)
 ```
 
@@ -445,6 +498,9 @@ littleboy temporal examples/temporal_cumulative_policy_risk.json --format text
 littleboy audit examples/audit_fake_consent.json                          # adversarial audit of the description
 littleboy evaluate examples/audit_hidden_coercion.json --audit --format text   # evaluate + audit
 littleboy compare examples/comparison_uncertain_data.json --audit         # audit the comparison
+littleboy deliberate examples/voi_consent_pivotal.json                    # why, + the fact that most changes the verdict
+littleboy deliberate examples/comparison_voi_pivotal.json --compare       # deliberate over a comparison
+littleboy calibrate                                                       # run the audit calibration corpus
 littleboy templates                                                       # list scenario templates
 littleboy version
 ```
@@ -533,6 +589,13 @@ The v0.8 **audit** examples; run them with `littleboy audit` (or
 | `examples/audit_freedom_as_social_pressure.json` | "No one is forcing you": freedom language hiding social pressure |
 | `examples/comparison_audit_framing_bias.json` | A *comparison set* whose ranking leans on a thinly-evidenced front-runner (`littleboy compare --audit`) |
 
+The v0.9 **deliberation** examples; run them with `littleboy deliberate`:
+
+| File | Demonstrates |
+|------|--------------|
+| `examples/voi_consent_pivotal.json` | A case fully specified except consent — the single pivotal unknown (GIVEN → acceptable-with-reservations, REFUSED → ethically suspicious) |
+| `examples/comparison_voi_pivotal.json` | A *comparison set* (`--compare`) whose winner flips when one option's unknown is resolved |
+
 (The v0.1 examples `simple_case.json`, `high_coercion_case.json`, and
 `insufficient_data_case.json` remain valid.)
 
@@ -617,45 +680,44 @@ make consequential decisions about real people.
 
 ## Current development status
 
-**v0.8 — adversarial audit & bias testing.** Implemented on top of v0.7: a
-`littleboy.audit` package that audits LittleBoy against its own inputs —
-deterministically, with no NLP/LLM. It produces severity-graded red-flag findings
-(consent, coercion, evidence, language, temporal, comparison), a 12-axis
-`AdversarialRiskProfile`, a 10-axis `BiasProfile` (including a two-directional
-language-beauty bias), adversarial 'what if' stress tests, and ideological-capture
-checks that detect *distorted application* of the coercion axiom without replacing
-it. The audit is opt-in (`evaluate(case, audit=True)`, `compare(set, audit=True)`,
-`CaseBuilder.audit(case)`, and the `audit` CLI command); when enabled, a critical
-red flag bears on the verdict and marks the judgment unstable, while the
-rule-engine trace is preserved as a separate layer. Nine audit examples, three
-docs, and a 158-test suite (all passing). The audit layer is purely additive —
-every pre-v0.8 case evaluates identically when the audit is off.
+**v0.9 — deliberation & value of information.** Implemented on top of v0.8: a
+`littleboy.deliberation` package that narrates *why* a verdict (or the winning
+option) holds and computes the single unknown that would most change it, by
+re-running the deterministic evaluator under explicit counterfactual resolutions
+(no probabilities invented). It exposes `Deliberator.deliberate` and
+`deliberate_comparison`, an `InformationValue` ranking with recorded resolutions,
+and `stable_under_information` / `ranking_robust` flags. A `littleboy.calibration`
+package adds a self-contained adversarial corpus (labelled adversarial + clean
+cases), scores it into a **miss rate** and a **false-alarm rate**, and pins the
+result with **golden-file regression** (`tests/golden/audit_corpus.golden.json`,
+regenerable via `LITTLEBOY_UPDATE_GOLDEN=1`). New `deliberate` and `calibrate` CLI
+commands; two deliberation examples; three docs; and a 175-test suite (all
+passing). Both layers are purely additive — they build on the evaluator and
+comparison engine and change no existing behaviour.
 
 Earlier phases delivered the core models; coercion/data-quality/evidence scoring;
 consent/agency models; the tri-state Axiom 3 justification; feasibility-aware
 alternatives; the critical-data gate; the ethical experiment runner; the v0.3
 rule engine with four policy profiles and a full reasoning trace (twenty-four
 rules); the v0.4 scenario builder; the v0.5 language & coercion module (no
-NLP/LLM); the v0.6 comparison engine; and the v0.7 temporal & consequence model.
-All v0.1–v0.7 inputs remain valid.
+NLP/LLM); the v0.6 comparison engine; the v0.7 temporal & consequence model; and
+the v0.8 adversarial audit & bias testing. All v0.1–v0.8 inputs remain valid.
 
 **Deliberately not built:** any web UI, any LLM/API integration, any opaque bias
 detection, any prediction that looks certain, any claim to absolute truth, any
-heavy frameworks. The audit's goal is to make LittleBoy **harder to manipulate,
-not more dogmatic**.
+heavy frameworks. The aim is to make LittleBoy **harder to manipulate and easier
+to interrogate, not more dogmatic**.
 
 ### Recommended next steps
 
-- A deliberation/explanation layer that narrates *why* the top option beats the
-  runner-up (across time and after audit), and what single fact would most change
-  the verdict or comparison (value of information).
-- Calibrate the audit's risk/bias thresholds and the verdict-adjustment rules —
-  together with the temporal weights and the coercion/language/evidence
-  heuristics — against a worked, adversarial case library with golden-file
-  regression tests, measuring false-alarm and miss rates.
-- Expand the ideological-capture and manipulation lexicons (still transparent,
-  still phrase-cited) and add red flags for collusion across fields (e.g. consent
-  + alternatives + evidence jointly engineered).
+- Multi-fact value of information: search for *combinations* of unknowns that
+  jointly flip the verdict, not just one at a time, and report the smallest
+  set that would settle the case.
+- Grow the calibration corpus (more adversarial patterns and more clean cases) and
+  add corpora for the coercion, evidence, and temporal heuristics, so each
+  scoring layer — not only the audit — has measured miss/false-alarm rates.
+- A "minimal sufficient case" builder that uses value of information to ask only
+  the questions that could change the verdict, in priority order.
 - **Optional** LLM-assisted indicator extraction (language, consequence, audit)
   behind an explicit flag, with the model's suggestions shown, attributed, and
   editable — the deterministic core staying authoritative and the audit trail

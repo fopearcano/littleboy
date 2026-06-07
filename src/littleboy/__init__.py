@@ -24,6 +24,13 @@ from littleboy.audit import (
     ComparisonAuditReport,
     StressTestResult,
 )
+from littleboy.calibration import (
+    AuditCorpus,
+    CalibrationReport,
+    CorpusEntry,
+    default_corpus,
+    run_corpus,
+)
 from littleboy.case_builder import (
     CaseBuilder,
     ScenarioTemplate,
@@ -92,6 +99,14 @@ from littleboy.core.models import (
     RuleResult,
 )
 from littleboy.data.evidence import EvidenceItem, EvidenceSet
+from littleboy.deliberation import (
+    ComparisonDeliberationReport,
+    DeliberationReport,
+    Deliberator,
+    InformationValue,
+    comparison_value_of_information,
+    value_of_information,
+)
 from littleboy.language import (
     ConstructiveLanguageAssessment,
     LanguageAct,
@@ -131,9 +146,20 @@ from littleboy.temporal import (
     score_reversibility,
 )
 
-__version__ = "0.8.0"
+__version__ = "0.9.0"
 
 __all__ = [
+    "AuditCorpus",
+    "CalibrationReport",
+    "ComparisonDeliberationReport",
+    "CorpusEntry",
+    "DeliberationReport",
+    "Deliberator",
+    "InformationValue",
+    "comparison_value_of_information",
+    "default_corpus",
+    "run_corpus",
+    "value_of_information",
     "BUILTIN_RULES",
     "ActionCase",
     "ActionComparisonResult",

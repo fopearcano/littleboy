@@ -23,6 +23,7 @@ from pydantic import ValidationError
 
 from littleboy import __version__
 from littleboy.audit.report import render_audit_json, render_audit_text
+from littleboy.calibration import default_corpus, load_corpus, run_corpus
 from littleboy.case_builder import (
     CaseBuilder,
     build_case_from_answers,
@@ -37,6 +38,13 @@ from littleboy.comparison.report import render_comparison_json, render_compariso
 from littleboy.core.enums import PolicyMode
 from littleboy.core.evaluator import EthicalEvaluator
 from littleboy.core.models import ActionCase
+from littleboy.deliberation import Deliberator
+from littleboy.deliberation.report import (
+    render_comparison_deliberation_json,
+    render_comparison_deliberation_text,
+    render_deliberation_json,
+    render_deliberation_text,
+)
 from littleboy.language import analyze_language
 from littleboy.reasoning.experiment import EthicalExperiment
 from littleboy.reasoning.report import (
@@ -352,6 +360,92 @@ def audit(
         typer.echo(render_audit_json(audit_report))
     else:
         typer.echo(render_audit_text(audit_report))
+
+
+@app.command()
+def deliberate(
+    path: Path = typer.Argument(
+        ...,
+        exists=True,
+        dir_okay=False,
+        readable=True,
+        help="Path to a JSON ActionCase, or an ActionComparisonSet with --compare.",
+    ),
+    output_format: str = typer.Option(
+        "text", "--format", "-f", help="Output format: 'json' or 'text'."
+    ),
+    policy: str = typer.Option(
+        "standard", "--policy", "-p", help=f"Policy strictness: {_POLICY_CHOICES}."
+    ),
+    compare_set: bool = typer.Option(
+        False, "--compare", "-c", help="Treat the input as an ActionComparisonSet."
+    ),
+) -> None:
+    """Narrate why the verdict (or top option) holds, and the fact that would most change it."""
+    if output_format not in {"json", "text"}:
+        typer.echo(f"Unknown format '{output_format}'; use 'json' or 'text'.", err=True)
+        raise typer.Exit(code=2)
+    policy_mode = _resolve_policy(policy)
+    deliberator = Deliberator(policy_mode)
+
+    if compare_set:
+        try:
+            raw = json.loads(path.read_text(encoding="utf-8"))
+            comparison_set = ActionComparisonSet.model_validate(raw)
+        except (json.JSONDecodeError, ValidationError) as exc:
+            typer.echo(f"Invalid ActionComparisonSet in {path}:\n{exc}", err=True)
+            raise typer.Exit(code=2) from exc
+        report = deliberator.deliberate_comparison(comparison_set)
+        if output_format == "json":
+            typer.echo(render_comparison_deliberation_json(report))
+        else:
+            typer.echo(render_comparison_deliberation_text(report))
+        return
+
+    case = _load_case(path)
+    report = deliberator.deliberate(case)
+    if output_format == "json":
+        typer.echo(render_deliberation_json(report))
+    else:
+        typer.echo(render_deliberation_text(report))
+
+
+@app.command()
+def calibrate(
+    corpus_path: Path | None = typer.Argument(
+        None,
+        exists=True,
+        dir_okay=False,
+        readable=True,
+        help="Path to a corpus JSON (defaults to the packaged calibration corpus).",
+    ),
+    output_format: str = typer.Option(
+        "text", "--format", "-f", help="Output format: 'json' or 'text'."
+    ),
+) -> None:
+    """Run the adversarial calibration corpus and report miss / false-alarm rates."""
+    if output_format not in {"json", "text"}:
+        typer.echo(f"Unknown format '{output_format}'; use 'json' or 'text'.", err=True)
+        raise typer.Exit(code=2)
+    corpus = load_corpus(corpus_path) if corpus_path is not None else default_corpus()
+    report = run_corpus(corpus)
+    if output_format == "json":
+        typer.echo(json.dumps(report.model_dump(mode="json"), indent=2, ensure_ascii=False))
+        return
+    typer.echo(
+        f"CALIBRATION: {report.n_passed}/{report.n_cases} entries passed   "
+        f"miss_rate={report.miss_rate:.2f}  false_alarm_rate={report.false_alarm_rate:.2f}"
+    )
+    typer.echo(f"  adversarial={report.n_adversarial}  clean={report.n_clean}")
+    for o in report.outcomes:
+        status = "PASS" if o.passed else "FAIL"
+        typer.echo(f"  [{status}] {o.id} ({o.label})")
+        if o.missing_expected:
+            typer.echo(f"      missed: {', '.join(o.missing_expected)}")
+        if o.false_alarms:
+            typer.echo(f"      false alarm: {', '.join(o.false_alarms)}")
+        if not o.stability_ok:
+            typer.echo("      stability mismatch")
 
 
 @app.command()

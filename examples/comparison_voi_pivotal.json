@@ -1,0 +1,38 @@
+{
+  "title": "Two options where the winner depends on one option's unknown consent",
+  "description": "Option X is slightly less coercive but its consent is unknown; option Y is well-specified. Resolving X's consent decides which option wins.",
+  "policy_mode": "standard",
+  "options": [
+    {
+      "option_id": "option_x",
+      "title": "Option X (slightly less coercive, consent unknown)",
+      "declared_goal": "resolve the situation",
+      "case": {
+        "title": "The lighter-touch but under-specified option",
+        "acting_agent": { "name": "Operator", "agent_type": "TYPE_II" },
+        "affected_agents": [{ "name": "Affected party", "agent_type": "TYPE_II" }],
+        "coercion_profile": { "social_pressure": 0.2, "psychological_pressure": 0.15, "reversibility": 0.9, "severity": 0.2 },
+        "data_quality": { "completeness": 0.8, "source_reliability": 0.8, "specificity": 0.8, "recency": 0.8, "corroboration": 0.75, "ambiguity": 0.2 },
+        "consent": "UNKNOWN",
+        "available_alternatives": [],
+        "responds_to_existing_coercion": false
+      }
+    },
+    {
+      "option_id": "option_y",
+      "title": "Option Y (slightly more coercive, fully specified)",
+      "declared_goal": "resolve the situation",
+      "case": {
+        "title": "The firmer but fully-consented option",
+        "acting_agent": { "name": "Operator", "agent_type": "TYPE_II" },
+        "affected_agents": [{ "name": "Affected party", "agent_type": "TYPE_II" }],
+        "coercion_profile": { "social_pressure": 0.3, "psychological_pressure": 0.2, "reversibility": 0.95, "severity": 0.25 },
+        "data_quality": { "completeness": 0.85, "source_reliability": 0.85, "specificity": 0.85, "recency": 0.85, "corroboration": 0.85, "ambiguity": 0.15 },
+        "consent": "GIVEN",
+        "consent_profile": { "status": "GIVEN", "informed": "CONFIRMED", "voluntary": "CONFIRMED", "specific": "CONFIRMED", "revocable": "CONFIRMED", "communicated_by_agent": true },
+        "available_alternatives": [],
+        "responds_to_existing_coercion": false
+      }
+    }
+  ]
+}

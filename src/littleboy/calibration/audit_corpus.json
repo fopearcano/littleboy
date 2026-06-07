@@ -1,0 +1,997 @@
+{
+  "title": "LittleBoy adversarial audit calibration corpus (v0.9)",
+  "description": "Labelled adversarial and clean cases for measuring the audit's miss and false-alarm rates. Cases are inline so the corpus is self-contained.",
+  "entries": [
+    {
+      "id": "fake_consent",
+      "label": "adversarial",
+      "description": "Consent claimed under pressure, by a third party.",
+      "case": {
+        "title": "Consent signed under pressure, reported by the beneficiary",
+        "description": "A 'yes' is on record, but it was communicated by the acting party, obtained from a highly vulnerable person under a steep power asymmetry, through unclear, pressuring language.",
+        "acting_agent": {
+          "name": "Care-home operator",
+          "agent_type": "TYPE_II",
+          "description": "",
+          "is_collective": true
+        },
+        "affected_agents": [
+          {
+            "name": "Elderly resident",
+            "agent_type": "TYPE_II",
+            "description": "",
+            "is_collective": false
+          }
+        ],
+        "intended_goal": "Obtain consent to a new fee schedule.",
+        "coercion_profile": {
+          "physical_force": 0.0,
+          "threat": 0.0,
+          "economic_pressure": 0.4,
+          "psychological_pressure": 0.0,
+          "informational_manipulation": 0.0,
+          "legal_constraint": 0.0,
+          "social_pressure": 0.4,
+          "duration": 0.0,
+          "reversibility": 0.9,
+          "scope_number_of_agents": 1,
+          "severity": 0.4
+        },
+        "available_alternatives": [],
+        "language_act": {
+          "text": "You have to sign now; there is no other option. Don't argue -- we know what's best for you.",
+          "speaker_agent": "Care-home operator",
+          "target_agents": [
+            "Elderly resident"
+          ],
+          "context": {
+            "medium": "contract",
+            "power_asymmetry": 0.9,
+            "urgency": 0.7,
+            "target_vulnerability": 0.8,
+            "stakes": 0.7,
+            "reversibility": 0.6,
+            "audience_scope": 0.0,
+            "notes": ""
+          },
+          "ethics_profile": {
+            "clarity": 0.3,
+            "truthfulness": 0.4,
+            "specificity": 0.5,
+            "context_completeness": 0.5,
+            "agency_respect": 0.2,
+            "consent_support": 0.2,
+            "constructive_potential": 0.5,
+            "manipulation_risk": 0.7,
+            "shame_pressure": 0.0,
+            "fear_pressure": 0.0,
+            "false_necessity": 0.0,
+            "false_dichotomy": 0.0,
+            "loaded_language": 0.0,
+            "omission_risk": 0.0,
+            "ambiguity_level": 0.0,
+            "silencing_effect": 0.0
+          },
+          "notes": ""
+        },
+        "is_inaction": false,
+        "context_notes": "",
+        "consent": "GIVEN",
+        "consent_profile": {
+          "status": "GIVEN",
+          "informed": "UNKNOWN",
+          "voluntary": "UNKNOWN",
+          "specific": "UNKNOWN",
+          "revocable": "UNKNOWN",
+          "communicated_by_agent": false,
+          "notes": "Consent was reported by the operator's staff, not by the resident."
+        },
+        "agency_profile": {
+          "agent_type": "TYPE_II",
+          "capacity_confidence": 0.4,
+          "metacognition_evidence": [],
+          "language_symbolic_capacity": "UNKNOWN",
+          "decision_capacity": "UNKNOWN",
+          "vulnerability_level": 0.8,
+          "notes": ""
+        },
+        "responds_to_existing_coercion": false,
+        "expected_consequences": "The resident is recorded as having agreed."
+      },
+      "policy": "standard",
+      "expect_findings": [
+        "AUD-CONSENT-NOT-BY-AGENT",
+        "AUD-CONSENT-CONTAMINATION"
+      ],
+      "forbid_findings": [],
+      "expect_judgment_stable": false
+    },
+    {
+      "id": "hidden_coercion",
+      "label": "adversarial",
+      "description": "Low structured coercion, highly manipulative wording.",
+      "case": {
+        "title": "A 'gentle reminder' that is actually a threat",
+        "description": "The structured coercion is described as negligible, but the actual wording is highly manipulative -- the coercion is hidden in the language, not the profile.",
+        "acting_agent": {
+          "name": "Manager",
+          "agent_type": "TYPE_II",
+          "description": "",
+          "is_collective": false
+        },
+        "affected_agents": [
+          {
+            "name": "Employee",
+            "agent_type": "TYPE_II",
+            "description": "",
+            "is_collective": false
+          }
+        ],
+        "intended_goal": "Get the employee to 'volunteer' for unpaid weekend work.",
+        "coercion_profile": {
+          "physical_force": 0.0,
+          "threat": 0.0,
+          "economic_pressure": 0.0,
+          "psychological_pressure": 0.0,
+          "informational_manipulation": 0.0,
+          "legal_constraint": 0.0,
+          "social_pressure": 0.05,
+          "duration": 0.0,
+          "reversibility": 1.0,
+          "scope_number_of_agents": 1,
+          "severity": 0.05
+        },
+        "available_alternatives": [],
+        "language_act": {
+          "text": "You have no choice if you care about this team. A good person would stay. Either you step up this weekend or you'll regret it when promotions come around.",
+          "speaker_agent": "Manager",
+          "target_agents": [
+            "Employee"
+          ],
+          "declared_intent": "Motivate the employee.",
+          "context": {
+            "medium": "speech",
+            "power_asymmetry": 0.8,
+            "urgency": 0.6,
+            "target_vulnerability": 0.6,
+            "stakes": 0.6,
+            "reversibility": 0.8,
+            "audience_scope": 0.0,
+            "notes": ""
+          },
+          "ethics_profile": {
+            "clarity": 0.5,
+            "truthfulness": 0.4,
+            "specificity": 0.5,
+            "context_completeness": 0.5,
+            "agency_respect": 0.2,
+            "consent_support": 0.2,
+            "constructive_potential": 0.5,
+            "manipulation_risk": 0.6,
+            "shame_pressure": 0.0,
+            "fear_pressure": 0.0,
+            "false_necessity": 0.0,
+            "false_dichotomy": 0.0,
+            "loaded_language": 0.0,
+            "omission_risk": 0.0,
+            "ambiguity_level": 0.0,
+            "silencing_effect": 0.0
+          },
+          "notes": ""
+        },
+        "is_inaction": false,
+        "context_notes": "",
+        "consent": "GIVEN",
+        "agency_profile": {
+          "agent_type": "TYPE_II",
+          "capacity_confidence": 0.8,
+          "metacognition_evidence": [],
+          "language_symbolic_capacity": "UNKNOWN",
+          "decision_capacity": "UNKNOWN",
+          "vulnerability_level": 0.6,
+          "notes": ""
+        },
+        "responds_to_existing_coercion": false,
+        "expected_consequences": "The employee 'agrees' to give up the weekend."
+      },
+      "policy": "standard",
+      "expect_findings": [
+        "AUD-COERCION-LANG-INCONSISTENCY"
+      ],
+      "forbid_findings": [],
+      "expect_judgment_stable": false
+    },
+    {
+      "id": "beautiful_bad",
+      "label": "adversarial",
+      "description": "A manipulative message in polished, appealing language.",
+      "case": {
+        "title": "A polished pitch for a coercive arrangement",
+        "description": "Eloquent, fluent, confident language wraps a manipulative, untruthful message -- a persuasive counterfeit.",
+        "acting_agent": {
+          "name": "Recruiter",
+          "agent_type": "TYPE_II",
+          "description": "",
+          "is_collective": false
+        },
+        "affected_agents": [
+          {
+            "name": "Candidate",
+            "agent_type": "TYPE_II",
+            "description": "",
+            "is_collective": false
+          }
+        ],
+        "intended_goal": "Sign the candidate to a one-sided exclusivity clause.",
+        "coercion_profile": {
+          "physical_force": 0.0,
+          "threat": 0.0,
+          "economic_pressure": 0.3,
+          "psychological_pressure": 0.0,
+          "informational_manipulation": 0.0,
+          "legal_constraint": 0.0,
+          "social_pressure": 0.0,
+          "duration": 0.0,
+          "reversibility": 0.6,
+          "scope_number_of_agents": 1,
+          "severity": 0.3
+        },
+        "available_alternatives": [],
+        "language_act": {
+          "text": "This is a once-in-a-lifetime, guaranteed opportunity -- obviously the best choice for someone of your calibre. Act now before it's too late.",
+          "speaker_agent": "Recruiter",
+          "target_agents": [
+            "Candidate"
+          ],
+          "declared_intent": "Inspire confidence.",
+          "context": {
+            "medium": "advertisement",
+            "power_asymmetry": 0.4,
+            "urgency": 0.6,
+            "target_vulnerability": 0.3,
+            "stakes": 0.5,
+            "reversibility": 0.6,
+            "audience_scope": 0.2,
+            "notes": ""
+          },
+          "ethics_profile": {
+            "clarity": 0.9,
+            "truthfulness": 0.3,
+            "specificity": 0.8,
+            "context_completeness": 0.4,
+            "agency_respect": 0.5,
+            "consent_support": 0.4,
+            "constructive_potential": 0.85,
+            "manipulation_risk": 0.7,
+            "shame_pressure": 0.0,
+            "fear_pressure": 0.0,
+            "false_necessity": 0.6,
+            "false_dichotomy": 0.0,
+            "loaded_language": 0.7,
+            "omission_risk": 0.0,
+            "ambiguity_level": 0.0,
+            "silencing_effect": 0.0
+          },
+          "notes": ""
+        },
+        "is_inaction": false,
+        "context_notes": "",
+        "consent": "GIVEN",
+        "agency_profile": {
+          "agent_type": "TYPE_II",
+          "capacity_confidence": 0.8,
+          "metacognition_evidence": [],
+          "language_symbolic_capacity": "UNKNOWN",
+          "decision_capacity": "UNKNOWN",
+          "vulnerability_level": 0.3,
+          "notes": ""
+        },
+        "responds_to_existing_coercion": false,
+        "expected_consequences": "The candidate signs, charmed by the presentation."
+      },
+      "policy": "standard",
+      "expect_findings": [
+        "AUD-LANG-PERSUASIVE-COUNTERFEIT"
+      ],
+      "forbid_findings": [],
+      "expect_judgment_stable": false
+    },
+    {
+      "id": "missing_counterevidence",
+      "label": "adversarial",
+      "description": "A coercive action evidenced only by the actor.",
+      "case": {
+        "title": "A coercive action evidenced only by the actor's own say-so",
+        "description": "A non-trivial coercion is described and justified, but every supporting claim comes from the acting agent, with no corroboration and nothing from the affected party.",
+        "acting_agent": {
+          "name": "Landlord",
+          "agent_type": "TYPE_II",
+          "description": "",
+          "is_collective": false
+        },
+        "affected_agents": [
+          {
+            "name": "Tenant",
+            "agent_type": "TYPE_II",
+            "description": "",
+            "is_collective": false
+          }
+        ],
+        "intended_goal": "Evict the tenant for alleged lease violations.",
+        "coercion_profile": {
+          "physical_force": 0.0,
+          "threat": 0.0,
+          "economic_pressure": 0.5,
+          "psychological_pressure": 0.0,
+          "informational_manipulation": 0.0,
+          "legal_constraint": 0.5,
+          "social_pressure": 0.0,
+          "duration": 0.0,
+          "reversibility": 0.7,
+          "scope_number_of_agents": 1,
+          "severity": 0.5
+        },
+        "available_alternatives": [],
+        "evidence": {
+          "items": [
+            {
+              "claim": "The tenant repeatedly violated the lease.",
+              "source_type": "USER_STATEMENT",
+              "reliability": 0.6,
+              "specificity": 0.5,
+              "recency": 0.6,
+              "corroboration": 0.0,
+              "contested": false,
+              "notes": "Asserted by the landlord; no independent record, no tenant account."
+            }
+          ]
+        },
+        "is_inaction": false,
+        "context_notes": "",
+        "consent": "REFUSED",
+        "responds_to_existing_coercion": true,
+        "prior_coercion_description": "The landlord asserts the tenant breached the lease.",
+        "expected_consequences": "The tenant is removed."
+      },
+      "policy": "standard",
+      "expect_findings": [
+        "AUD-EVID-NO-COUNTER",
+        "AUD-EVID-SELF-SOURCED"
+      ],
+      "forbid_findings": [],
+      "expect_judgment_stable": false
+    },
+    {
+      "id": "authority_capture",
+      "label": "adversarial",
+      "description": "Authority used to suppress questioning.",
+      "case": {
+        "title": "Authority used to shut down questions",
+        "description": "A decision is defended not on its merits but by appeal to the speaker's status, discouraging the scrutiny an ethical check requires.",
+        "acting_agent": {
+          "name": "Department head",
+          "agent_type": "TYPE_II",
+          "description": "",
+          "is_collective": false
+        },
+        "affected_agents": [
+          {
+            "name": "Junior staff",
+            "agent_type": "TYPE_II",
+            "description": "",
+            "is_collective": false
+          }
+        ],
+        "intended_goal": "Push through a contested policy without discussion.",
+        "coercion_profile": {
+          "physical_force": 0.0,
+          "threat": 0.0,
+          "economic_pressure": 0.0,
+          "psychological_pressure": 0.3,
+          "informational_manipulation": 0.0,
+          "legal_constraint": 0.0,
+          "social_pressure": 0.4,
+          "duration": 0.0,
+          "reversibility": 0.8,
+          "scope_number_of_agents": 1,
+          "severity": 0.35
+        },
+        "available_alternatives": [],
+        "language_act": {
+          "text": "Trust me, I'm the expert here. You're not qualified to question this -- leave it to the professionals. End of discussion.",
+          "speaker_agent": "Department head",
+          "target_agents": [
+            "Junior staff"
+          ],
+          "declared_intent": "Settle the matter.",
+          "context": {
+            "medium": "speech",
+            "power_asymmetry": 0.8,
+            "urgency": 0.3,
+            "target_vulnerability": 0.4,
+            "stakes": 0.5,
+            "reversibility": 0.8,
+            "audience_scope": 0.3,
+            "notes": ""
+          },
+          "ethics_profile": {
+            "clarity": 0.6,
+            "truthfulness": 0.5,
+            "specificity": 0.5,
+            "context_completeness": 0.5,
+            "agency_respect": 0.2,
+            "consent_support": 0.3,
+            "constructive_potential": 0.5,
+            "manipulation_risk": 0.0,
+            "shame_pressure": 0.0,
+            "fear_pressure": 0.0,
+            "false_necessity": 0.0,
+            "false_dichotomy": 0.0,
+            "loaded_language": 0.0,
+            "omission_risk": 0.0,
+            "ambiguity_level": 0.0,
+            "silencing_effect": 0.6
+          },
+          "notes": ""
+        },
+        "is_inaction": false,
+        "context_notes": "",
+        "consent": "UNKNOWN",
+        "agency_profile": {
+          "agent_type": "TYPE_II",
+          "capacity_confidence": 0.8,
+          "metacognition_evidence": [],
+          "language_symbolic_capacity": "UNKNOWN",
+          "decision_capacity": "UNKNOWN",
+          "vulnerability_level": 0.4,
+          "notes": ""
+        },
+        "responds_to_existing_coercion": false,
+        "expected_consequences": "Staff comply without raising objections."
+      },
+      "policy": "standard",
+      "expect_findings": [
+        "AUD-LANG-AUTHORITY-CAPTURE"
+      ],
+      "forbid_findings": [],
+      "expect_judgment_stable": false
+    },
+    {
+      "id": "protection_as_paternalism",
+      "label": "adversarial",
+      "description": "Care/protection language used as control.",
+      "case": {
+        "title": "'For your own good' over a competent adult's objection",
+        "description": "Care and protection language is used to justify overriding a vulnerable but competent adult's choices -- protection deployed as control.",
+        "acting_agent": {
+          "name": "Guardian institution",
+          "agent_type": "TYPE_II",
+          "description": "",
+          "is_collective": true
+        },
+        "affected_agents": [
+          {
+            "name": "Ward",
+            "agent_type": "TYPE_II",
+            "description": "",
+            "is_collective": false
+          }
+        ],
+        "intended_goal": "Restrict the ward's spending and movement 'for their own good'.",
+        "coercion_profile": {
+          "physical_force": 0.0,
+          "threat": 0.0,
+          "economic_pressure": 0.0,
+          "psychological_pressure": 0.5,
+          "informational_manipulation": 0.0,
+          "legal_constraint": 0.5,
+          "social_pressure": 0.0,
+          "duration": 0.0,
+          "reversibility": 0.7,
+          "scope_number_of_agents": 1,
+          "severity": 0.5
+        },
+        "available_alternatives": [],
+        "language_act": {
+          "text": "This is for your own good. We know what's best for you, and we are protecting you from yourself.",
+          "speaker_agent": "Guardian institution",
+          "target_agents": [
+            "Ward"
+          ],
+          "declared_intent": "Express care.",
+          "context": {
+            "medium": "speech",
+            "power_asymmetry": 0.8,
+            "urgency": 0.2,
+            "target_vulnerability": 0.7,
+            "stakes": 0.6,
+            "reversibility": 0.7,
+            "audience_scope": 0.0,
+            "notes": ""
+          },
+          "ethics_profile": {
+            "clarity": 0.6,
+            "truthfulness": 0.6,
+            "specificity": 0.5,
+            "context_completeness": 0.5,
+            "agency_respect": 0.2,
+            "consent_support": 0.2,
+            "constructive_potential": 0.5,
+            "manipulation_risk": 0.0,
+            "shame_pressure": 0.0,
+            "fear_pressure": 0.0,
+            "false_necessity": 0.0,
+            "false_dichotomy": 0.0,
+            "loaded_language": 0.0,
+            "omission_risk": 0.0,
+            "ambiguity_level": 0.0,
+            "silencing_effect": 0.0
+          },
+          "notes": ""
+        },
+        "is_inaction": false,
+        "context_notes": "It is for your own good; we know what's best and we are protecting you.",
+        "consent": "REFUSED",
+        "agency_profile": {
+          "agent_type": "TYPE_II",
+          "capacity_confidence": 0.6,
+          "metacognition_evidence": [],
+          "language_symbolic_capacity": "UNKNOWN",
+          "decision_capacity": "UNKNOWN",
+          "vulnerability_level": 0.7,
+          "notes": ""
+        },
+        "responds_to_existing_coercion": false,
+        "expected_consequences": "The ward's autonomy is curtailed; the institution decides."
+      },
+      "policy": "standard",
+      "expect_findings": [
+        "AUD-IDEOLOGY-CARE_AS_CONTROL"
+      ],
+      "forbid_findings": [],
+      "expect_judgment_stable": false
+    },
+    {
+      "id": "freedom_as_pressure",
+      "label": "adversarial",
+      "description": "Freedom language over heavy social pressure.",
+      "case": {
+        "title": "'Nobody is forcing you' -- amid heavy social pressure",
+        "description": "Freedom language ('you're free to choose', 'no one is forcing you') is used to wave away real, heavy social pressure to comply.",
+        "acting_agent": {
+          "name": "Group leader",
+          "agent_type": "TYPE_II",
+          "description": "",
+          "is_collective": false
+        },
+        "affected_agents": [
+          {
+            "name": "Member",
+            "agent_type": "TYPE_II",
+            "description": "",
+            "is_collective": false
+          }
+        ],
+        "intended_goal": "Secure a public 'voluntary' pledge of loyalty from each member.",
+        "coercion_profile": {
+          "physical_force": 0.0,
+          "threat": 0.0,
+          "economic_pressure": 0.0,
+          "psychological_pressure": 0.4,
+          "informational_manipulation": 0.0,
+          "legal_constraint": 0.0,
+          "social_pressure": 0.6,
+          "duration": 0.0,
+          "reversibility": 0.8,
+          "scope_number_of_agents": 1,
+          "severity": 0.4
+        },
+        "available_alternatives": [],
+        "language_act": {
+          "text": "You're free to choose, of course. No one is forcing you. It's entirely your choice -- in front of everyone.",
+          "speaker_agent": "Group leader",
+          "target_agents": [
+            "Member"
+          ],
+          "declared_intent": "Emphasise that participation is voluntary.",
+          "context": {
+            "medium": "public_statement",
+            "power_asymmetry": 0.6,
+            "urgency": 0.3,
+            "target_vulnerability": 0.4,
+            "stakes": 0.5,
+            "reversibility": 0.8,
+            "audience_scope": 0.7,
+            "notes": ""
+          },
+          "ethics_profile": {
+            "clarity": 0.6,
+            "truthfulness": 0.5,
+            "specificity": 0.5,
+            "context_completeness": 0.5,
+            "agency_respect": 0.4,
+            "consent_support": 0.4,
+            "constructive_potential": 0.5,
+            "manipulation_risk": 0.0,
+            "shame_pressure": 0.0,
+            "fear_pressure": 0.0,
+            "false_necessity": 0.0,
+            "false_dichotomy": 0.0,
+            "loaded_language": 0.0,
+            "omission_risk": 0.0,
+            "ambiguity_level": 0.0,
+            "silencing_effect": 0.0
+          },
+          "notes": ""
+        },
+        "is_inaction": false,
+        "context_notes": "You're free to choose; no one is forcing you. It's entirely your choice.",
+        "consent": "GIVEN",
+        "agency_profile": {
+          "agent_type": "TYPE_II",
+          "capacity_confidence": 0.8,
+          "metacognition_evidence": [],
+          "language_symbolic_capacity": "UNKNOWN",
+          "decision_capacity": "UNKNOWN",
+          "vulnerability_level": 0.4,
+          "notes": ""
+        },
+        "responds_to_existing_coercion": false,
+        "expected_consequences": "Members 'freely' pledge, in front of the group."
+      },
+      "policy": "standard",
+      "expect_findings": [
+        "AUD-IDEOLOGY-FREEDOM_AS_PRESSURE"
+      ],
+      "forbid_findings": [],
+      "expect_judgment_stable": false
+    },
+    {
+      "id": "clean_low_coercion",
+      "label": "clean",
+      "description": "Consented, low-coercion, well-evidenced action.",
+      "case": {
+        "title": "Voluntary opt-in newsletter",
+        "description": "A company offers an opt-in newsletter. Users actively tick a box to subscribe and can unsubscribe from any message.",
+        "acting_agent": {
+          "name": "Company",
+          "agent_type": "TYPE_II",
+          "description": "",
+          "is_collective": true
+        },
+        "affected_agents": [
+          {
+            "name": "Subscribers",
+            "agent_type": "TYPE_II",
+            "description": "",
+            "is_collective": true
+          }
+        ],
+        "intended_goal": "Send updates only to people who asked for them.",
+        "coercion_profile": {
+          "physical_force": 0.0,
+          "threat": 0.0,
+          "economic_pressure": 0.0,
+          "psychological_pressure": 0.0,
+          "informational_manipulation": 0.0,
+          "legal_constraint": 0.0,
+          "social_pressure": 0.05,
+          "duration": 0.1,
+          "reversibility": 1.0,
+          "scope_number_of_agents": 50,
+          "severity": 0.05
+        },
+        "available_alternatives": [],
+        "data_quality": {
+          "completeness": 0.9,
+          "source_reliability": 0.9,
+          "specificity": 0.85,
+          "recency": 0.9,
+          "corroboration": 0.85,
+          "ambiguity": 0.1,
+          "missing_critical_facts": []
+        },
+        "evidence": {
+          "items": [
+            {
+              "claim": "Subscription requires an explicit opt-in checkbox",
+              "source_type": "DOCUMENT",
+              "reliability": 0.9,
+              "specificity": 0.9,
+              "recency": 0.9,
+              "corroboration": 0.8,
+              "contested": false,
+              "notes": ""
+            },
+            {
+              "claim": "An unsubscribe link is present in every message",
+              "source_type": "DIRECT_OBSERVATION",
+              "reliability": 0.95,
+              "specificity": 0.9,
+              "recency": 0.9,
+              "corroboration": 0.7,
+              "contested": false,
+              "notes": ""
+            }
+          ]
+        },
+        "is_inaction": false,
+        "context_notes": "",
+        "consent": "GIVEN",
+        "consent_profile": {
+          "status": "GIVEN",
+          "informed": "CONFIRMED",
+          "voluntary": "CONFIRMED",
+          "specific": "LIKELY",
+          "revocable": "CONFIRMED",
+          "communicated_by_agent": true,
+          "notes": ""
+        },
+        "agency_profile": {
+          "agent_type": "TYPE_II",
+          "capacity_confidence": 0.9,
+          "metacognition_evidence": [],
+          "language_symbolic_capacity": "CONFIRMED",
+          "decision_capacity": "CONFIRMED",
+          "vulnerability_level": 0.1,
+          "notes": ""
+        },
+        "responds_to_existing_coercion": false,
+        "expected_consequences": "Only opted-in users receive messages; stopping is easy."
+      },
+      "policy": "standard",
+      "expect_findings": [],
+      "forbid_findings": [],
+      "expect_judgment_stable": true
+    },
+    {
+      "id": "clean_constructive_language",
+      "label": "clean",
+      "description": "Clear, agency-respecting, alternatives-visible language.",
+      "case": {
+        "title": "Clear, voluntary explanation of options",
+        "description": "An advisor explains a decision to a person, laying out the real options, what is known and unknown, and inviting questions and refusal.",
+        "acting_agent": {
+          "name": "Advisor",
+          "agent_type": "TYPE_II",
+          "description": "",
+          "is_collective": false
+        },
+        "affected_agents": [
+          {
+            "name": "Person",
+            "agent_type": "TYPE_II",
+            "description": "",
+            "is_collective": false
+          }
+        ],
+        "intended_goal": "Help the person decide freely and well.",
+        "available_alternatives": [],
+        "data_quality": {
+          "completeness": 0.85,
+          "source_reliability": 0.85,
+          "specificity": 0.8,
+          "recency": 0.85,
+          "corroboration": 0.8,
+          "ambiguity": 0.15,
+          "missing_critical_facts": []
+        },
+        "language_act": {
+          "text": "Here are your three options, with the benefits, the drawbacks, and what we don't yet know. Take your time, ask anything, and you are free to say no.",
+          "speaker_agent": "Advisor",
+          "target_agents": [
+            "Person"
+          ],
+          "declared_intent": "Inform without pressure.",
+          "context": {
+            "medium": "educational",
+            "power_asymmetry": 0.2,
+            "urgency": 0.1,
+            "target_vulnerability": 0.2,
+            "stakes": 0.5,
+            "reversibility": 1.0,
+            "audience_scope": 0.0,
+            "notes": ""
+          },
+          "ethics_profile": {
+            "clarity": 0.9,
+            "truthfulness": 0.9,
+            "specificity": 0.85,
+            "context_completeness": 0.85,
+            "agency_respect": 0.9,
+            "consent_support": 0.9,
+            "constructive_potential": 0.9,
+            "manipulation_risk": 0.0,
+            "shame_pressure": 0.0,
+            "fear_pressure": 0.0,
+            "false_necessity": 0.0,
+            "false_dichotomy": 0.0,
+            "loaded_language": 0.0,
+            "omission_risk": 0.0,
+            "ambiguity_level": 0.0,
+            "silencing_effect": 0.0
+          },
+          "notes": ""
+        },
+        "is_inaction": false,
+        "context_notes": "",
+        "consent": "GIVEN",
+        "responds_to_existing_coercion": false,
+        "expected_consequences": "The person makes an informed, unpressured choice."
+      },
+      "policy": "standard",
+      "expect_findings": [],
+      "forbid_findings": [],
+      "expect_judgment_stable": true
+    },
+    {
+      "id": "clean_simple",
+      "label": "clean",
+      "description": "A plain, low-coercion baseline case.",
+      "case": {
+        "title": "Optional after-hours workshop invitation",
+        "description": "A manager invites team members to a voluntary, optional skill-building workshop after hours. Declining carries no penalty and attendance is tracked privately.",
+        "acting_agent": {
+          "name": "Team manager",
+          "agent_type": "TYPE_II",
+          "description": "A human team manager.",
+          "is_collective": false
+        },
+        "affected_agents": [
+          {
+            "name": "Team members",
+            "agent_type": "TYPE_II",
+            "description": "",
+            "is_collective": true
+          }
+        ],
+        "intended_goal": "Offer optional professional development.",
+        "coercion_profile": {
+          "physical_force": 0.0,
+          "threat": 0.0,
+          "economic_pressure": 0.0,
+          "psychological_pressure": 0.0,
+          "informational_manipulation": 0.0,
+          "legal_constraint": 0.0,
+          "social_pressure": 0.1,
+          "duration": 0.05,
+          "reversibility": 1.0,
+          "scope_number_of_agents": 8,
+          "severity": 0.05
+        },
+        "available_alternatives": [],
+        "data_quality": {
+          "completeness": 0.9,
+          "source_reliability": 0.9,
+          "specificity": 0.85,
+          "recency": 0.9,
+          "corroboration": 0.8,
+          "ambiguity": 0.1,
+          "missing_critical_facts": []
+        },
+        "is_inaction": false,
+        "context_notes": "Attendance is explicitly optional; no consequences for declining.",
+        "consent": "GIVEN",
+        "responds_to_existing_coercion": false,
+        "expected_consequences": "Some employees gain new skills; no one is penalised."
+      },
+      "policy": "standard",
+      "expect_findings": [],
+      "forbid_findings": [],
+      "expect_judgment_stable": true
+    },
+    {
+      "id": "clean_ugly_good",
+      "label": "clean",
+      "description": "A good, low-coercion action described poorly (beauty-bias warning, no red flag).",
+      "case": {
+        "title": "A clumsy, honest, low-coercion request",
+        "description": "A genuinely benign, consensual, low-coercion action described in awkward, unpolished, jargon-poor language -- its moral value could be undervalued because of the poor expression.",
+        "acting_agent": {
+          "name": "Volunteer coordinator",
+          "agent_type": "TYPE_II",
+          "description": "",
+          "is_collective": false
+        },
+        "affected_agents": [
+          {
+            "name": "Volunteer",
+            "agent_type": "TYPE_II",
+            "description": "",
+            "is_collective": false
+          }
+        ],
+        "intended_goal": "Ask if the volunteer would like to help, entirely optionally.",
+        "coercion_profile": {
+          "physical_force": 0.0,
+          "threat": 0.0,
+          "economic_pressure": 0.0,
+          "psychological_pressure": 0.0,
+          "informational_manipulation": 0.0,
+          "legal_constraint": 0.0,
+          "social_pressure": 0.05,
+          "duration": 0.0,
+          "reversibility": 1.0,
+          "scope_number_of_agents": 1,
+          "severity": 0.05
+        },
+        "available_alternatives": [],
+        "data_quality": {
+          "completeness": 0.8,
+          "source_reliability": 0.8,
+          "specificity": 0.8,
+          "recency": 0.8,
+          "corroboration": 0.7,
+          "ambiguity": 0.2,
+          "missing_critical_facts": []
+        },
+        "language_act": {
+          "text": "um so like if maybe you wanted to possibly help out sometime that would be ok but also totally fine if not no worries whatever works",
+          "speaker_agent": "Volunteer coordinator",
+          "target_agents": [
+            "Volunteer"
+          ],
+          "declared_intent": "Offer an optional chance to help.",
+          "context": {
+            "medium": "speech",
+            "power_asymmetry": 0.1,
+            "urgency": 0.1,
+            "target_vulnerability": 0.1,
+            "stakes": 0.1,
+            "reversibility": 1.0,
+            "audience_scope": 0.0,
+            "notes": ""
+          },
+          "ethics_profile": {
+            "clarity": 0.2,
+            "truthfulness": 0.9,
+            "specificity": 0.2,
+            "context_completeness": 0.5,
+            "agency_respect": 0.8,
+            "consent_support": 0.8,
+            "constructive_potential": 0.2,
+            "manipulation_risk": 0.0,
+            "shame_pressure": 0.0,
+            "fear_pressure": 0.0,
+            "false_necessity": 0.0,
+            "false_dichotomy": 0.0,
+            "loaded_language": 0.0,
+            "omission_risk": 0.0,
+            "ambiguity_level": 0.0,
+            "silencing_effect": 0.0
+          },
+          "notes": ""
+        },
+        "is_inaction": false,
+        "context_notes": "",
+        "consent": "GIVEN",
+        "consent_profile": {
+          "status": "GIVEN",
+          "informed": "CONFIRMED",
+          "voluntary": "CONFIRMED",
+          "specific": "CONFIRMED",
+          "revocable": "CONFIRMED",
+          "communicated_by_agent": true,
+          "notes": ""
+        },
+        "agency_profile": {
+          "agent_type": "TYPE_II",
+          "capacity_confidence": 0.8,
+          "metacognition_evidence": [],
+          "language_symbolic_capacity": "UNKNOWN",
+          "decision_capacity": "UNKNOWN",
+          "vulnerability_level": 0.1,
+          "notes": ""
+        },
+        "responds_to_existing_coercion": false,
+        "expected_consequences": "The volunteer can help or not, freely."
+      },
+      "policy": "standard",
+      "expect_findings": [
+        "AUD-BIAS-BEAUTY-UNDERCREDIT"
+      ],
+      "forbid_findings": [],
+      "expect_judgment_stable": true
+    }
+  ]
+}

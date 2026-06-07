@@ -1,0 +1,26 @@
+{
+  "title": "A moderately coercive measure whose verdict hinges on consent",
+  "description": "Coercion is moderate, the data are good, and the action is reversible -- so whether this is acceptable turns almost entirely on one unknown: did the affected person freely consent?",
+  "acting_agent": { "name": "Administrator", "agent_type": "TYPE_II" },
+  "affected_agents": [{ "name": "Resident", "agent_type": "TYPE_II" }],
+  "intended_goal": "Apply a temporary, reversible restriction.",
+  "coercion_profile": { "psychological_pressure": 0.35, "social_pressure": 0.2, "reversibility": 0.9, "severity": 0.3 },
+  "data_quality": { "completeness": 0.85, "source_reliability": 0.85, "specificity": 0.85, "recency": 0.85, "corroboration": 0.8, "ambiguity": 0.15 },
+  "consent": "UNKNOWN",
+  "available_alternatives": [],
+  "responds_to_existing_coercion": false,
+  "consequences": {
+    "consequences": [
+      {
+        "description": "the restriction lapses on schedule, leaving no lasting effect",
+        "horizon": "short_term",
+        "coercion_delta": -0.1,
+        "severity": 0.2,
+        "probability": 0.8,
+        "confidence": 0.7,
+        "reversibility": 0.9,
+        "evidence_quality": 0.7
+      }
+    ]
+  }
+}

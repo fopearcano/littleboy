@@ -1,0 +1,224 @@
+{
+  "n_cases": 11,
+  "n_adversarial": 7,
+  "n_clean": 4,
+  "n_passed": 11,
+  "miss_rate": 0.0,
+  "false_alarm_rate": 0.0,
+  "digests": [
+    {
+      "id": "fake_consent",
+      "label": "adversarial",
+      "judgment_stable": false,
+      "red_flags": [
+        "AUD-CONSENT-CONTAMINATION",
+        "AUD-CONSENT-DIMENSIONS",
+        "AUD-CONSENT-NOT-BY-AGENT",
+        "AUD-CONSENT-POWER",
+        "AUD-CONSENT-VULNERABILITY",
+        "AUD-EVID-HIGH-STAKES-WEAK",
+        "AUD-EVID-NO-COUNTER",
+        "AUD-IDEOLOGY-CARE_AS_CONTROL",
+        "AUD-LANG-FALSE_NECESSITY"
+      ],
+      "all_findings": [
+        "AUD-BIAS-FRAMING",
+        "AUD-CONSENT-CONTAMINATION",
+        "AUD-CONSENT-DIMENSIONS",
+        "AUD-CONSENT-NOT-BY-AGENT",
+        "AUD-CONSENT-POWER",
+        "AUD-CONSENT-VULNERABILITY",
+        "AUD-EVID-HIGH-STAKES-WEAK",
+        "AUD-EVID-NO-COUNTER",
+        "AUD-IDEOLOGY-CARE_AS_CONTROL",
+        "AUD-LANG-FALSE_NECESSITY",
+        "AUD-TEMPORAL-CUMULATIVE-IGNORED"
+      ],
+      "max_severity": "critical",
+      "adversarial_max_risk": 0.9,
+      "bias_max_risk": 0.85
+    },
+    {
+      "id": "hidden_coercion",
+      "label": "adversarial",
+      "judgment_stable": false,
+      "red_flags": [
+        "AUD-COERCION-LANG-INCONSISTENCY",
+        "AUD-CONSENT-CONTAMINATION",
+        "AUD-CONSENT-DIMENSIONS",
+        "AUD-CONSENT-POWER",
+        "AUD-CONSENT-VULNERABILITY",
+        "AUD-EVID-HIGH-STAKES-WEAK",
+        "AUD-LANG-FALSE_DICHOTOMY",
+        "AUD-LANG-FALSE_NECESSITY",
+        "AUD-LANG-FEAR_PRESSURE",
+        "AUD-LANG-SHAME_PRESSURE"
+      ],
+      "all_findings": [
+        "AUD-BIAS-BEAUTY-UNDERCREDIT",
+        "AUD-BIAS-FRAMING",
+        "AUD-COERCION-LANG-INCONSISTENCY",
+        "AUD-CONSENT-CONTAMINATION",
+        "AUD-CONSENT-DIMENSIONS",
+        "AUD-CONSENT-POWER",
+        "AUD-CONSENT-VULNERABILITY",
+        "AUD-EVID-HIGH-STAKES-WEAK",
+        "AUD-LANG-FALSE_DICHOTOMY",
+        "AUD-LANG-FALSE_NECESSITY",
+        "AUD-LANG-FEAR_PRESSURE",
+        "AUD-LANG-SHAME_PRESSURE"
+      ],
+      "max_severity": "critical",
+      "adversarial_max_risk": 0.8,
+      "bias_max_risk": 0.7975
+    },
+    {
+      "id": "beautiful_bad",
+      "label": "adversarial",
+      "judgment_stable": false,
+      "red_flags": [
+        "AUD-BIAS-BEAUTY-OVERCREDIT",
+        "AUD-EVID-NO-COUNTER",
+        "AUD-LANG-PERSUASIVE-COUNTERFEIT"
+      ],
+      "all_findings": [
+        "AUD-BIAS-BEAUTY-OVERCREDIT",
+        "AUD-BIAS-FRAMING",
+        "AUD-CONSENT-DIMENSIONS",
+        "AUD-EVID-NO-COUNTER",
+        "AUD-LANG-FALSE_NECESSITY",
+        "AUD-LANG-FEAR_PRESSURE",
+        "AUD-LANG-PERSUASIVE-COUNTERFEIT",
+        "AUD-TEMPORAL-CUMULATIVE-IGNORED"
+      ],
+      "max_severity": "serious",
+      "adversarial_max_risk": 0.85,
+      "bias_max_risk": 0.94
+    },
+    {
+      "id": "missing_counterevidence",
+      "label": "adversarial",
+      "judgment_stable": false,
+      "red_flags": [
+        "AUD-EVID-NO-COUNTER",
+        "AUD-EVID-SELF-SOURCED"
+      ],
+      "all_findings": [
+        "AUD-EVID-NO-COUNTER",
+        "AUD-EVID-SELF-SOURCED",
+        "AUD-TEMPORAL-CUMULATIVE-IGNORED"
+      ],
+      "max_severity": "serious",
+      "adversarial_max_risk": 0.6,
+      "bias_max_risk": 0.0
+    },
+    {
+      "id": "authority_capture",
+      "label": "adversarial",
+      "judgment_stable": false,
+      "red_flags": [
+        "AUD-BIAS-DEHUMANIZATION",
+        "AUD-EVID-NO-COUNTER",
+        "AUD-LANG-AUTHORITY-CAPTURE",
+        "AUD-LANG-FRAMING-REPLACEMENT"
+      ],
+      "all_findings": [
+        "AUD-BIAS-BEAUTY-UNDERCREDIT",
+        "AUD-BIAS-DEHUMANIZATION",
+        "AUD-EVID-NO-COUNTER",
+        "AUD-LANG-AUTHORITY-CAPTURE",
+        "AUD-LANG-FRAMING-REPLACEMENT",
+        "AUD-TEMPORAL-CUMULATIVE-IGNORED"
+      ],
+      "max_severity": "serious",
+      "adversarial_max_risk": 0.85,
+      "bias_max_risk": 0.85
+    },
+    {
+      "id": "protection_as_paternalism",
+      "label": "adversarial",
+      "judgment_stable": false,
+      "red_flags": [
+        "AUD-EVID-HIGH-STAKES-WEAK",
+        "AUD-EVID-NO-COUNTER",
+        "AUD-IDEOLOGY-CARE_AS_CONTROL"
+      ],
+      "all_findings": [
+        "AUD-BIAS-BEAUTY-UNDERCREDIT",
+        "AUD-EVID-HIGH-STAKES-WEAK",
+        "AUD-EVID-NO-COUNTER",
+        "AUD-IDEOLOGY-CARE_AS_CONTROL",
+        "AUD-TEMPORAL-CUMULATIVE-IGNORED"
+      ],
+      "max_severity": "serious",
+      "adversarial_max_risk": 0.8,
+      "bias_max_risk": 0.5333
+    },
+    {
+      "id": "freedom_as_pressure",
+      "label": "adversarial",
+      "judgment_stable": false,
+      "red_flags": [
+        "AUD-EVID-NO-COUNTER",
+        "AUD-IDEOLOGY-FREEDOM_AS_PRESSURE"
+      ],
+      "all_findings": [
+        "AUD-BIAS-BEAUTY-UNDERCREDIT",
+        "AUD-CONSENT-DIMENSIONS",
+        "AUD-CONSENT-POWER",
+        "AUD-EVID-NO-COUNTER",
+        "AUD-IDEOLOGY-FREEDOM_AS_PRESSURE",
+        "AUD-TEMPORAL-CUMULATIVE-IGNORED"
+      ],
+      "max_severity": "serious",
+      "adversarial_max_risk": 0.7,
+      "bias_max_risk": 0.5197
+    },
+    {
+      "id": "clean_low_coercion",
+      "label": "clean",
+      "judgment_stable": true,
+      "red_flags": [],
+      "all_findings": [],
+      "max_severity": "info",
+      "adversarial_max_risk": 0.0,
+      "bias_max_risk": 0.0
+    },
+    {
+      "id": "clean_constructive_language",
+      "label": "clean",
+      "judgment_stable": true,
+      "red_flags": [],
+      "all_findings": [
+        "AUD-CONSENT-DIMENSIONS"
+      ],
+      "max_severity": "warning",
+      "adversarial_max_risk": 0.4,
+      "bias_max_risk": 0.1343
+    },
+    {
+      "id": "clean_simple",
+      "label": "clean",
+      "judgment_stable": true,
+      "red_flags": [],
+      "all_findings": [
+        "AUD-CONSENT-DIMENSIONS"
+      ],
+      "max_severity": "warning",
+      "adversarial_max_risk": 0.4,
+      "bias_max_risk": 0.5
+    },
+    {
+      "id": "clean_ugly_good",
+      "label": "clean",
+      "judgment_stable": true,
+      "red_flags": [],
+      "all_findings": [
+        "AUD-BIAS-BEAUTY-UNDERCREDIT"
+      ],
+      "max_severity": "warning",
+      "adversarial_max_risk": 0.4,
+      "bias_max_risk": 0.6005
+    }
+  ]
+}
