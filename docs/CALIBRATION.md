@@ -93,21 +93,32 @@ binary detector over the report:
 For each labelled layer, a labelled-positive the detector misses is a **miss**, and
 a labelled-negative it flags is a **false alarm**, giving a per-layer `miss_rate`
 and `false_alarm_rate`. The end-to-end `verdict` label gives a **verdict accuracy**.
-The packaged scoring corpus runs at miss 0.0 / false-alarm 0.0 on every layer and
-verdict accuracy 1.0 — pinned by its own golden file
-(`tests/golden/scoring_corpus.golden.json`). `littleboy calibrate --scope scoring`
-runs it:
+
+### Confidence intervals and per-policy breakdown (v0.11)
+
+The corpus is larger in v0.11, and each rate now carries a deterministic
+**Wilson score 95% confidence interval** (`wilson_ci`, a closed-form function of
+the counts — no randomness), so a "0.0 miss rate" over a small sample is honestly
+reported as, say, `[0.0, 0.22]` rather than as certainty. The whole corpus is also
+re-run under **each policy mode** (`per_policy`), because the detectors use policy
+thresholds: a lower `coercion_moderate` flags more borderline cases, so the
+coercion **false-alarm rate rises under stricter policies** — exactly the
+sensitivity/precision trade-off a maintainer needs to see. Verdict accuracy is
+reported only against each entry's own policy (the verdict is policy-dependent by
+design). Everything is pinned by the scoring golden file
+(`tests/golden/scoring_corpus.golden.json`). `littleboy calibrate --scope scoring`:
 
 ```text
-CALIBRATION (scoring): verdict_accuracy=1.00 (11/11)
-  coercion: miss_rate=0.00  false_alarm_rate=0.00  (n=11)
-  data_sufficiency: miss_rate=0.00  false_alarm_rate=0.00  (n=11)
-  temporal: miss_rate=0.00  false_alarm_rate=0.00  (n=3)
+CALIBRATION (scoring): verdict_accuracy=1.00 (21/21)
+  coercion: miss_rate=0.00  false_alarm_rate=0.00  (n=21)
+  data_sufficiency: miss_rate=0.00  false_alarm_rate=0.00  (n=21)
+  temporal: miss_rate=0.00  false_alarm_rate=0.00  (n=5)
 ```
 
 Changing a coercion or temporal threshold now moves a measurable number: a wrong
-change shows up as a miss or false alarm on the relevant layer, or as a verdict
-mismatch, and fails the golden test.
+change shows up as a miss or false alarm on the relevant layer (with shifted
+confidence intervals and per-policy rates), or as a verdict mismatch, and fails the
+golden test.
 
 ## Limitations
 

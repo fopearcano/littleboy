@@ -7,6 +7,7 @@ import json
 from littleboy.deliberation.models import (
     ComparisonDeliberationReport,
     DeliberationReport,
+    IntakeTranscript,
     MinimalQuestionPlan,
 )
 
@@ -106,12 +107,52 @@ def render_question_plan_text(report: MinimalQuestionPlan) -> str:
         lines.append("  (none — no answerable question would change the verdict)")
     for q in report.questions:
         scope = "alone changes the verdict" if q.alone_changes_verdict else "in a minimal set"
-        lines.append(f"  [{q.priority}/{q.category}] {q.question}  (value {q.value:.2f}; {scope})")
+        cheap = ", in cheapest set" if q.in_cheapest_set else ""
+        lines.append(
+            f"  [{q.priority}/{q.category}] {q.question}  "
+            f"(value {q.value:.2f}; cost {q.cost:g}; {scope}{cheap})"
+        )
         lines.append(f"      why it matters: {q.why_it_matters}")
+    if report.cheapest_set:
+        lines.append("")
+        lines.append(
+            f"Cheapest sufficient set: {{{', '.join(report.cheapest_set)}}}"
+            + (f"  (total cost {report.cheapest_set_cost:g})" if report.cheapest_set_cost else "")
+        )
 
     if report.notes:
         lines.append("")
         lines.append("Notes:")
+        for n in report.notes:
+            lines.append(f"  - {n}")
+    return "\n".join(lines)
+
+
+def render_intake_json(report: IntakeTranscript, *, indent: int = 2) -> str:
+    return json.dumps(report.model_dump(mode="json"), indent=indent, ensure_ascii=False)
+
+
+def render_intake_text(report: IntakeTranscript) -> str:
+    """Render an interactive minimal-intake transcript as a readable text block."""
+    lines: list[str] = ["MINIMAL INTAKE TRANSCRIPT"]
+    initial = report.initial_verdict.value if report.initial_verdict else "n/a"
+    final = report.final_verdict.value if report.final_verdict else "n/a"
+    conf = f"{report.final_confidence:.2f}" if report.final_confidence is not None else "n/a"
+    lines.append(
+        f"  {initial} -> {final}  (final confidence {conf}; "
+        f"{report.questions_asked} question(s) asked; settled={report.settled})"
+    )
+    lines.append("")
+    lines.append("Steps:")
+    if not report.steps:
+        lines.append("  (none — the verdict was already settled)")
+    for i, s in enumerate(report.steps, 1):
+        after = s.verdict_after.value if s.verdict_after else "n/a"
+        flag = "  <-- verdict changed" if s.verdict_changed else ""
+        lines.append(f"  {i}. {s.question}")
+        lines.append(f"     answer: {s.answer}  ->  {after}{flag}")
+    if report.notes:
+        lines.append("")
         for n in report.notes:
             lines.append(f"  - {n}")
     return "\n".join(lines)

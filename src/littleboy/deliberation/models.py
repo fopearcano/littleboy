@@ -128,8 +128,10 @@ class PlannedQuestion(_DelibBase):
     category: str = ""
     priority: str = Field(default="medium", description="critical | high | medium")
     value: float = Field(default=0.0, ge=0.0, le=1.0)
+    cost: float = Field(default=1.0, ge=0.0, description="Relative cost of obtaining this answer.")
     alone_changes_verdict: bool = False
     in_minimal_set: bool = False
+    in_cheapest_set: bool = False
     related_axioms: list[str] = Field(default_factory=list)
 
 
@@ -146,10 +148,46 @@ class MinimalQuestionPlan(_DelibBase):
     confidence: float | None = None
     questions: list[PlannedQuestion] = Field(default_factory=list)
     smallest_flip_size: int | None = None
+    cheapest_set: list[str] = Field(
+        default_factory=list,
+        description="Fields of the lowest-total-cost set whose joint resolution flips the verdict.",
+    )
+    cheapest_set_cost: float | None = None
     verdict_robust: bool = Field(
         default=True,
         description="True if no resolvable combination of unknowns would change the verdict.",
     )
+    notes: list[str] = Field(default_factory=list)
+
+
+class IntakeStep(_DelibBase):
+    """One question asked, and the verdict after the answer was applied."""
+
+    field: str
+    question: str
+    answer: str
+    verdict_after: Verdict | None = None
+    confidence_after: float | None = None
+    verdict_changed: bool = False
+
+
+class IntakeTranscript(_DelibBase):
+    """The record of an interactive minimal-intake session.
+
+    The loop asks the cheapest verdict-relevant question, applies the answer,
+    re-plans, and repeats until the verdict is settled (no remaining unknown could
+    change it) or the question budget is exhausted.
+    """
+
+    initial_verdict: Verdict | None = None
+    final_verdict: Verdict | None = None
+    final_confidence: float | None = None
+    steps: list[IntakeStep] = Field(default_factory=list)
+    settled: bool = Field(
+        default=False,
+        description="True if it stopped because no remaining unknown could change the verdict.",
+    )
+    questions_asked: int = 0
     notes: list[str] = Field(default_factory=list)
 
 

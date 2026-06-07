@@ -108,11 +108,14 @@ from littleboy.deliberation import (
     DeliberationReport,
     Deliberator,
     InformationValue,
+    IntakeTranscript,
     MinimalFlipSet,
     MinimalQuestionPlan,
+    cheapest_flip_set,
     comparison_value_of_information,
     minimal_flip_sets,
     plan_minimal_questions,
+    run_minimal_intake,
     value_of_information,
 )
 from littleboy.language import (
@@ -154,7 +157,7 @@ from littleboy.temporal import (
     score_reversibility,
 )
 
-__version__ = "0.10.0"
+__version__ = "0.11.0"
 
 __all__ = [
     "AuditCorpus",
@@ -164,16 +167,19 @@ __all__ = [
     "DeliberationReport",
     "Deliberator",
     "InformationValue",
+    "IntakeTranscript",
     "MinimalFlipSet",
     "MinimalQuestionPlan",
     "ScoringCalibrationReport",
     "ScoringCorpus",
+    "cheapest_flip_set",
     "comparison_value_of_information",
     "default_corpus",
     "default_scoring_corpus",
     "minimal_flip_sets",
     "plan_minimal_questions",
     "run_corpus",
+    "run_minimal_intake",
     "run_scoring_corpus",
     "value_of_information",
     "BUILTIN_RULES",

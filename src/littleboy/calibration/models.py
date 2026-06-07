@@ -134,8 +134,15 @@ class ScoringCorpus(_CalBase):
     entries: list[ScoringCorpusEntry] = Field(default_factory=list)
 
 
+class ConfidenceInterval(_CalBase):
+    """A deterministic (Wilson score) confidence interval for a proportion."""
+
+    low: float = Field(default=0.0, ge=0.0, le=1.0)
+    high: float = Field(default=1.0, ge=0.0, le=1.0)
+
+
 class LayerMetrics(_CalBase):
-    """A confusion matrix and the two rates for one scoring layer."""
+    """A confusion matrix, the two rates, and their confidence intervals for one layer."""
 
     layer: str
     n_labelled: int = 0
@@ -144,11 +151,20 @@ class LayerMetrics(_CalBase):
     false_negative: int = 0
     true_negative: int = 0
     miss_rate: float = Field(default=0.0, ge=0.0, le=1.0)
+    miss_rate_ci: ConfidenceInterval = Field(default_factory=ConfidenceInterval)
     false_alarm_rate: float = Field(default=0.0, ge=0.0, le=1.0)
+    false_alarm_rate_ci: ConfidenceInterval = Field(default_factory=ConfidenceInterval)
+
+
+class PolicyScoringMetrics(_CalBase):
+    """Per-layer metrics for the corpus run under one forced policy mode."""
+
+    policy: str
+    layers: list[LayerMetrics] = Field(default_factory=list)
 
 
 class ScoringCalibrationReport(_CalBase):
-    """Aggregate scoring-layer calibration over the corpus."""
+    """Aggregate scoring-layer calibration over the corpus, with per-policy breakdown."""
 
     n_cases: int = 0
     layers: list[LayerMetrics] = Field(default_factory=list)
@@ -156,4 +172,5 @@ class ScoringCalibrationReport(_CalBase):
     verdict_correct: int = 0
     verdict_accuracy: float = Field(default=0.0, ge=0.0, le=1.0)
     verdict_mismatches: list[str] = Field(default_factory=list)
+    per_policy: list[PolicyScoringMetrics] = Field(default_factory=list)
     notes: list[str] = Field(default_factory=list)

@@ -13,7 +13,15 @@ Two capabilities built *on top of* the evaluator and comparison engine:
 from __future__ import annotations
 
 from littleboy.deliberation.engine import Deliberator
-from littleboy.deliberation.minimal_case import plan_minimal_questions
+from littleboy.deliberation.intake import (
+    apply_intake_answer,
+    run_minimal_intake,
+)
+from littleboy.deliberation.minimal_case import (
+    DEFAULT_QUESTION_COSTS,
+    plan_minimal_questions,
+    question_cost,
+)
 from littleboy.deliberation.models import (
     ComparisonDeliberationReport,
     ComparisonInformationValue,
@@ -22,6 +30,8 @@ from littleboy.deliberation.models import (
     DeliberationStep,
     FactResolution,
     InformationValue,
+    IntakeStep,
+    IntakeTranscript,
     MinimalFlipSet,
     MinimalQuestionPlan,
     PlannedQuestion,
@@ -33,10 +43,13 @@ from littleboy.deliberation.report import (
     render_comparison_deliberation_text,
     render_deliberation_json,
     render_deliberation_text,
+    render_intake_json,
+    render_intake_text,
     render_question_plan_json,
     render_question_plan_text,
 )
 from littleboy.deliberation.voi import (
+    cheapest_flip_set,
     comparison_value_of_information,
     minimal_flip_sets,
     value_of_information,
@@ -44,6 +57,7 @@ from littleboy.deliberation.voi import (
 )
 
 __all__ = [
+    "DEFAULT_QUESTION_COSTS",
     "ComparisonDeliberationReport",
     "ComparisonInformationValue",
     "ComparisonResolutionOutcome",
@@ -52,21 +66,29 @@ __all__ = [
     "DeliberationStep",
     "FactResolution",
     "InformationValue",
+    "IntakeStep",
+    "IntakeTranscript",
     "MinimalFlipSet",
     "MinimalQuestionPlan",
     "PlannedQuestion",
     "ResolutionOutcome",
+    "apply_intake_answer",
+    "cheapest_flip_set",
     "comparison_value_of_information",
     "minimal_flip_sets",
     "narrate_comparison",
     "narrate_evaluation",
     "plan_minimal_questions",
+    "question_cost",
     "render_comparison_deliberation_json",
     "render_comparison_deliberation_text",
     "render_deliberation_json",
     "render_deliberation_text",
+    "render_intake_json",
+    "render_intake_text",
     "render_question_plan_json",
     "render_question_plan_text",
+    "run_minimal_intake",
     "value_of_information",
     "verdict_distance",
 ]

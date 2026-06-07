@@ -44,12 +44,13 @@ from littleboy.comparison.report import render_comparison_json, render_compariso
 from littleboy.core.enums import PolicyMode
 from littleboy.core.evaluator import EthicalEvaluator
 from littleboy.core.models import ActionCase
-from littleboy.deliberation import Deliberator
+from littleboy.deliberation import Deliberator, run_minimal_intake
 from littleboy.deliberation.report import (
     render_comparison_deliberation_json,
     render_comparison_deliberation_text,
     render_deliberation_json,
     render_deliberation_text,
+    render_intake_text,
     render_question_plan_json,
     render_question_plan_text,
 )
@@ -219,11 +220,45 @@ def build_case(
     run_evaluation: bool = typer.Option(
         True, "--evaluate/--no-evaluate", help="Evaluate the case if enough data exist."
     ),
+    minimal: bool = typer.Option(
+        False,
+        "--minimal",
+        "-m",
+        help="Interactively ask only the questions that could change the verdict, "
+        "re-planning after each answer (requires --from).",
+    ),
+    seed: Path | None = typer.Option(
+        None, "--from", help="Seed the minimal-intake loop from this JSON ActionCase."
+    ),
 ) -> None:
     """Interactively build an ActionCase, then show its completeness (and optionally evaluate)."""
     policy_mode = _resolve_policy(policy)
-    tpl = _resolve_template(template)
 
+    if minimal:
+        if seed is None:
+            typer.echo("--minimal requires --from <case.json> to seed the loop.", err=True)
+            raise typer.Exit(code=2)
+        case = _load_case(seed)
+        typer.echo(
+            "LittleBoy minimal intake: answering only what could change the verdict.\n",
+            err=True,
+        )
+
+        def _answer(question) -> str:
+            label = f"[{question.priority}, cost {question.cost:g}] {question.question}"
+            return typer.prompt(label, default="", show_default=False)
+
+        transcript, final_case = run_minimal_intake(case, _answer, policy=policy_mode)
+        typer.echo("\n" + render_intake_text(transcript))
+        if output is not None:
+            payload = final_case.model_dump(mode="json", exclude_none=True)
+            output.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
+            typer.echo(f"\nWrote case to {output}")
+        if run_evaluation:
+            typer.echo("\n" + render_text(EthicalEvaluator(policy_mode).evaluate(final_case)))
+        return
+
+    tpl = _resolve_template(template)
     typer.echo("LittleBoy case builder. Press Enter to skip any question.\n", err=True)
     answers: dict[str, str] = {}
     for prompt in wizard_prompts(tpl):

@@ -11,16 +11,17 @@ and returns a **transparent, explained verdict** with an honest account of its
 own uncertainty. It is a reasoning engine, not a user interface and not a
 language model.
 
-This is **v0.10**, which adds **multi-fact value of information** and a
-**minimal-sufficient-case planner**: LittleBoy now finds the *smallest combination*
-of unknowns whose joint resolution would change the verdict (not just one fact at a
-time), and drives the case builder to ask **only the questions that could change
-the verdict, in priority order**. v0.10 also extends calibration beyond the audit:
-the coercion, data-sufficiency, and temporal scoring layers each get measured
-**miss and false-alarm rates** with golden-file regression. (v0.9 added the
-deliberation & value-of-information layer; v0.8 adversarial audit & bias testing;
-v0.7 temporal & consequence modeling; v0.6 the comparison engine; v0.5 the language
-module; v0.4 the scenario builder; v0.3 the rule engine and policy layer.) See
+This is **v0.11**, which makes minimal intake **cost-aware and interactive**:
+LittleBoy now finds the *cheapest* sufficient set of unknowns to resolve (not just
+the smallest), and `build-case --minimal` runs an **interactive loop** that asks
+the cheapest verdict-relevant question, applies the answer, re-plans, and repeats
+until the verdict is settled. Calibration grows too: a **larger labelled corpus**
+reports **confidence intervals** on each scoring layer's miss/false-alarm rates,
+**per policy**. (v0.10 added multi-fact value of information and the
+minimal-sufficient-case planner; v0.9 the deliberation & value-of-information
+layer; v0.8 adversarial audit & bias testing; v0.7 temporal & consequence
+modeling; v0.6 the comparison engine; v0.5 the language module; v0.4 the scenario
+builder; v0.3 the rule engine and policy layer.) See
 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md),
 [`docs/ETHICAL_MODEL.md`](docs/ETHICAL_MODEL.md),
 [`docs/RULE_ENGINE.md`](docs/RULE_ENGINE.md),
@@ -366,6 +367,38 @@ unchanged. See [`docs/MINIMAL_SUFFICIENT_CASE.md`](docs/MINIMAL_SUFFICIENT_CASE.
 [`docs/VALUE_OF_INFORMATION.md`](docs/VALUE_OF_INFORMATION.md), and
 [`docs/CALIBRATION.md`](docs/CALIBRATION.md).
 
+## LittleBoy v0.11: Cost-aware, interactive minimal intake
+
+> Ask the **cheapest** questions that could settle the verdict, one at a time,
+> re-planning after each answer — and report how good the calibration really is.
+
+v0.10 found the *smallest* set of unknowns to resolve. But answers differ in
+effort: stating who consented is cheap; gathering corroborated evidence or
+forecasting long-term consequences is expensive. v0.11 adds:
+
+- **Cost-aware planning** (`cheapest_flip_set`): each question carries a `cost`
+  (`DEFAULT_QUESTION_COSTS`, overridable), and the planner searches *all* sufficient
+  sets for the **lowest total cost** — so two cheap questions can be preferred over
+  one expensive one. The plan exposes `cheapest_set` / `cheapest_set_cost`, marks
+  `in_cheapest_set`, and orders cheapest-set members first. With uniform costs it
+  reduces to the smallest set.
+- **Interactive minimal intake** (`run_minimal_intake`, behind
+  `littleboy build-case --minimal --from <case.json>`): a loop that asks the top
+  cheapest, verdict-relevant question, applies the answer, **re-plans on the
+  updated case**, and repeats until the verdict is *settled* (no remaining unknown
+  could change it). Re-planning matters: resolving one fact can make another newly
+  decisive or newly irrelevant. The loop is I/O-free (it takes an answer callback),
+  so it is deterministic and testable.
+- **Calibration with confidence intervals, per policy**: the scoring corpus is
+  larger (21 cases) and each miss/false-alarm rate carries a deterministic **Wilson
+  95% confidence interval**; the corpus is re-run under **each policy mode**, so the
+  coercion false-alarm rate visibly rises under stricter thresholds — the
+  precision/sensitivity trade-off, measured.
+
+Deterministic, typed, additive. See
+[`docs/MINIMAL_SUFFICIENT_CASE.md`](docs/MINIMAL_SUFFICIENT_CASE.md) and
+[`docs/CALIBRATION.md`](docs/CALIBRATION.md).
+
 ## How evidence is represented
 
 An `EvidenceSet` holds `EvidenceItem`s, each a `claim` plus its `source_type`
@@ -473,11 +506,12 @@ src/littleboy/
     report.py       # audit JSON / text rendering
   deliberation/
     models.py       # DeliberationReport, InformationValue, MinimalFlipSet, MinimalQuestionPlan, ...
-    voi.py          # value of information: composable probes, single- + multi-fact search
+    voi.py          # value of information: composable probes, single/multi-fact + cheapest-set search
     narrate.py      # narrate why a verdict / top option holds
-    minimal_case.py # plan_minimal_questions: only the verdict-relevant questions
+    minimal_case.py # plan_minimal_questions: cheapest-first, verdict-relevant questions
+    intake.py       # interactive minimal-intake loop (I/O-free) + answer application
     engine.py       # Deliberator (deliberate / deliberate_comparison / question_plan)
-    report.py       # deliberation + question-plan JSON / text rendering
+    report.py       # deliberation + question-plan + intake JSON / text rendering
   calibration/
     models.py       # Audit + Scoring corpora, digests, CalibrationReport / ScoringCalibrationReport
     metrics.py      # per-entry audit scoring + miss / false-alarm aggregation
@@ -513,7 +547,7 @@ pip install -e ".[dev]"     # pydantic, pytest, typer, ruff
 ## Running the tests
 
 ```bash
-pytest                      # 185 tests
+pytest                      # 194 tests
 ruff check src tests        # lint (optional)
 ```
 
@@ -527,6 +561,7 @@ littleboy experiment examples/high_coercion_missing_consent.json          # fals
 littleboy questions examples/partial_generic_case.json                    # what's missing + questions
 littleboy questions examples/partial_medical_case.json --template medical_decision --format json
 littleboy build-case --template speech_or_language_manipulation -o my_case.json   # interactive wizard
+littleboy build-case --minimal --from examples/voi_consent_pivotal.json   # interactive: only verdict-changing questions
 littleboy analyze-language examples/language_manipulative_case.json       # linguistic coercion
 littleboy analyze-language examples/language_constructive_case.json --format text
 littleboy compare examples/comparison_basic.json                          # rank candidate actions
@@ -720,21 +755,18 @@ make consequential decisions about real people.
 
 ## Current development status
 
-**v0.10 — multi-fact value of information & minimal-sufficient-case planning.**
-Implemented on top of v0.9: the deliberation layer's probes are now composable
-`case -> case` transforms, so `minimal_flip_sets` searches *combinations* of
-unknowns and returns the **smallest set whose joint resolution flips the verdict**
-(minimal — no proper subset flips alone); `DeliberationReport` carries
-`minimal_flip_sets`, `smallest_flip_size`, and `verdict_robust_to_combinations`.
-`Deliberator.question_plan` / `CaseBuilder.minimal_questions` turn this into a
-`MinimalQuestionPlan` that asks **only the questions that could change the
-verdict** (critical if alone, high if in a minimal set), exposed as
-`littleboy questions … --minimal`. Calibration is extended with a **scoring
-corpus** giving the coercion, data-sufficiency, and temporal layers each a measured
-miss / false-alarm rate (plus verdict accuracy), pinned by
-`tests/golden/scoring_corpus.golden.json`; `littleboy calibrate` gains a
-`--scope {audit,scoring,all}` option. A new doc, and a 185-test suite (all
-passing). Purely additive — the verdict itself is unchanged.
+**v0.11 — cost-aware, interactive minimal intake.** Implemented on top of v0.10:
+each planned question carries a `cost`, and `cheapest_flip_set` searches all
+sufficient sets for the **lowest-total-cost** one (two cheap questions can beat one
+expensive one); the plan exposes `cheapest_set` and orders cheapest-first.
+`run_minimal_intake` (and `build-case --minimal --from <case.json>`) drives an
+**interactive, I/O-free loop** that asks the cheapest verdict-relevant question,
+applies the answer, re-plans, and repeats until the verdict is settled. The scoring
+calibration corpus is larger (21 cases) and now reports a deterministic **Wilson
+confidence interval** on every miss/false-alarm rate, **per policy** (the coercion
+false-alarm rate rises under stricter thresholds). New CLI behaviour, both golden
+files refreshed, and a 194-test suite (all passing). Purely additive — the verdict
+itself is unchanged.
 
 Earlier phases delivered the core models; coercion/data-quality/evidence scoring;
 consent/agency models; the tri-state Axiom 3 justification; feasibility-aware
@@ -742,8 +774,9 @@ alternatives; the critical-data gate; the ethical experiment runner; the v0.3
 rule engine with four policy profiles and a full reasoning trace (twenty-four
 rules); the v0.4 scenario builder; the v0.5 language & coercion module (no
 NLP/LLM); the v0.6 comparison engine; the v0.7 temporal & consequence model; the
-v0.8 adversarial audit & bias testing; and the v0.9 deliberation &
-value-of-information layer. All v0.1–v0.9 inputs remain valid.
+v0.8 adversarial audit & bias testing; the v0.9 deliberation &
+value-of-information layer; and the v0.10 multi-fact VoI & minimal-case planner.
+All v0.1–v0.10 inputs remain valid.
 
 **Deliberately not built:** any web UI, any LLM/API integration, any opaque bias
 detection, any prediction that looks certain, any claim to absolute truth, any
@@ -752,14 +785,13 @@ to interrogate, not more dogmatic**.
 
 ### Recommended next steps
 
-- Calibrate the heuristics *against the world*, not just against labels: gather a
-  larger, independently-labelled corpus and report confidence intervals on the
-  miss / false-alarm rates per layer and policy.
-- Make the value-of-information search policy-aware end-to-end (it already re-runs
-  under the chosen policy) and let it propose the *cheapest* sufficient set when
-  questions carry different costs to answer.
-- An interactive `build-case --minimal` loop that asks the minimal questions one at
-  a time, re-planning after each answer until the verdict is settled.
+- Calibrate against an **independently-labelled** corpus an order of magnitude
+  larger, splitting labels from the maintainers who wrote the heuristics, and track
+  the confidence intervals tightening over time.
+- A globally cost-optimal questionnaire (the interactive loop is greedy/re-planning;
+  a lookahead could minimise *expected* total cost when answers are uncertain).
+- Let question costs and probe resolutions be **case-supplied**, so a domain can
+  declare what is cheap/expensive to learn and what the plausible answers are.
 - **Optional** LLM-assisted indicator extraction (language, consequence, audit)
   behind an explicit flag, with the model's suggestions shown, attributed, and
   editable — the deterministic core staying authoritative and the audit trail

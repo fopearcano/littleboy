@@ -1,6 +1,6 @@
 {
-  "title": "LittleBoy scoring-layer calibration corpus (v0.10)",
-  "description": "Labelled cases for measuring miss / false-alarm rates of the coercion, data-sufficiency, and temporal scoring layers, plus end-to-end verdict accuracy.",
+  "title": "LittleBoy scoring-layer calibration corpus (v0.11)",
+  "description": "Labelled cases for measuring miss / false-alarm rates of the coercion, data-sufficiency, and temporal scoring layers, with per-policy breakdown and Wilson confidence intervals, plus end-to-end verdict accuracy.",
   "entries": [
     {
       "id": "low_coercion",
@@ -817,6 +817,788 @@
         "coercive": false,
         "adequate_data": true,
         "verdict": "ACCEPTABLE"
+      }
+    },
+    {
+      "id": "contradiction",
+      "description": "scoring label for contradiction_case",
+      "case": {
+        "title": "Justification that contradicts the evidence",
+        "description": "The justification asserts that no less coercive alternative is available, yet a feasible, clearly less coercive alternative is supplied in the same case. LB-R012 flags the contradiction.",
+        "acting_agent": {
+          "name": "Official",
+          "agent_type": "TYPE_II",
+          "description": "",
+          "is_collective": false
+        },
+        "affected_agents": [
+          {
+            "name": "Subject",
+            "agent_type": "TYPE_II",
+            "description": "",
+            "is_collective": false
+          }
+        ],
+        "intended_goal": "Compel compliance.",
+        "coercion_profile": {
+          "physical_force": 0.7,
+          "threat": 0.4,
+          "economic_pressure": 0.0,
+          "psychological_pressure": 0.0,
+          "informational_manipulation": 0.0,
+          "legal_constraint": 0.0,
+          "social_pressure": 0.0,
+          "duration": 0.3,
+          "reversibility": 0.6,
+          "scope_number_of_agents": 1,
+          "severity": 0.5
+        },
+        "available_alternatives": [
+          {
+            "title": "Request compliance voluntarily",
+            "description": "",
+            "estimated_coercion_score": 0.1,
+            "feasibility": 0.9,
+            "notes": "A feasible, far less coercive option."
+          }
+        ],
+        "data_quality": {
+          "completeness": 0.8,
+          "source_reliability": 0.8,
+          "specificity": 0.8,
+          "recency": 0.8,
+          "corroboration": 0.75,
+          "ambiguity": 0.2,
+          "missing_critical_facts": []
+        },
+        "is_inaction": false,
+        "context_notes": "",
+        "consent": "NOT_APPLICABLE",
+        "responds_to_existing_coercion": true,
+        "prior_coercion_description": "A prior refusal to comply.",
+        "expected_consequences": "Compliance is compelled.",
+        "justification": {
+          "responds_to_existing_or_imminent_coercion": "CONFIRMED",
+          "no_less_coercive_alternative_available": "CONFIRMED",
+          "necessity": "CONFIRMED",
+          "proportionality": "CONFIRMED",
+          "expected_total_coercion_reduction": 0.4,
+          "cessation_condition_defined": "CONFIRMED",
+          "reversibility": "CONFIRMED",
+          "justification_notes": "Claims no less coercive option exists -- contradicted by the supplied alternative."
+        }
+      },
+      "policy": "standard",
+      "expect": {
+        "coercive": true,
+        "adequate_data": true,
+        "verdict": "NOT_ACCEPTABLE"
+      }
+    },
+    {
+      "id": "policy_permissive",
+      "description": "scoring label for policy_permissive_case",
+      "case": {
+        "title": "Firm but bounded workplace mandate",
+        "description": "An employer imposes a moderately forceful, reversible mandate. Coercion sits between the STANDARD and PERMISSIVE 'high' thresholds, so the verdict depends on the policy in force.",
+        "acting_agent": {
+          "name": "Employer",
+          "agent_type": "TYPE_II",
+          "description": "",
+          "is_collective": true
+        },
+        "affected_agents": [
+          {
+            "name": "Employees",
+            "agent_type": "TYPE_II",
+            "description": "",
+            "is_collective": true
+          }
+        ],
+        "intended_goal": "Enforce a workplace policy.",
+        "coercion_profile": {
+          "physical_force": 0.6,
+          "threat": 0.0,
+          "economic_pressure": 0.0,
+          "psychological_pressure": 0.0,
+          "informational_manipulation": 0.0,
+          "legal_constraint": 0.0,
+          "social_pressure": 0.0,
+          "duration": 0.1,
+          "reversibility": 0.9,
+          "scope_number_of_agents": 1,
+          "severity": 0.1
+        },
+        "available_alternatives": [],
+        "data_quality": {
+          "completeness": 0.85,
+          "source_reliability": 0.85,
+          "specificity": 0.8,
+          "recency": 0.85,
+          "corroboration": 0.8,
+          "ambiguity": 0.15,
+          "missing_critical_facts": []
+        },
+        "is_inaction": false,
+        "context_notes": "",
+        "consent": "GIVEN",
+        "responds_to_existing_coercion": false,
+        "expected_consequences": "Compliance is obtained; the effect is reversible."
+      },
+      "policy": "standard",
+      "expect": {
+        "coercive": true,
+        "adequate_data": true,
+        "verdict": "NOT_ACCEPTABLE"
+      }
+    },
+    {
+      "id": "policy_strict_borderline",
+      "description": "scoring label for policy_strict_case",
+      "case": {
+        "title": "Mild pressure with unknown consent",
+        "description": "A mildly coercive action where consent is unknown. STANDARD lowers confidence but still permits with reservations; STRICT treats unknown consent as a blocker.",
+        "acting_agent": {
+          "name": "Platform",
+          "agent_type": "TYPE_II",
+          "description": "",
+          "is_collective": true
+        },
+        "affected_agents": [
+          {
+            "name": "Users",
+            "agent_type": "TYPE_II",
+            "description": "",
+            "is_collective": true
+          }
+        ],
+        "intended_goal": "Apply a mild default setting.",
+        "coercion_profile": {
+          "physical_force": 0.0,
+          "threat": 0.0,
+          "economic_pressure": 0.25,
+          "psychological_pressure": 0.0,
+          "informational_manipulation": 0.0,
+          "legal_constraint": 0.0,
+          "social_pressure": 0.0,
+          "duration": 0.0,
+          "reversibility": 0.8,
+          "scope_number_of_agents": 1,
+          "severity": 0.1
+        },
+        "available_alternatives": [],
+        "data_quality": {
+          "completeness": 0.7,
+          "source_reliability": 0.7,
+          "specificity": 0.6,
+          "recency": 0.7,
+          "corroboration": 0.6,
+          "ambiguity": 0.15,
+          "missing_critical_facts": []
+        },
+        "is_inaction": false,
+        "context_notes": "",
+        "consent": "UNKNOWN",
+        "responds_to_existing_coercion": false,
+        "expected_consequences": "A mild, reversible default is applied to users."
+      },
+      "policy": "standard",
+      "expect": {
+        "coercive": false,
+        "adequate_data": true,
+        "verdict": "ACCEPTABLE_WITH_RESERVATIONS"
+      }
+    },
+    {
+      "id": "constructive_language",
+      "description": "scoring label for language_constructive_case",
+      "case": {
+        "title": "Clear, voluntary explanation of options",
+        "description": "An advisor explains a decision to a person, laying out the real options, what is known and unknown, and inviting questions and refusal.",
+        "acting_agent": {
+          "name": "Advisor",
+          "agent_type": "TYPE_II",
+          "description": "",
+          "is_collective": false
+        },
+        "affected_agents": [
+          {
+            "name": "Person",
+            "agent_type": "TYPE_II",
+            "description": "",
+            "is_collective": false
+          }
+        ],
+        "intended_goal": "Help the person decide freely and well.",
+        "available_alternatives": [],
+        "data_quality": {
+          "completeness": 0.85,
+          "source_reliability": 0.85,
+          "specificity": 0.8,
+          "recency": 0.85,
+          "corroboration": 0.8,
+          "ambiguity": 0.15,
+          "missing_critical_facts": []
+        },
+        "language_act": {
+          "text": "Here are your three options, with the benefits, the drawbacks, and what we don't yet know. Take your time, ask anything, and you are free to say no.",
+          "speaker_agent": "Advisor",
+          "target_agents": [
+            "Person"
+          ],
+          "declared_intent": "Inform without pressure.",
+          "context": {
+            "medium": "educational",
+            "power_asymmetry": 0.2,
+            "urgency": 0.1,
+            "target_vulnerability": 0.2,
+            "stakes": 0.5,
+            "reversibility": 1.0,
+            "audience_scope": 0.0,
+            "notes": ""
+          },
+          "ethics_profile": {
+            "clarity": 0.9,
+            "truthfulness": 0.9,
+            "specificity": 0.85,
+            "context_completeness": 0.85,
+            "agency_respect": 0.9,
+            "consent_support": 0.9,
+            "constructive_potential": 0.9,
+            "manipulation_risk": 0.0,
+            "shame_pressure": 0.0,
+            "fear_pressure": 0.0,
+            "false_necessity": 0.0,
+            "false_dichotomy": 0.0,
+            "loaded_language": 0.0,
+            "omission_risk": 0.0,
+            "ambiguity_level": 0.0,
+            "silencing_effect": 0.0
+          },
+          "notes": ""
+        },
+        "is_inaction": false,
+        "context_notes": "",
+        "consent": "GIVEN",
+        "responds_to_existing_coercion": false,
+        "expected_consequences": "The person makes an informed, unpressured choice."
+      },
+      "policy": "standard",
+      "expect": {
+        "coercive": false,
+        "adequate_data": true,
+        "verdict": "ACCEPTABLE"
+      }
+    },
+    {
+      "id": "false_dichotomy",
+      "description": "scoring label for false_dichotomy_case",
+      "case": {
+        "title": "Either obey or destroy everything",
+        "description": "A leader frames a complex situation as a stark choice between obedience and catastrophe, hiding the real range of options.",
+        "acting_agent": {
+          "name": "Leader",
+          "agent_type": "TYPE_II",
+          "description": "",
+          "is_collective": false
+        },
+        "affected_agents": [
+          {
+            "name": "Group member",
+            "agent_type": "TYPE_II",
+            "description": "",
+            "is_collective": true
+          }
+        ],
+        "intended_goal": "Force compliance by collapsing the options.",
+        "data_quality": {
+          "completeness": 0.7,
+          "source_reliability": 0.7,
+          "specificity": 0.7,
+          "recency": 0.8,
+          "corroboration": 0.6,
+          "ambiguity": 0.3,
+          "missing_critical_facts": []
+        },
+        "language_act": {
+          "text": "Either you obey or you destroy everything. There is no other option.",
+          "speaker_agent": "Leader",
+          "target_agents": [
+            "Group member"
+          ],
+          "context": {
+            "medium": "political_message",
+            "power_asymmetry": 0.7,
+            "urgency": 0.6,
+            "target_vulnerability": 0.4,
+            "stakes": 0.7,
+            "reversibility": 0.6,
+            "audience_scope": 0.8,
+            "notes": ""
+          },
+          "ethics_profile": {
+            "clarity": 0.5,
+            "truthfulness": 0.4,
+            "specificity": 0.5,
+            "context_completeness": 0.5,
+            "agency_respect": 0.3,
+            "consent_support": 0.5,
+            "constructive_potential": 0.5,
+            "manipulation_risk": 0.0,
+            "shame_pressure": 0.0,
+            "fear_pressure": 0.0,
+            "false_necessity": 0.7,
+            "false_dichotomy": 0.8,
+            "loaded_language": 0.0,
+            "omission_risk": 0.0,
+            "ambiguity_level": 0.0,
+            "silencing_effect": 0.0
+          },
+          "notes": ""
+        },
+        "is_inaction": false,
+        "context_notes": "",
+        "consent": "UNKNOWN",
+        "responds_to_existing_coercion": false,
+        "expected_consequences": "Members comply, believing they had no other option."
+      },
+      "policy": "standard",
+      "expect": {
+        "coercive": true,
+        "adequate_data": true,
+        "verdict": "NOT_ACCEPTABLE"
+      }
+    },
+    {
+      "id": "testimonial_injustice",
+      "description": "scoring label for testimonial_injustice_case",
+      "case": {
+        "title": "Dismissing a vulnerable person's testimony",
+        "description": "A caregiver dismisses and compresses a vulnerable person's own account of their experience, replacing it with a convenient label.",
+        "acting_agent": {
+          "name": "Caregiver",
+          "agent_type": "TYPE_II",
+          "description": "",
+          "is_collective": false
+        },
+        "affected_agents": [
+          {
+            "name": "Dependent person",
+            "agent_type": "TYPE_II",
+            "description": "",
+            "is_collective": false
+          }
+        ],
+        "intended_goal": "Override the person's stated wishes.",
+        "available_alternatives": [],
+        "data_quality": {
+          "completeness": 0.7,
+          "source_reliability": 0.7,
+          "specificity": 0.6,
+          "recency": 0.8,
+          "corroboration": 0.6,
+          "ambiguity": 0.3,
+          "missing_critical_facts": []
+        },
+        "language_act": {
+          "text": "She's just being dramatic; she doesn't really mean it. No one believes her anyway.",
+          "speaker_agent": "Caregiver",
+          "target_agents": [
+            "Dependent person"
+          ],
+          "context": {
+            "medium": "intimate_conversation",
+            "power_asymmetry": 0.8,
+            "urgency": 0.2,
+            "target_vulnerability": 0.85,
+            "stakes": 0.7,
+            "reversibility": 0.6,
+            "audience_scope": 0.2,
+            "notes": ""
+          },
+          "ethics_profile": {
+            "clarity": 0.5,
+            "truthfulness": 0.4,
+            "specificity": 0.5,
+            "context_completeness": 0.5,
+            "agency_respect": 0.2,
+            "consent_support": 0.2,
+            "constructive_potential": 0.5,
+            "manipulation_risk": 0.0,
+            "shame_pressure": 0.0,
+            "fear_pressure": 0.0,
+            "false_necessity": 0.0,
+            "false_dichotomy": 0.0,
+            "loaded_language": 0.0,
+            "omission_risk": 0.7,
+            "ambiguity_level": 0.0,
+            "silencing_effect": 0.7
+          },
+          "notes": ""
+        },
+        "is_inaction": false,
+        "context_notes": "",
+        "consent": "DISPUTED",
+        "agency_profile": {
+          "agent_type": "TYPE_II",
+          "capacity_confidence": 0.6,
+          "metacognition_evidence": [],
+          "language_symbolic_capacity": "UNKNOWN",
+          "decision_capacity": "UNKNOWN",
+          "vulnerability_level": 0.85,
+          "notes": ""
+        },
+        "responds_to_existing_coercion": false,
+        "expected_consequences": "The person's own account is set aside."
+      },
+      "policy": "standard",
+      "expect": {
+        "coercive": true,
+        "adequate_data": true,
+        "verdict": "NOT_ACCEPTABLE"
+      }
+    },
+    {
+      "id": "obfuscation_high_stakes",
+      "description": "scoring label for obfuscation_high_stakes_case",
+      "case": {
+        "title": "Deliberately obscure high-stakes notice",
+        "description": "A binding notice with serious consequences is written in dense, evasive language where clarity is ethically required.",
+        "acting_agent": {
+          "name": "Institution",
+          "agent_type": "TYPE_II",
+          "description": "",
+          "is_collective": true
+        },
+        "affected_agents": [
+          {
+            "name": "Recipients",
+            "agent_type": "TYPE_II",
+            "description": "",
+            "is_collective": true
+          }
+        ],
+        "intended_goal": "Bind recipients while minimising their understanding.",
+        "available_alternatives": [],
+        "data_quality": {
+          "completeness": 0.75,
+          "source_reliability": 0.8,
+          "specificity": 0.6,
+          "recency": 0.8,
+          "corroboration": 0.6,
+          "ambiguity": 0.4,
+          "missing_critical_facts": []
+        },
+        "language_act": {
+          "text": "Notwithstanding any prior representations, pursuant to the aforementioned and subject to the terms herein, the party hereinafter waives all rights not expressly reserved.",
+          "speaker_agent": "Institution",
+          "target_agents": [
+            "Recipients"
+          ],
+          "context": {
+            "medium": "legal_notice",
+            "power_asymmetry": 0.7,
+            "urgency": 0.3,
+            "target_vulnerability": 0.4,
+            "stakes": 0.8,
+            "reversibility": 0.5,
+            "audience_scope": 0.7,
+            "notes": ""
+          },
+          "ethics_profile": {
+            "clarity": 0.2,
+            "truthfulness": 0.6,
+            "specificity": 0.3,
+            "context_completeness": 0.3,
+            "agency_respect": 0.4,
+            "consent_support": 0.3,
+            "constructive_potential": 0.5,
+            "manipulation_risk": 0.0,
+            "shame_pressure": 0.0,
+            "fear_pressure": 0.0,
+            "false_necessity": 0.0,
+            "false_dichotomy": 0.0,
+            "loaded_language": 0.0,
+            "omission_risk": 0.6,
+            "ambiguity_level": 0.8,
+            "silencing_effect": 0.0
+          },
+          "notes": ""
+        },
+        "is_inaction": false,
+        "context_notes": "",
+        "consent": "UNKNOWN",
+        "responds_to_existing_coercion": false,
+        "expected_consequences": "Recipients are bound by terms they cannot readily understand."
+      },
+      "policy": "standard",
+      "expect": {
+        "coercive": true,
+        "adequate_data": true,
+        "verdict": "NOT_ACCEPTABLE"
+      }
+    },
+    {
+      "id": "temporal_inaction",
+      "description": "scoring label for temporal_inaction_not_neutral",
+      "case": {
+        "title": "Doing nothing while coercion continues",
+        "description": "An inaction whose consequence is that an existing coercion continues and grows. Inaction is evaluated as a non-neutral choice.",
+        "acting_agent": {
+          "name": "Bystander",
+          "agent_type": "TYPE_II",
+          "description": "",
+          "is_collective": false
+        },
+        "affected_agents": [
+          {
+            "name": "Person being coerced",
+            "agent_type": "TYPE_II",
+            "description": "",
+            "is_collective": false
+          }
+        ],
+        "coercion_profile": {
+          "physical_force": 0.0,
+          "threat": 0.0,
+          "economic_pressure": 0.0,
+          "psychological_pressure": 0.1,
+          "informational_manipulation": 0.0,
+          "legal_constraint": 0.0,
+          "social_pressure": 0.0,
+          "duration": 0.0,
+          "reversibility": 0.4,
+          "scope_number_of_agents": 1,
+          "severity": 0.1
+        },
+        "available_alternatives": [],
+        "data_quality": {
+          "completeness": 0.8,
+          "source_reliability": 0.8,
+          "specificity": 0.8,
+          "recency": 0.85,
+          "corroboration": 0.75,
+          "ambiguity": 0.2,
+          "missing_critical_facts": []
+        },
+        "consequences": {
+          "consequences": [
+            {
+              "description": "The existing coercion continues unchecked",
+              "horizon": "short_term",
+              "affected_agents": [],
+              "coercion_delta": 0.6,
+              "severity": 0.6,
+              "probability": 0.85,
+              "confidence": 0.7,
+              "reversibility": 0.4,
+              "duration": 0.6,
+              "evidence_quality": 0.6,
+              "notes": ""
+            },
+            {
+              "description": "The coercion becomes entrenched and harder to stop",
+              "horizon": "long_term",
+              "affected_agents": [],
+              "coercion_delta": 0.6,
+              "severity": 0.7,
+              "probability": 0.7,
+              "confidence": 0.6,
+              "reversibility": 0.3,
+              "duration": 0.8,
+              "evidence_quality": 0.6,
+              "notes": ""
+            }
+          ]
+        },
+        "is_inaction": true,
+        "context_notes": "",
+        "consent": "NOT_APPLICABLE",
+        "responds_to_existing_coercion": false,
+        "expected_consequences": "The existing coercion continues and worsens."
+      },
+      "policy": "standard",
+      "expect": {
+        "coercive": false,
+        "adequate_data": true,
+        "rising_coercion": true,
+        "verdict": "NOT_ACCEPTABLE"
+      }
+    },
+    {
+      "id": "temporal_irreversible_weak",
+      "description": "scoring label for temporal_irreversible_weak_data",
+      "case": {
+        "title": "An irreversible action on weak evidence",
+        "description": "A substantially coercive, effectively irreversible action proposed on a weak epistemic basis, with unknown reversibility.",
+        "acting_agent": {
+          "name": "Operator",
+          "agent_type": "TYPE_II",
+          "description": "",
+          "is_collective": false
+        },
+        "affected_agents": [
+          {
+            "name": "Subject",
+            "agent_type": "TYPE_II",
+            "description": "",
+            "is_collective": false
+          }
+        ],
+        "coercion_profile": {
+          "physical_force": 0.5,
+          "threat": 0.0,
+          "economic_pressure": 0.0,
+          "psychological_pressure": 0.0,
+          "informational_manipulation": 0.0,
+          "legal_constraint": 0.0,
+          "social_pressure": 0.0,
+          "duration": 0.2,
+          "reversibility": 0.1,
+          "scope_number_of_agents": 1,
+          "severity": 0.4
+        },
+        "available_alternatives": [],
+        "data_quality": {
+          "completeness": 0.6,
+          "source_reliability": 0.6,
+          "specificity": 0.5,
+          "recency": 0.6,
+          "corroboration": 0.5,
+          "ambiguity": 0.2,
+          "missing_critical_facts": []
+        },
+        "consequences": {
+          "consequences": [
+            {
+              "description": "The change cannot be undone if it proves wrong",
+              "horizon": "long_term",
+              "affected_agents": [],
+              "coercion_delta": 0.5,
+              "severity": 0.8,
+              "probability": 0.5,
+              "confidence": 0.3,
+              "reversibility": 0.1,
+              "duration": 1.0,
+              "evidence_quality": 0.3,
+              "notes": ""
+            }
+          ]
+        },
+        "reversibility_profile": {
+          "is_reversible": "UNKNOWN",
+          "reversibility_score": 0.15,
+          "cost_to_reverse": 0.8,
+          "residual_harm_after_reversal": 0.6,
+          "requires_consent_to_reverse": "UNKNOWN",
+          "notes": ""
+        },
+        "is_inaction": false,
+        "context_notes": "",
+        "consent": "GIVEN",
+        "responds_to_existing_coercion": false,
+        "expected_consequences": "A permanent, irreversible change."
+      },
+      "policy": "standard",
+      "expect": {
+        "coercive": true,
+        "adequate_data": false,
+        "rising_coercion": true,
+        "verdict": "INSUFFICIENT_DATA"
+      }
+    },
+    {
+      "id": "protection_as_paternalism",
+      "description": "scoring label for audit_protection_as_paternalism",
+      "case": {
+        "title": "'For your own good' over a competent adult's objection",
+        "description": "Care and protection language is used to justify overriding a vulnerable but competent adult's choices -- protection deployed as control.",
+        "acting_agent": {
+          "name": "Guardian institution",
+          "agent_type": "TYPE_II",
+          "description": "",
+          "is_collective": true
+        },
+        "affected_agents": [
+          {
+            "name": "Ward",
+            "agent_type": "TYPE_II",
+            "description": "",
+            "is_collective": false
+          }
+        ],
+        "intended_goal": "Restrict the ward's spending and movement 'for their own good'.",
+        "coercion_profile": {
+          "physical_force": 0.0,
+          "threat": 0.0,
+          "economic_pressure": 0.0,
+          "psychological_pressure": 0.5,
+          "informational_manipulation": 0.0,
+          "legal_constraint": 0.5,
+          "social_pressure": 0.0,
+          "duration": 0.0,
+          "reversibility": 0.7,
+          "scope_number_of_agents": 1,
+          "severity": 0.5
+        },
+        "available_alternatives": [],
+        "language_act": {
+          "text": "This is for your own good. We know what's best for you, and we are protecting you from yourself.",
+          "speaker_agent": "Guardian institution",
+          "target_agents": [
+            "Ward"
+          ],
+          "declared_intent": "Express care.",
+          "context": {
+            "medium": "speech",
+            "power_asymmetry": 0.8,
+            "urgency": 0.2,
+            "target_vulnerability": 0.7,
+            "stakes": 0.6,
+            "reversibility": 0.7,
+            "audience_scope": 0.0,
+            "notes": ""
+          },
+          "ethics_profile": {
+            "clarity": 0.6,
+            "truthfulness": 0.6,
+            "specificity": 0.5,
+            "context_completeness": 0.5,
+            "agency_respect": 0.2,
+            "consent_support": 0.2,
+            "constructive_potential": 0.5,
+            "manipulation_risk": 0.0,
+            "shame_pressure": 0.0,
+            "fear_pressure": 0.0,
+            "false_necessity": 0.0,
+            "false_dichotomy": 0.0,
+            "loaded_language": 0.0,
+            "omission_risk": 0.0,
+            "ambiguity_level": 0.0,
+            "silencing_effect": 0.0
+          },
+          "notes": ""
+        },
+        "is_inaction": false,
+        "context_notes": "It is for your own good; we know what's best and we are protecting you.",
+        "consent": "REFUSED",
+        "agency_profile": {
+          "agent_type": "TYPE_II",
+          "capacity_confidence": 0.6,
+          "metacognition_evidence": [],
+          "language_symbolic_capacity": "UNKNOWN",
+          "decision_capacity": "UNKNOWN",
+          "vulnerability_level": 0.7,
+          "notes": ""
+        },
+        "responds_to_existing_coercion": false,
+        "expected_consequences": "The ward's autonomy is curtailed; the institution decides."
+      },
+      "policy": "standard",
+      "expect": {
+        "coercive": true,
+        "adequate_data": false,
+        "verdict": "INSUFFICIENT_DATA"
       }
     }
   ]

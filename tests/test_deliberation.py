@@ -22,7 +22,11 @@ from littleboy import (
 )
 from littleboy.cli import app
 from littleboy.comparison.models import ActionComparisonSet
+from littleboy.deliberation import Deliberator as _Deliberator  # noqa: F401  (re-export check)
+from littleboy.deliberation.intake import apply_intake_answer, run_minimal_intake
+from littleboy.deliberation.minimal_case import DEFAULT_QUESTION_COSTS, plan_minimal_questions
 from littleboy.deliberation.voi import (
+    cheapest_flip_set,
     minimal_flip_sets,
     value_of_information,
     verdict_distance,
@@ -302,3 +306,114 @@ def test_cli_questions_minimal_works():
     )
     assert result.exit_code == 0
     assert "MINIMAL QUESTION PLAN" in result.stdout
+
+
+# --- cost-aware: cheapest sufficient set (v0.11) -----------------------------
+
+
+class _OrEvaluator:
+    """Flips to ACCEPTABLE if data is known, OR if both consent and reversibility are known.
+
+    So {data_quality} flips alone (smallest set, but expensive) while
+    {consent, coercion.reversibility} also flips (larger, but cheaper).
+    """
+
+    def evaluate(self, case: ActionCase) -> _StubReport:
+        data_known = case.data_quality is not None
+        consent_known = case.effective_consent_status() != ConsentStatus.UNKNOWN
+        rev_known = (
+            case.coercion_profile is not None and case.coercion_profile.reversibility is not None
+        )
+        if data_known or (consent_known and rev_known):
+            return _StubReport(Verdict.ACCEPTABLE)
+        return _StubReport(Verdict.NOT_ACCEPTABLE)
+
+
+def _three_unknown_case() -> ActionCase:
+    # Probes that fire: consent, coercion.reversibility, data_quality.
+    return ActionCase(
+        title="Three-unknown case",
+        acting_agent=MoralAgent(name="A", agent_type=AgentType.TYPE_II),
+        affected_agents=[MoralAgent(name="B", agent_type=AgentType.TYPE_II)],
+        coercion_profile=CoercionProfile(social_pressure=0.3, severity=0.3),  # reversibility None
+        consent=ConsentStatus.UNKNOWN,
+        available_alternatives=[],
+        responds_to_existing_coercion=False,
+        consequences=ConsequenceSet(
+            consequences=[
+                ConsequenceEstimate(
+                    description="benign",
+                    horizon=TimeHorizon.SHORT_TERM,
+                    coercion_delta=-0.05,
+                    probability=0.8,
+                    confidence=0.8,
+                )
+            ]
+        ),
+    )
+
+
+def test_cheapest_set_prefers_two_cheap_over_one_expensive():
+    case = _three_unknown_case()
+    evaluator = _OrEvaluator()
+    # Smallest-by-size is the single, expensive data_quality.
+    flip_sets, smallest = minimal_flip_sets(case, evaluator, max_size=3)
+    assert smallest == 1
+    assert ["data_quality"] in [fs.fields for fs in flip_sets]
+    # Cheapest-by-cost is the two cheap questions together.
+    cheapest = cheapest_flip_set(case, evaluator, cost=DEFAULT_QUESTION_COSTS, max_size=3)
+    assert cheapest is not None
+    flip, total = cheapest
+    assert set(flip.fields) == {"consent", "coercion.reversibility"}
+    assert total == 2.0
+    # With uniform cost the cheapest collapses back to the smallest set.
+    uniform = cheapest_flip_set(case, evaluator, max_size=3)
+    assert uniform[0].fields == ["data_quality"]
+
+
+def test_plan_orders_cheapest_set_first():
+    case = _three_unknown_case()
+    plan = plan_minimal_questions(case, _OrEvaluator())
+    assert plan.cheapest_set == ["consent", "coercion.reversibility"] or set(plan.cheapest_set) == {
+        "consent",
+        "coercion.reversibility",
+    }
+    # the two cheap, cheapest-set questions come before the expensive single flipper
+    fields_in_order = [q.field for q in plan.questions]
+    assert fields_in_order[:2] == ["consent", "coercion.reversibility"]
+    assert fields_in_order[-1] == "data_quality"
+
+
+# --- interactive minimal intake ----------------------------------------------
+
+
+def test_apply_intake_answer_parses_fields():
+    case = _load("voi_consent_pivotal.json")
+    refused = apply_intake_answer(case, "consent", "refused")
+    assert refused.effective_consent_status() == ConsentStatus.REFUSED
+    # an unparseable answer leaves the case unchanged
+    assert apply_intake_answer(case, "consent", "???").effective_consent_status() == (
+        ConsentStatus.UNKNOWN
+    )
+
+
+def test_intake_loop_settles_the_verdict():
+    case = _load("voi_consent_pivotal.json")
+    answers = {"consent": "refused"}
+    transcript, final_case = run_minimal_intake(
+        case, lambda q: answers.get(q.field, ""), policy="standard"
+    )
+    assert transcript.initial_verdict == Verdict.ACCEPTABLE_WITH_RESERVATIONS
+    assert transcript.final_verdict == Verdict.ETHICALLY_SUSPICIOUS
+    assert transcript.settled is True
+    assert transcript.questions_asked == 1
+    assert transcript.steps[0].verdict_changed is True
+    assert final_case.effective_consent_status() == ConsentStatus.REFUSED
+
+
+def test_intake_loop_terminates_when_no_answer_progress():
+    case = _load("voi_consent_pivotal.json")
+    # Always answering "" makes no progress; the loop must still terminate.
+    transcript, _ = run_minimal_intake(case, lambda q: "", policy="standard", max_steps=5)
+    assert transcript.questions_asked <= 1
+    assert transcript.final_verdict is not None

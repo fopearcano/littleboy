@@ -391,6 +391,42 @@ def value_of_information(case: ActionCase, evaluator: EthicalEvaluator) -> list[
 # =============================================================================
 
 
+def _best_flip(case, evaluator, specs, combo, base_verdict):
+    """Return ``(dist, verdict, labels)`` for the best flipping joint resolution of ``combo``.
+
+    ``labels`` is the chosen resolution label per spec in ``combo`` order. Returns ``None`` if
+    no joint resolution of these unknowns changes the verdict.
+    """
+    best: tuple[float, Verdict, tuple[str, ...]] | None = None
+    for choice in product(*(specs[i].resolutions for i in combo)):
+        mcase = case
+        for _label, transform in choice:
+            mcase = transform(mcase)
+        result = evaluator.evaluate(mcase)
+        if result.verdict != base_verdict:
+            dist = verdict_distance(base_verdict, result.verdict)
+            if best is None or dist > best[0]:
+                best = (dist, result.verdict, tuple(label for label, _t in choice))
+    return best
+
+
+def _flip_set(specs, combo, k, dist, verdict, labels) -> MinimalFlipSet:
+    return MinimalFlipSet(
+        fields=[specs[i].field for i in combo],
+        size=k,
+        resolution=[
+            FactResolution(field=specs[i].field, question=specs[i].question, label=label)
+            for i, label in zip(combo, labels, strict=True)
+        ],
+        resulting_verdict=verdict,
+        verdict_distance=round(dist, 4),
+        note=(
+            f"jointly resolving {', '.join(specs[i].field for i in combo)} "
+            f"can move the verdict to {verdict.value}"
+        ),
+    )
+
+
 def minimal_flip_sets(
     case: ActionCase, evaluator: EthicalEvaluator, *, max_size: int = 3
 ) -> tuple[list[MinimalFlipSet], int | None]:
@@ -409,43 +445,50 @@ def minimal_flip_sets(
     for k in range(1, upper + 1):
         found: list[MinimalFlipSet] = []
         for combo in combinations(range(len(specs)), k):
-            best: tuple[float, Verdict, float, tuple] | None = None
-            for choice in product(*(specs[i].resolutions for i in combo)):
-                mcase = case
-                for _label, transform in choice:
-                    mcase = transform(mcase)
-                result = evaluator.evaluate(mcase)
-                if result.verdict != base_verdict:
-                    dist = verdict_distance(base_verdict, result.verdict)
-                    if best is None or dist > best[0]:
-                        best = (dist, result.verdict, result.confidence, choice)
+            best = _best_flip(case, evaluator, specs, combo, base_verdict)
             if best is not None:
-                dist, verdict, _confidence, choice = best
-                resolution = [
-                    FactResolution(
-                        field=specs[i].field,
-                        question=specs[i].question,
-                        label=label,
-                    )
-                    for i, (label, _t) in zip(combo, choice, strict=True)
-                ]
-                found.append(
-                    MinimalFlipSet(
-                        fields=[specs[i].field for i in combo],
-                        size=k,
-                        resolution=resolution,
-                        resulting_verdict=verdict,
-                        verdict_distance=round(dist, 4),
-                        note=(
-                            f"jointly resolving {', '.join(specs[i].field for i in combo)} "
-                            f"can move the verdict to {verdict.value}"
-                        ),
-                    )
-                )
+                found.append(_flip_set(specs, combo, k, *best))
         if found:
             found.sort(key=lambda fs: fs.verdict_distance, reverse=True)
             return found, k
     return [], None
+
+
+def cheapest_flip_set(
+    case: ActionCase,
+    evaluator: EthicalEvaluator,
+    *,
+    cost: dict[str, float] | None = None,
+    max_size: int = 3,
+) -> tuple[MinimalFlipSet, float] | None:
+    """Find the *cheapest* sufficient set of unknowns to resolve, by total answer cost.
+
+    Unlike :func:`minimal_flip_sets` (smallest by cardinality), this searches all sufficient
+    sets up to ``max_size`` and returns the one with the lowest total cost (ties broken by
+    fewer fields, then by ``verdict_distance``). With uniform costs this reduces to the
+    smallest set. Returns ``(flip_set, total_cost)`` or ``None`` if no set flips the verdict.
+    """
+    base_verdict = evaluator.evaluate(case).verdict
+    specs = build_probe_specs(case)
+    if not specs:
+        return None
+    costs = cost or {}
+
+    upper = min(max_size, len(specs))
+    best: tuple[tuple[float, int, float], MinimalFlipSet, float] | None = None
+    for k in range(1, upper + 1):
+        for combo in combinations(range(len(specs)), k):
+            flip = _best_flip(case, evaluator, specs, combo, base_verdict)
+            if flip is None:
+                continue
+            dist, verdict, labels = flip
+            total = round(sum(costs.get(specs[i].field, 1.0) for i in combo), 4)
+            key = (total, k, -dist)  # cheapest, then smallest, then most decisive
+            if best is None or key < best[0]:
+                best = (key, _flip_set(specs, combo, k, dist, verdict, labels), total)
+    if best is None:
+        return None
+    return best[1], best[2]
 
 
 # =============================================================================

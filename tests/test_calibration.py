@@ -11,6 +11,7 @@ from typer.testing import CliRunner
 from littleboy import ActionCase
 from littleboy.calibration import (
     AuditCorpus,
+    ConfidenceInterval,
     CorpusEntry,
     LayerExpectation,
     ScoringCorpus,
@@ -21,6 +22,7 @@ from littleboy.calibration import (
     run_corpus,
     run_scoring_corpus,
     scoring_golden_payload,
+    wilson_ci,
 )
 from littleboy.cli import app
 
@@ -180,3 +182,44 @@ def test_scoring_false_alarm_is_detected():
     report = run_scoring_corpus(corpus)
     coercion = next(layer for layer in report.layers if layer.layer == "coercion")
     assert coercion.false_alarm_rate == 1.0
+
+
+# --- per-policy breakdown and confidence intervals (v0.11) -------------------
+
+
+def test_scoring_reports_all_four_policies():
+    report = run_scoring_corpus(default_scoring_corpus())
+    policies = {pp.policy for pp in report.per_policy}
+    assert policies == {"permissive", "standard", "strict", "precautionary"}
+
+
+def test_scoring_confidence_intervals_bracket_the_rates():
+    report = run_scoring_corpus(default_scoring_corpus())
+    for layer in report.layers:
+        assert layer.miss_rate_ci.low <= layer.miss_rate <= layer.miss_rate_ci.high
+        assert (
+            layer.false_alarm_rate_ci.low
+            <= layer.false_alarm_rate
+            <= layer.false_alarm_rate_ci.high
+        )
+        assert layer.miss_rate_ci.low <= layer.miss_rate_ci.high
+
+
+def test_wilson_ci_is_deterministic_and_bounded():
+    a = wilson_ci(1, 10)
+    b = wilson_ci(1, 10)
+    assert a == b  # deterministic
+    assert 0.0 <= a.low <= a.high <= 1.0
+    assert wilson_ci(0, 0) == ConfidenceInterval(low=0.0, high=1.0)  # no data -> unknown
+
+
+def test_stricter_policy_shifts_the_false_alarm_rate():
+    report = run_scoring_corpus(default_scoring_corpus())
+    by_policy = {pp.policy: pp for pp in report.per_policy}
+
+    def coercion_fa(policy: str) -> float:
+        layer = next(layer for layer in by_policy[policy].layers if layer.layer == "coercion")
+        return layer.false_alarm_rate
+
+    # Lower coercion thresholds flag more borderline cases: precautionary >= standard.
+    assert coercion_fa("precautionary") >= coercion_fa("standard")
