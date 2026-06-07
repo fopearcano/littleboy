@@ -13,6 +13,16 @@ decision-maker.
 
 from __future__ import annotations
 
+from littleboy.case_builder import (
+    CaseBuilder,
+    ScenarioTemplate,
+    build_case_from_answers,
+    completeness_report,
+    generate_questions,
+    get_template,
+    list_templates,
+    wizard_prompts,
+)
 from littleboy.core.agency import assess_agency, assess_consent
 from littleboy.core.alternatives import analyse_alternatives
 from littleboy.core.axioms import (
@@ -24,6 +34,8 @@ from littleboy.core.enums import (
     ConsentStatus,
     EpistemicStatus,
     PolicyMode,
+    QuestionCategory,
+    QuestionPriority,
     RuleResultStatus,
     RuleSeverity,
     SourceType,
@@ -42,6 +54,7 @@ from littleboy.core.models import (
     AlternativeAction,
     AlternativeAnalysis,
     AlternativeSet,
+    CaseCompletenessReport,
     CoercionJustification,
     CoercionProfile,
     ConsentProfile,
@@ -50,6 +63,8 @@ from littleboy.core.models import (
     ExperimentSummary,
     JustificationResult,
     MoralAgent,
+    Question,
+    QuestionSet,
     ReasoningTrace,
     RuleResult,
 )
@@ -65,7 +80,7 @@ from littleboy.rules import (
     get_policy,
 )
 
-__version__ = "0.3.0"
+__version__ = "0.4.0"
 
 __all__ = [
     "BUILTIN_RULES",
@@ -76,6 +91,8 @@ __all__ = [
     "AlternativeAction",
     "AlternativeAnalysis",
     "AlternativeSet",
+    "CaseBuilder",
+    "CaseCompletenessReport",
     "CoercionJustification",
     "CoercionProfile",
     "ConsentProfile",
@@ -93,6 +110,10 @@ __all__ = [
     "MoralAgent",
     "PolicyMode",
     "PolicyProfile",
+    "Question",
+    "QuestionCategory",
+    "QuestionPriority",
+    "QuestionSet",
     "ReasoningTrace",
     "Rule",
     "RuleEngine",
@@ -100,6 +121,7 @@ __all__ = [
     "RuleResult",
     "RuleResultStatus",
     "RuleSeverity",
+    "ScenarioTemplate",
     "SourceType",
     "UncertaintyLevel",
     "Verdict",
@@ -107,10 +129,16 @@ __all__ = [
     "analyse_alternatives",
     "assess_agency",
     "assess_consent",
+    "build_case_from_answers",
+    "completeness_report",
     "default_registry",
     "detect_missing_critical_data",
     "evaluate_coercion_justification",
+    "generate_questions",
     "get_policy",
+    "get_template",
+    "list_templates",
     "recommended_next_questions",
+    "wizard_prompts",
     "__version__",
 ]

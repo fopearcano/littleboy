@@ -22,6 +22,7 @@ v0.2.
 
 from __future__ import annotations
 
+from littleboy.case_builder.completeness import completeness_report
 from littleboy.core import axioms as ax
 from littleboy.core.agency import assess_agency, assess_consent
 from littleboy.core.alternatives import analyse_alternatives
@@ -65,9 +66,11 @@ class EthicalEvaluator:
         policy: PolicyMode | PolicyProfile | str | None = None,
         *,
         engine: RuleEngine | None = None,
+        include_completeness: bool = True,
     ) -> None:
         self.policy: PolicyProfile = get_policy(policy)
         self.engine = engine or RuleEngine(self.policy)
+        self.include_completeness = include_completeness
 
     # -- public API -----------------------------------------------------------
 
@@ -171,6 +174,15 @@ class EthicalEvaluator:
             missing_data=missing_data,
         )
 
+        # Optional completeness report: what is missing and what to ask next.
+        completeness = None
+        recommended_questions: list = []
+        if self.include_completeness:
+            completeness = completeness_report(case, policy=self.policy)
+            recommended_questions = completeness.recommended_next_questions
+            if completeness.warnings and verdict != Verdict.INSUFFICIENT_DATA:
+                warnings = _unique([*warnings, *completeness.warnings])
+
         return EvaluationReport(
             verdict=verdict,
             coercion_score=round(coercion_score, 4),
@@ -193,6 +205,8 @@ class EthicalEvaluator:
             alternatives_analysis=alternatives,
             ethical_experiment=experiment,
             reasoning_trace=outcome.trace,
+            case_completeness=completeness,
+            recommended_questions=recommended_questions,
             explanation=explanation,
         )
 

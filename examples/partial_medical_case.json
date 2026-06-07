@@ -1,0 +1,11 @@
+{
+  "title": "Proposed treatment for a patient",
+  "description": "A clinician proposes a treatment for a patient. It is not yet recorded whether the patient consented, what less-invasive alternatives exist, or how vulnerable the patient is.",
+  "acting_agent": { "name": "Clinician", "agent_type": "TYPE_II" },
+  "affected_agents": [{ "name": "Patient", "agent_type": "TYPE_II" }],
+  "coercion_profile": {
+    "physical_force": 0.3,
+    "psychological_pressure": 0.2,
+    "severity": 0.3
+  }
+}

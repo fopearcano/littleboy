@@ -10,7 +10,11 @@ from __future__ import annotations
 
 import json
 
-from littleboy.core.models import EvaluationReport
+from littleboy.core.models import (
+    CaseCompletenessReport,
+    EvaluationReport,
+    QuestionSet,
+)
 
 
 def report_to_dict(report: EvaluationReport) -> dict:
@@ -93,8 +97,79 @@ def render_text(report: EvaluationReport) -> str:
 
     _section("Warnings", report.warnings)
 
-    if report.ethical_experiment is not None:
-        ex = report.ethical_experiment
-        _section("Recommended next questions", ex.open_questions)
+    if report.case_completeness is not None:
+        cc = report.case_completeness
+        lines.append("")
+        lines.append(
+            f"Case completeness: score={cc.completeness_score:.2f}  "
+            f"can_evaluate={cc.can_evaluate}  "
+            f"can_confidently_evaluate={cc.can_confidently_evaluate}"
+        )
+        _section("Critical missing fields", cc.critical_missing_fields)
 
+    if report.recommended_questions:
+        _section(
+            "Recommended questions",
+            [
+                f"[{q.priority.value}] {q.text}  (why: {q.why_it_matters})"
+                for q in report.recommended_questions
+            ],
+        )
+    elif report.ethical_experiment is not None and report.ethical_experiment.open_questions:
+        _section("Recommended next questions", report.ethical_experiment.open_questions)
+
+    return "\n".join(lines)
+
+
+def completeness_to_dict(
+    report: CaseCompletenessReport, questions: QuestionSet | None = None
+) -> dict:
+    """Return the completeness report (and optional question set) as a plain dict."""
+    payload: dict = {"completeness": report.model_dump(mode="json")}
+    if questions is not None:
+        payload["questions"] = [q.model_dump(mode="json") for q in questions.questions]
+    return payload
+
+
+def render_completeness_json(
+    report: CaseCompletenessReport, questions: QuestionSet | None = None, *, indent: int = 2
+) -> str:
+    """Render a completeness report (+ optional questions) as indented JSON."""
+    return json.dumps(completeness_to_dict(report, questions), indent=indent, ensure_ascii=False)
+
+
+def render_completeness_text(
+    report: CaseCompletenessReport, questions: QuestionSet | None = None
+) -> str:
+    """Render a completeness report (+ optional questions) as readable text."""
+    lines: list[str] = []
+    lines.append(f"COMPLETENESS: score={report.completeness_score:.2f}")
+    lines.append(
+        f"  can_evaluate={report.can_evaluate}  "
+        f"can_confidently_evaluate={report.can_confidently_evaluate}"
+    )
+
+    def _section(title: str, items: list[str]) -> None:
+        lines.append("")
+        lines.append(f"{title}:")
+        if not items:
+            lines.append("  (none)")
+        for item in items:
+            lines.append(f"  - {item}")
+
+    _section("Critical missing fields", report.critical_missing_fields)
+    _section("High-priority missing fields", report.high_priority_missing_fields)
+    _section("Optional missing fields", report.optional_missing_fields)
+    _section("Warnings", report.warnings)
+
+    shown = questions.questions if questions is not None else report.recommended_next_questions
+    lines.append("")
+    lines.append("Questions:")
+    if not shown:
+        lines.append("  (none)")
+    for q in shown:
+        axioms = (" [" + ", ".join(q.related_axioms) + "]") if q.related_axioms else ""
+        block = " (blocks evaluation)" if q.blocks_evaluation else ""
+        lines.append(f"  [{q.priority.value}/{q.category.value}]{axioms}{block} {q.text}")
+        lines.append(f"      why it matters: {q.why_it_matters}")
     return "\n".join(lines)

@@ -11,12 +11,16 @@ and returns a **transparent, explained verdict** with an honest account of its
 own uncertainty. It is a reasoning engine, not a user interface and not a
 language model.
 
-This is **v0.3**, which adds a formal, inspectable **rule engine** and **policy
-layer**: every verdict is now traceable to explicit, named rules. See
+This is **v0.4**, which adds a **scenario builder / case-input wizard**: LittleBoy
+now also helps *construct* a morally evaluable case, detecting missing
+information and asking precise questions before judging. (v0.3 added the formal,
+inspectable **rule engine** and **policy layer**.) See
 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md),
 [`docs/ETHICAL_MODEL.md`](docs/ETHICAL_MODEL.md),
-[`docs/RULE_ENGINE.md`](docs/RULE_ENGINE.md), and
-[`docs/POLICY_PROFILES.md`](docs/POLICY_PROFILES.md) for the full design and
+[`docs/RULE_ENGINE.md`](docs/RULE_ENGINE.md),
+[`docs/POLICY_PROFILES.md`](docs/POLICY_PROFILES.md),
+[`docs/CASE_BUILDER.md`](docs/CASE_BUILDER.md), and
+[`docs/SCENARIO_TEMPLATES.md`](docs/SCENARIO_TEMPLATES.md) for the full design and
 formal model.
 
 ---
@@ -78,6 +82,33 @@ evaluated under a chosen **policy profile**, and recorded in a complete
 
 See [`docs/RULE_ENGINE.md`](docs/RULE_ENGINE.md) and
 [`docs/POLICY_PROFILES.md`](docs/POLICY_PROFILES.md).
+
+## LittleBoy v0.4: Scenario Builder
+
+LittleBoy should not only judge finished cases; it should help *build* one. The
+case builder (`littleboy.case_builder`) inspects a partial `ActionCase`, detects
+what is missing, and asks precise, prioritised **questions** — so that a moral
+verdict is never produced prematurely under weak data (Axiom 5).
+
+- **Questions** (`Question` / `QuestionSet`): each is tagged with a category and
+  a priority (`critical` / `high` / `medium` / `low`), names the axioms it
+  serves, says whether it **blocks evaluation**, and — always — explains
+  **why it matters** ethically. Priority is context-sensitive (e.g. unknown
+  consent becomes *critical* under high vulnerability).
+- **Completeness** (`CaseCompletenessReport`): a 0–1 completeness score,
+  `can_evaluate` / `can_confidently_evaluate`, the missing fields by priority,
+  the recommended next questions, and warnings. Every `EvaluationReport` now
+  carries this report, so a verdict travels with an honest account of its gaps.
+- **Templates** (`ScenarioTemplate`): ten reusable case shapes (medical decision,
+  language manipulation, emergency intervention, economic pressure, AI/algorithmic
+  decision, …) that raise the priority of the categories they emphasise and add
+  their own questions. Ethical framing only — no legal or medical claims.
+- **CLI**: `littleboy questions <case.json>` (non-interactive) and
+  `littleboy build-case` (interactive wizard).
+
+The builder never invents facts; it only asks for them. See
+[`docs/CASE_BUILDER.md`](docs/CASE_BUILDER.md) and
+[`docs/SCENARIO_TEMPLATES.md`](docs/SCENARIO_TEMPLATES.md).
 
 ## How evidence is represented
 
@@ -150,13 +181,20 @@ src/littleboy/
     builtin_rules.py# LB-R001 .. LB-R012
     engine.py       # RuleEngine: runs rules and synthesizes the verdict
     trace.py        # builds the ReasoningTrace
+  case_builder/
+    questions.py    # generates prioritised Questions for a partial case
+    completeness.py # CaseCompletenessReport (can/should this be judged yet?)
+    templates.py    # ScenarioTemplate + the ten built-in templates
+    builder.py      # CaseBuilder (the public entry point)
+    session.py      # wizard prompts + build_case_from_answers (I/O-free)
   reasoning/
     report.py       # JSON / text rendering
     experiment.py   # EthicalExperiment runner (falsificatory + heuristic)
-  cli.py            # littleboy evaluate / experiment / version
+  cli.py            # littleboy evaluate / experiment / questions / build-case / templates
 tests/              # pytest suite
-examples/           # sample JSON cases
-docs/               # ARCHITECTURE, ETHICAL_MODEL, RULE_ENGINE, POLICY_PROFILES
+examples/           # sample JSON cases (incl. partial_*.json for the builder)
+docs/               # ARCHITECTURE, ETHICAL_MODEL, RULE_ENGINE, POLICY_PROFILES,
+                    #   CASE_BUILDER, SCENARIO_TEMPLATES
 ```
 
 ## Installation
@@ -172,7 +210,7 @@ pip install -e ".[dev]"     # pydantic, pytest, typer, ruff
 ## Running the tests
 
 ```bash
-pytest                      # 79 tests
+pytest                      # 93 tests
 ruff check src tests        # lint (optional)
 ```
 
@@ -183,12 +221,16 @@ littleboy evaluate examples/high_coercion_missing_consent.json            # JSON
 littleboy evaluate examples/policy_strict_case.json --policy strict       # choose a policy
 littleboy evaluate examples/manipulative_language_case.json --policy strict --format text
 littleboy experiment examples/high_coercion_missing_consent.json          # falsificatory + heuristic
+littleboy questions examples/partial_generic_case.json                    # what's missing + questions
+littleboy questions examples/partial_medical_case.json --template medical_decision --format json
+littleboy build-case --template speech_or_language_manipulation -o my_case.json   # interactive wizard
+littleboy templates                                                       # list scenario templates
 littleboy version
 ```
 
 `--policy` accepts `permissive`, `standard` (default), `strict`, or
-`precautionary`. Malformed input (or an unknown policy) fails gracefully with an
-explanation and a non-zero exit code.
+`precautionary`. Malformed input (or an unknown policy/template) fails gracefully
+with an explanation and a non-zero exit code.
 
 ## Example cases
 
@@ -207,6 +249,16 @@ The v0.3 policy examples show how the rule engine and policy layer matter:
 | `examples/policy_strict_case.json` | unknown consent: permitted-with-reservations under `standard`, blocked (`ETHICALLY_SUSPICIOUS`) under `strict` |
 | `examples/contradiction_case.json` | LB-R012 flags a justification that contradicts a supplied alternative |
 | `examples/irreversible_low_data_case.json` | LB-R010 blocks: irreversible action on weak evidence → `INSUFFICIENT_DATA` |
+
+The v0.4 **partial** examples intentionally lack critical data, so the case
+builder has something to ask about — try them with `littleboy questions`:
+
+| File | Use with |
+|------|----------|
+| `examples/partial_generic_case.json` | `littleboy questions ...` (base questions) |
+| `examples/partial_medical_case.json` | `--template medical_decision` |
+| `examples/partial_language_manipulation_case.json` | `--template speech_or_language_manipulation` |
+| `examples/partial_emergency_case.json` | `--template emergency_intervention` |
 
 (The v0.1 examples `simple_case.json`, `high_coercion_case.json`, and
 `insufficient_data_case.json` remain valid.)
@@ -267,6 +319,18 @@ experiment = EthicalExperiment().run(case)              # contradictions + open 
 print(experiment.recommended_next_questions)
 ```
 
+Build a case and see what it still needs:
+
+```python
+from littleboy import ActionCase, CaseBuilder
+
+builder = CaseBuilder(policy_mode="standard")
+report = builder.completeness_report(ActionCase(title="A partially-specified action"))
+print(report.completeness_score, report.can_evaluate)
+for q in report.recommended_next_questions:
+    print(q.priority, q.text, "->", q.why_it_matters)
+```
+
 ---
 
 ## ⚠️ Scope and limitations
@@ -280,27 +344,28 @@ make consequential decisions about real people.
 
 ## Current development status
 
-**v0.3 — formal rule engine and policy layer.** Implemented on top of v0.2: a
-twelve-rule engine (LB-R001 .. LB-R012); a `RuleRegistry`; four policy profiles
-(`permissive` / `standard` / `strict` / `precautionary`); a deterministic,
-policy-parameterized verdict synthesis; a complete `ReasoningTrace` on every
-report; a `--policy` CLI flag; and a 79-test suite (all passing). The `standard`
-policy reproduces v0.2 behaviour, and all v0.1/v0.2 inputs remain valid.
+**v0.4 — scenario builder / case-input wizard.** Implemented on top of v0.3: a
+`case_builder` package that generates prioritised, self-explaining questions for
+a partial case; a `CaseCompletenessReport` (now embedded in every evaluation);
+ten scenario templates; a non-interactive `questions` command and an interactive
+`build-case` wizard; and a 93-test suite (all passing). Completeness is purely
+additive — verdict behaviour is unchanged, and all v0.1–v0.3 inputs remain valid.
 
-Earlier phases delivered the core models, coercion/data-quality/evidence
-scoring, consent/agency models, the tri-state Axiom 3 justification,
-feasibility-aware alternatives, the critical-data gate, and the ethical
-experiment runner.
+Earlier phases delivered the core models; coercion/data-quality/evidence scoring;
+consent/agency models; the tri-state Axiom 3 justification; feasibility-aware
+alternatives; the critical-data gate; the ethical experiment runner; and the
+v0.3 twelve-rule engine with four policy profiles and a full reasoning trace.
 
 **Deliberately not built:** any web UI, any LLM/API integration, any claim to
 absolute truth, any heavy frameworks.
 
 ### Recommended next steps
 
+- Richer `apply_answer` / wizard coverage for the structured fields (coercion
+  profile, evidence, alternatives, justification) so a case can be built end to
+  end without hand-editing JSON.
 - Calibrate the coercion / evidence heuristics and the policy thresholds against
   a worked case library with golden-file regression tests.
-- Allow rules and policies to be loaded from external configuration (a rule
-  pack), so the rule set is data, not only code.
 - Model `EthicalTruth` as explicitly derived, queryable propositions with a
   derivation trace from specific axioms and rules.
 

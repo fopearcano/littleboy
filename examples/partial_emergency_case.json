@@ -1,0 +1,24 @@
+{
+  "title": "Restraining someone during an altercation",
+  "description": "A bystander considers physically restraining a person during an altercation. The justification (what prior coercion it responds to) and the less-coercive alternatives have not yet been specified.",
+  "acting_agent": { "name": "Bystander", "agent_type": "TYPE_II" },
+  "affected_agents": [
+    { "name": "Person restrained", "agent_type": "TYPE_II" },
+    { "name": "Person at risk", "agent_type": "TYPE_II" }
+  ],
+  "coercion_profile": {
+    "physical_force": 0.7,
+    "threat": 0.3,
+    "severity": 0.5,
+    "reversibility": 0.8,
+    "scope_number_of_agents": 1
+  },
+  "data_quality": {
+    "completeness": 0.6,
+    "source_reliability": 0.6,
+    "specificity": 0.6,
+    "recency": 0.7,
+    "corroboration": 0.5,
+    "ambiguity": 0.3
+  }
+}

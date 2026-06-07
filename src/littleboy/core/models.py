@@ -25,6 +25,8 @@ from littleboy.core.enums import (
     ConsentStatus,
     EpistemicStatus,
     PolicyMode,
+    QuestionCategory,
+    QuestionPriority,
     RuleResultStatus,
     RuleSeverity,
     UncertaintyLevel,
@@ -452,6 +454,80 @@ class ReasoningTrace(_Base):
 
 
 # =============================================================================
+# Case building: questions and completeness
+# =============================================================================
+
+
+class Question(_Base):
+    """A precise, self-explaining request for one missing piece of information.
+
+    A question must always say *why it matters* ethically: LittleBoy asks for
+    facts it needs to judge coercion, never to pad a form. ``blocks_evaluation``
+    marks a question whose answer is required before any (even provisional)
+    judgment is meaningful.
+    """
+
+    question_id: str
+    text: str
+    category: QuestionCategory
+    priority: QuestionPriority
+    why_it_matters: str
+    expected_answer_type: str = Field(
+        description="A hint for the answer's shape, e.g. 'text', 'boolean', 'consent_status'."
+    )
+    related_axioms: list[str] = Field(default_factory=list)
+    blocks_evaluation: bool = False
+    suggested_choices: list[str] | None = None
+    field_target: str | None = Field(
+        default=None, description="Dotted path of the ActionCase field this answer would fill."
+    )
+
+
+class QuestionSet(_Base):
+    """An ordered set of questions about a single case."""
+
+    questions: list[Question] = Field(default_factory=list)
+
+    def __len__(self) -> int:
+        return len(self.questions)
+
+    def __iter__(self):  # type: ignore[override]
+        return iter(self.questions)
+
+    def by_priority(self, priority: QuestionPriority) -> list[Question]:
+        return [q for q in self.questions if q.priority == priority]
+
+    def by_category(self, category: QuestionCategory) -> list[Question]:
+        return [q for q in self.questions if q.category == category]
+
+    @property
+    def critical(self) -> list[Question]:
+        return self.by_priority(QuestionPriority.CRITICAL)
+
+    @property
+    def blocking(self) -> list[Question]:
+        return [q for q in self.questions if q.blocks_evaluation]
+
+
+class CaseCompletenessReport(_Base):
+    """How ready a (possibly partial) case is for ethical evaluation.
+
+    The point is to prevent premature moral judgment under weak data: the report
+    says what is missing, whether the case can be judged at all, whether it can
+    be judged *confidently*, and which questions to answer next.
+    """
+
+    completeness_score: float = Field(ge=0.0, le=1.0)
+    can_evaluate: bool
+    can_confidently_evaluate: bool
+    critical_missing_fields: list[str] = Field(default_factory=list)
+    high_priority_missing_fields: list[str] = Field(default_factory=list)
+    optional_missing_fields: list[str] = Field(default_factory=list)
+    recommended_next_questions: list[Question] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+
+
+# =============================================================================
 # Case input and report output
 # =============================================================================
 
@@ -576,6 +652,9 @@ class EvaluationReport(_Base):
     alternatives_analysis: AlternativeAnalysis | None = None
     ethical_experiment: ExperimentSummary | None = None
     reasoning_trace: ReasoningTrace | None = None
+
+    case_completeness: CaseCompletenessReport | None = None
+    recommended_questions: list[Question] = Field(default_factory=list)
 
     explanation: str = Field(
         default="", description="A clear, non-rhetorical plain-language summary."

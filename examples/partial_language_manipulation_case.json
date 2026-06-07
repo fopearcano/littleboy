@@ -1,0 +1,6 @@
+{
+  "title": "Marketing message wording",
+  "description": "A company is drafting a marketing message. It is not yet clear whether the wording is misleading or manipulative, nor how the recipients would be affected.",
+  "acting_agent": { "name": "Company", "agent_type": "TYPE_II", "is_collective": true },
+  "affected_agents": [{ "name": "Recipients", "agent_type": "TYPE_II", "is_collective": true }]
+}

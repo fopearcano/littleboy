@@ -156,3 +156,30 @@ class PolicyMode(StrEnum):
     STANDARD = "standard"
     STRICT = "strict"
     PRECAUTIONARY = "precautionary"
+
+
+class QuestionPriority(StrEnum):
+    """How important a missing piece of information is to a sound judgment."""
+
+    CRITICAL = "critical"
+    HIGH = "high"
+    MEDIUM = "medium"
+    LOW = "low"
+
+
+class QuestionCategory(StrEnum):
+    """The aspect of a case a question is trying to fill in."""
+
+    ACTING_AGENT = "acting_agent"
+    AFFECTED_AGENT = "affected_agent"
+    ACTION_DESCRIPTION = "action_description"
+    CONSENT = "consent"
+    COERCION = "coercion"
+    JUSTIFICATION = "justification"
+    ALTERNATIVES = "alternatives"
+    CONSEQUENCES = "consequences"
+    REVERSIBILITY = "reversibility"
+    VULNERABILITY = "vulnerability"
+    EVIDENCE = "evidence"
+    DATA_QUALITY = "data_quality"
+    CONTEXT = "context"
