@@ -28,12 +28,16 @@ from littleboy.calibration import (
     AuditCorpus,
     CalibrationReport,
     CorpusEntry,
+    OutcomeCorpus,
+    ReliabilityReport,
     ScoringCalibrationReport,
     ScoringCorpus,
     default_corpus,
+    default_outcome_corpus,
     default_scoring_corpus,
     generate_scoring_corpus,
     run_corpus,
+    run_reliability,
     run_scoring_corpus,
 )
 from littleboy.case_builder import (
@@ -115,6 +119,8 @@ from littleboy.deliberation import (
     MinimalQuestionPlan,
     cheapest_flip_set,
     comparison_value_of_information,
+    expected_cost_first_question,
+    expected_questionnaire_cost,
     minimal_flip_sets,
     plan_minimal_questions,
     run_minimal_intake,
@@ -159,7 +165,7 @@ from littleboy.temporal import (
     score_reversibility,
 )
 
-__version__ = "0.12.0"
+__version__ = "0.13.0"
 
 __all__ = [
     "AuditCorpus",
@@ -173,17 +179,23 @@ __all__ = [
     "IntakeTranscript",
     "MinimalFlipSet",
     "MinimalQuestionPlan",
+    "OutcomeCorpus",
+    "ReliabilityReport",
     "ScoringCalibrationReport",
     "ScoringCorpus",
     "cheapest_flip_set",
     "comparison_value_of_information",
     "default_corpus",
+    "default_outcome_corpus",
     "default_scoring_corpus",
+    "expected_cost_first_question",
+    "expected_questionnaire_cost",
     "generate_scoring_corpus",
     "minimal_flip_sets",
     "plan_minimal_questions",
     "run_corpus",
     "run_minimal_intake",
+    "run_reliability",
     "run_scoring_corpus",
     "value_of_information",
     "BUILTIN_RULES",

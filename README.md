@@ -11,18 +11,18 @@ and returns a **transparent, explained verdict** with an honest account of its
 own uncertainty. It is a reasoning engine, not a user interface and not a
 language model.
 
-This is **v0.12**, which lets domains **drive** the minimal-intake planner and
-calibrates **at scale with independent labels**: an `ActionCase` can declare its
-own question costs and plausible answers (`intake_hints`); an **expected-cost
-lookahead** can replace the greedy loop when answers are uncertain; and a
-deterministic generator produces a large corpus whose labels come from latent
-parameters — **independent of the heuristics under test** — with confidence
-intervals that visibly tighten as the corpus grows. (v0.11 made minimal intake
-cost-aware and interactive; v0.10 added multi-fact value of information and the
-minimal-sufficient-case planner; v0.9 the deliberation & value-of-information
-layer; v0.8 adversarial audit & bias testing; v0.7 temporal & consequence
-modeling; v0.6 the comparison engine; v0.5 the language module; v0.4 the scenario
-builder; v0.3 the rule engine and policy layer.) See
+This is **v0.13**, which adds **external-validity calibration** and **probabilistic
+planning**: LittleBoy now measures how often each policy's verdict agrees with a
+**held-out, human-labelled** outcome set (with proper confidence intervals,
+holdout never tuned against), and the intake lookahead plans the **globally
+cost-optimal** questionnaire over a domain-supplied **answer distribution**
+(`intake_hints.answer_probabilities`) rather than assuming uniform answers. (v0.12
+let domains drive the planner and calibrated at scale with independent labels;
+v0.11 made minimal intake cost-aware and interactive; v0.10 added multi-fact value
+of information and the minimal-sufficient-case planner; v0.9 the deliberation &
+value-of-information layer; v0.8 adversarial audit & bias testing; v0.7 temporal &
+consequence modeling; v0.6 the comparison engine; v0.5 the language module; v0.4
+the scenario builder; v0.3 the rule engine and policy layer.) See
 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md),
 [`docs/ETHICAL_MODEL.md`](docs/ETHICAL_MODEL.md),
 [`docs/RULE_ENGINE.md`](docs/RULE_ENGINE.md),
@@ -430,6 +430,34 @@ Deterministic, typed, additive. See
 [`docs/MINIMAL_SUFFICIENT_CASE.md`](docs/MINIMAL_SUFFICIENT_CASE.md) and
 [`docs/CALIBRATION.md`](docs/CALIBRATION.md).
 
+## LittleBoy v0.13: External validity & probabilistic planning
+
+> Measure agreement with held-out *human* judgment, per policy; and plan the
+> cheapest questionnaire over what answers are actually *likely*.
+
+- **External-validity reliability**: a small `OutcomeCorpus` carries verdict labels
+  authored by a human panel — **independent of the heuristics** — split into `dev`
+  (tunable) and `holdout` (reported, never tuned against). `run_reliability`
+  reports, **per policy and per split**, how often the engine's verdict matches the
+  human label — both *exactly* and on a coarse **disposition** (permissible /
+  impermissible / insufficient) — each with a Wilson interval, and lists every
+  disagreement. On the packaged holdout set `standard` tracks the panel best
+  (~0.88) while `precautionary` is far more conservative (~0.25): a real, measured,
+  sub-1.0 reliability with honestly wide intervals. CLI: `littleboy calibrate
+  --scope reliability`.
+- **Probabilistic, globally-optimal planning**: `intake_hints.answer_probabilities`
+  (`field -> {answer -> probability}`) lets the expected-cost lookahead weight
+  answers by a non-uniform distribution. The lookahead is an **expectimax** — it
+  chooses the cost-minimising question at every node, so it yields the globally
+  cost-optimal questionnaire (not a greedy one), and the *probabilities can change
+  which question to ask first*: a cheap question whose answers rarely settle the
+  verdict loses to a costlier one whose answers usually do.
+  `expected_questionnaire_cost` returns the optimal expected total.
+
+Deterministic, typed, additive — the verdict itself is unchanged. See
+[`docs/MINIMAL_SUFFICIENT_CASE.md`](docs/MINIMAL_SUFFICIENT_CASE.md) and
+[`docs/CALIBRATION.md`](docs/CALIBRATION.md).
+
 ## How evidence is represented
 
 An `EvidenceSet` holds `EvidenceItem`s, each a `claim` plus its `source_type`
@@ -549,8 +577,10 @@ src/littleboy/
     corpus.py       # load / run the audit corpus, build digests, golden payload
     scoring.py      # run the scoring corpus + per-policy + Wilson confidence intervals
     generator.py    # deterministic, independently-labelled corpus generator (at scale)
-    audit_corpus.json   # the packaged, self-contained audit calibration corpus
-    scoring_corpus.json # the packaged scoring-layer calibration corpus
+    reliability.py  # external-validity: agreement with held-out human labels, per policy
+    audit_corpus.json     # the packaged, self-contained audit calibration corpus
+    scoring_corpus.json   # the packaged scoring-layer calibration corpus
+    outcome_corpus.json   # the packaged held-out, human-labelled outcome corpus
   reasoning/
     report.py       # JSON / text rendering
     experiment.py   # EthicalExperiment runner (falsificatory + heuristic)
@@ -579,7 +609,7 @@ pip install -e ".[dev]"     # pydantic, pytest, typer, ruff
 ## Running the tests
 
 ```bash
-pytest                      # 203 tests
+pytest                      # 211 tests
 ruff check src tests        # lint (optional)
 ```
 
@@ -606,9 +636,9 @@ littleboy compare examples/comparison_uncertain_data.json --audit         # audi
 littleboy deliberate examples/voi_consent_pivotal.json                    # why, + the fact that most changes the verdict
 littleboy deliberate examples/comparison_voi_pivotal.json --compare       # deliberate over a comparison
 littleboy questions examples/voi_consent_pivotal.json --minimal           # only the questions that could change the verdict
-littleboy calibrate                                                       # run both calibration corpora (audit + scoring)
-littleboy calibrate --scope scoring                                       # per-layer miss / false-alarm rates
+littleboy calibrate                                                       # audit + scoring + reliability
 littleboy calibrate --scope scoring --generated --n 200                   # large, independently-labelled corpus
+littleboy calibrate --scope reliability                                   # per-policy agreement with held-out human labels
 littleboy build-case --minimal --from examples/voi_consent_pivotal.json --strategy lookahead
 littleboy templates                                                       # list scenario templates
 littleboy version
@@ -789,20 +819,18 @@ make consequential decisions about real people.
 
 ## Current development status
 
-**v0.12 — domain-driven intake & independently-labelled calibration.** Implemented
-on top of v0.11: an `ActionCase` can carry `intake_hints` (per-field
-`question_costs` and `answer_values`), so a domain drives the planner — making a
-question expensive, or restricting it to the answers that are actually possible;
-`expected_cost_first_question` adds an expectimax **lookahead** that minimises
-expected total cost over uncertain answers (`run_minimal_intake(strategy="lookahead")`,
-`build-case --minimal --strategy lookahead`). `generate_scoring_corpus` produces a
-large corpus deterministically (fixed seed) whose labels come from latent
-parameters — **independent of the heuristics** — so the measured rates are
-genuine: on n=120 the coercion detector shows a ~0.43 false-alarm rate against the
-latent labels and data-sufficiency a ~0.20 miss rate, with Wilson intervals that
-tighten as n grows. A new golden file pins the generated metrics; `calibrate` gains
-`--generated/--n/--seed`. A 203-test suite (all passing); purely additive — the
-verdict itself is unchanged.
+**v0.13 — external validity & probabilistic planning.** Implemented on top of
+v0.12: a held-out, human-labelled `OutcomeCorpus` (dev/holdout splits, labels
+authored independently of the heuristics) and `run_reliability`, which reports
+**per-policy** agreement of the engine's verdict with the human label — exact and
+by coarse disposition — each with a Wilson interval and a disagreement list; on the
+packaged holdout `standard` tracks the panel best (~0.88) and `precautionary` worst
+(~0.25). `intake_hints.answer_probabilities` lets the expectimax lookahead plan the
+**globally cost-optimal** questionnaire over a non-uniform answer distribution
+(the chosen first question can change with the probabilities);
+`expected_questionnaire_cost` reports the optimal expected total. New
+`calibrate --scope reliability`; a reliability golden file; a 211-test suite (all
+passing). Purely additive — the verdict itself is unchanged.
 
 Earlier phases delivered the core models; coercion/data-quality/evidence scoring;
 consent/agency models; the tri-state Axiom 3 justification; feasibility-aware
@@ -811,8 +839,9 @@ rule engine with four policy profiles and a full reasoning trace (twenty-four
 rules); the v0.4 scenario builder; the v0.5 language & coercion module (no
 NLP/LLM); the v0.6 comparison engine; the v0.7 temporal & consequence model; the
 v0.8 adversarial audit & bias testing; the v0.9 deliberation &
-value-of-information layer; the v0.10 multi-fact VoI & minimal-case planner; and
-the v0.11 cost-aware interactive intake. All v0.1–v0.11 inputs remain valid.
+value-of-information layer; the v0.10 multi-fact VoI & minimal-case planner; the
+v0.11 cost-aware interactive intake; and the v0.12 domain-driven intake &
+independently-labelled calibration. All v0.1–v0.12 inputs remain valid.
 
 **Deliberately not built:** any web UI, any LLM/API integration, any opaque bias
 detection, any prediction that looks certain, any claim to absolute truth, any
@@ -821,14 +850,13 @@ to interrogate, not more dogmatic**.
 
 ### Recommended next steps
 
-- **External** validity: calibrate against real, human-labelled outcomes (the
-  generated corpus checks recovery of a latent model, not the world), and report
-  per-policy reliability with held-out labels.
-- A globally cost-optimal questionnaire: the lookahead is depth/breadth-bounded and
-  assumes uniform answers; let `intake_hints` carry answer *probabilities* and plan
-  over them.
-- Make probe resolutions and costs fully case-driven for domains beyond the
-  built-in fields (custom unknowns, custom answer sets).
+- Scale the held-out outcome set by an order of magnitude with labels from genuinely
+  independent people, and report inter-labeller agreement alongside per-policy
+  reliability so the intervals mean something.
+- Let `intake_hints` declare fully custom unknowns (probe fields, resolutions, costs,
+  and probabilities) so domains beyond the built-in fields can drive the planner.
+- A policy-recommendation layer that, given a reliability report, suggests the
+  policy whose verdicts best match a stakeholder's held-out judgments.
 - **Optional** LLM-assisted indicator extraction (language, consequence, audit)
   behind an explicit flag, with the model's suggestions shown, attributed, and
   editable — the deterministic core staying authoritative and the audit trail

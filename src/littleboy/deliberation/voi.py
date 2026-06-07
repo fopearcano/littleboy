@@ -631,6 +631,18 @@ def cheapest_flip_set(
 # =============================================================================
 
 
+def _resolution_weights(case: ActionCase, field: str, labels: tuple[str, ...]) -> list[float]:
+    """Normalised answer probabilities for a probe's resolutions (uniform if unspecified)."""
+    supplied = {}
+    if case.intake_hints is not None:
+        supplied = case.intake_hints.answer_probabilities.get(field, {})
+    raw = [max(0.0, supplied.get(label, 0.0)) for label in labels]
+    total = sum(raw)
+    if total <= 0.0:  # nothing supplied (or all zero) -> uniform
+        return [1.0 / len(labels)] * len(labels)
+    return [w / total for w in raw]
+
+
 def _expected_cost_to_settle(
     case: ActionCase,
     evaluator: EthicalEvaluator,
@@ -641,9 +653,11 @@ def _expected_cost_to_settle(
     """Expected total answer cost to settle, and the best first field to ask.
 
     Settled = no resolvable combination (up to ``max_size``) flips the verdict.
-    Answers are assumed uniform over each probe's plausible resolutions (a domain
-    can narrow them via ``intake_hints.answer_values``). When depth runs out, the
-    remaining cost is estimated by the cheapest sufficient set.
+    Answers are weighted by ``intake_hints.answer_probabilities`` (uniform when not
+    supplied). This is an expectimax: at each node it chooses the question
+    minimising expected total cost, so following it greedily-by-recomputation
+    yields the globally cost-optimal questionnaire within the depth bound. When
+    depth runs out, the remaining cost is estimated by the cheapest sufficient set.
     """
     _flip_sets, smallest = minimal_flip_sets(case, evaluator, max_size=max_size)
     if smallest is None:
@@ -656,13 +670,14 @@ def _expected_cost_to_settle(
     best: tuple[float, str] | None = None
     for spec in specs:
         q_cost = costs.get(spec.field, DEFAULT_QUESTION_COSTS.get(spec.field, 1.0))
+        labels = tuple(label for label, _t in spec.resolutions)
+        weights = _resolution_weights(case, spec.field, labels)
         continuation = 0.0
-        for _label, transform in spec.resolutions:
+        for (_label, transform), weight in zip(spec.resolutions, weights, strict=True):
             sub_cost, _ = _expected_cost_to_settle(
                 transform(case), evaluator, costs, depth - 1, max_size
             )
-            continuation += sub_cost
-        continuation /= len(spec.resolutions)
+            continuation += weight * sub_cost
         total = q_cost + continuation
         if best is None or total < best[0]:
             best = (total, spec.field)
@@ -678,17 +693,32 @@ def expected_cost_first_question(
     max_size: int = 2,
 ) -> tuple[str, float] | None:
     """Return ``(field, expected_total_cost)`` for the first question a cost-minimising
-    questioner should ask, looking ahead over uncertain (uniform) answers.
+    questioner should ask, looking ahead over uncertain answers.
 
+    Answers are weighted by ``intake_hints.answer_probabilities`` (uniform if absent).
     Unlike the greedy cheapest-first rule, this accounts for follow-up questions: a
-    slightly costlier first question can be preferred if it settles the verdict in
-    fewer expected follow-ups. Returns ``None`` if the verdict is already settled.
+    costlier first question can be preferred if its answers more often settle the
+    verdict outright. Returns ``None`` if the verdict is already settled.
     """
     costs = cost if cost is not None else effective_costs(case, None)
     total, field = _expected_cost_to_settle(case, evaluator, costs, max_depth, max_size)
     if field is None:
         return None
     return field, round(total, 4)
+
+
+def expected_questionnaire_cost(
+    case: ActionCase,
+    evaluator: EthicalEvaluator,
+    *,
+    cost: dict[str, float] | None = None,
+    max_depth: int = 4,
+    max_size: int = 2,
+) -> float:
+    """The expected total cost of the globally cost-optimal questionnaire (0.0 if settled)."""
+    costs = cost if cost is not None else effective_costs(case, None)
+    total, _field = _expected_cost_to_settle(case, evaluator, costs, max_depth, max_size)
+    return round(total, 4)
 
 
 # =============================================================================

@@ -111,18 +111,27 @@ An `ActionCase` may carry `intake_hints`:
 Both flow through the same `apply_field_answer` parser used by the interactive
 loop, so a hint-supplied resolution and a typed answer mean the same thing.
 
-## Expected-cost lookahead (v0.12)
+## Expected-cost lookahead (v0.12-v0.13)
 
 The greedy loop asks the cheapest verdict-relevant question now. But when answers
 are *uncertain*, a slightly costlier first question can settle the verdict in fewer
-expected follow-ups. `expected_cost_first_question` is an expectimax over the
-probes: assuming answers are uniform over each probe's plausible resolutions, it
-computes, for each candidate first question, `cost(q) + average over answers of
-(expected cost to settle the rest)`, and returns the minimiser. Pass
-`strategy="lookahead"` to `run_minimal_intake` (or `build-case --minimal
---strategy lookahead`) to use it instead of greedy. It is depth- and
-breadth-bounded, deterministic given the uniform-answer assumption, and reduces to
-the greedy choice when no question needs a follow-up.
+expected follow-ups. `expected_cost_first_question` is an **expectimax** over the
+probes: for each candidate first question it computes `cost(q) + Σ_answers
+P(answer) · (expected cost to settle the rest)`, recursively, and returns the
+minimiser. Because it chooses the cost-minimising question at *every* node, it
+yields the **globally cost-optimal questionnaire** within the depth bound — not a
+greedy one. `expected_questionnaire_cost` returns the optimal expected total.
+
+**Answer probabilities (v0.13).** The expectation defaults to uniform over each
+probe's resolutions, but a case can supply `intake_hints.answer_probabilities`
+(`field -> {answer -> probability}`); the lookahead then weights answers by those
+probabilities. This can change the optimal first question: a cheap question whose
+answers *rarely* settle the verdict (so it usually needs an expensive follow-up)
+can be worse, in expectation, than a costlier question whose answers *usually*
+settle it outright — and the lookahead picks the latter only when the probabilities
+say so. Pass `strategy="lookahead"` to `run_minimal_intake` (or `build-case
+--minimal --strategy lookahead`). It is depth- and breadth-bounded and fully
+deterministic given the supplied (or uniform) distribution.
 
 ## How it connects to the case builder
 

@@ -148,6 +148,28 @@ heuristic drift is caught at scale too.
 littleboy calibrate --scope scoring --generated --n 200    # large, independently-labelled run
 ```
 
+### External-validity reliability (v0.13)
+
+The scoring corpora measure whether each *layer* behaves as labelled. The strongest
+honest check is different: how often does the engine's **verdict** agree with an
+*independent human judgment*? A small `OutcomeCorpus` carries verdict labels
+authored by a human panel — **not** derived from the heuristics — split into
+`dev` (where thresholds may be tuned) and `holdout` (reported, never tuned
+against). `run_reliability` computes, **per policy and per split**, how often the
+engine's verdict matches the human label, both *exactly* and on a coarser
+**disposition** (permissible / impermissible / insufficient), each with a Wilson
+interval, and lists every disagreement.
+
+This surfaces *which policy tracks human judgment best*: on the packaged holdout
+set, `standard` agrees ~0.88 of the time, while `precautionary` agrees only ~0.25
+(it is far more conservative than the panel) — a real, measured, sub-1.0
+reliability with honestly wide intervals (the corpus is small). The result is
+golden-pinned (`tests/golden/outcome_reliability.golden.json`).
+
+```bash
+littleboy calibrate --scope reliability    # per-policy agreement with held-out human labels
+```
+
 ## Limitations
 
 - The **audit corpus** is small and hand-labelled: its rates are calibration
@@ -156,6 +178,10 @@ littleboy calibrate --scope scoring --generated --n 200    # large, independentl
   still *synthetic* — drawn from a latent model the maintainers chose, not from the
   real world. It measures whether the heuristics recover that latent model, which
   is a strong internal check but not external validity.
+- The **outcome (reliability) corpus** is the closest to external validity, but it
+  is small and its "human" labels are still authored by the maintainers; a genuine
+  external check needs many more cases, labelled by independent people, with the
+  holdout never inspected during tuning. The wide Wilson intervals say as much.
 - Golden-file pinning catches drift but does not *validate* correctness — a wrong
   expectation, once frozen, stays wrong until a human revisits it.
 - The scoring-layer detectors are deliberately coarse (a coercion band, the data

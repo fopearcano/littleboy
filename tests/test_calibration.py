@@ -18,15 +18,20 @@ from littleboy.calibration import (
     ScoringCorpusEntry,
     default_corpus,
     default_generated_scoring_corpus,
+    default_outcome_corpus,
     default_scoring_corpus,
+    disposition,
     generate_scoring_corpus,
     golden_payload,
+    reliability_golden_payload,
     run_corpus,
+    run_reliability,
     run_scoring_corpus,
     scoring_golden_payload,
     wilson_ci,
 )
 from littleboy.cli import app
+from littleboy.core.enums import Verdict
 
 EXAMPLES = Path(__file__).resolve().parent.parent / "examples"
 GOLDEN = Path(__file__).resolve().parent / "golden" / "audit_corpus.golden.json"
@@ -272,3 +277,72 @@ def test_cli_calibrate_generated_works():
     result = runner.invoke(app, ["calibrate", "--scope", "scoring", "--generated", "--n", "40"])
     assert result.exit_code == 0
     assert "CALIBRATION (scoring)" in result.stdout
+
+
+# --- external-validity reliability vs held-out human labels (v0.13) ----------
+
+
+RELIABILITY_GOLDEN = Path(__file__).resolve().parent / "golden" / "outcome_reliability.golden.json"
+
+
+def test_disposition_mapping():
+    assert disposition(Verdict.ACCEPTABLE) == "permissible"
+    assert disposition(Verdict.ACCEPTABLE_WITH_RESERVATIONS) == "permissible"
+    assert disposition(Verdict.NOT_ACCEPTABLE) == "impermissible"
+    assert disposition(Verdict.ETHICALLY_SUSPICIOUS) == "impermissible"
+    assert disposition(Verdict.INSUFFICIENT_DATA) == "insufficient"
+
+
+def test_reliability_has_dev_and_holdout_splits_per_policy():
+    report = run_reliability(default_outcome_corpus())
+    splits = {s.split for s in report.splits}
+    assert splits == {"dev", "holdout"}
+    for s in report.splits:
+        assert {p.policy for p in s.policies} == {
+            "permissive",
+            "standard",
+            "strict",
+            "precautionary",
+        }
+
+
+def test_standard_policy_tracks_human_labels_best_on_holdout():
+    report = run_reliability(default_outcome_corpus())
+    holdout = next(s for s in report.splits if s.split == "holdout")
+    by_policy = {p.policy: p.exact_accuracy for p in holdout.policies}
+    # standard is at least as aligned with human judgment as the stricter policies
+    assert by_policy["standard"] >= by_policy["strict"]
+    assert by_policy["standard"] >= by_policy["precautionary"]
+    # and it is the (a) best -- a real, measured, sub-1.0 reliability
+    assert by_policy["standard"] == max(by_policy.values())
+    assert by_policy["standard"] < 1.0
+
+
+def test_reliability_intervals_bracket_the_accuracies():
+    report = run_reliability(default_outcome_corpus())
+    for s in report.splits:
+        for p in s.policies:
+            assert p.exact_accuracy_ci.low <= p.exact_accuracy <= p.exact_accuracy_ci.high
+            assert (
+                p.disposition_accuracy_ci.low
+                <= p.disposition_accuracy
+                <= p.disposition_accuracy_ci.high
+            )
+
+
+def test_reliability_golden_regression():
+    payload = reliability_golden_payload(run_reliability(default_outcome_corpus()))
+    if os.environ.get("LITTLEBOY_UPDATE_GOLDEN"):
+        RELIABILITY_GOLDEN.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n")
+    expected = json.loads(RELIABILITY_GOLDEN.read_text())
+    assert payload == expected, (
+        "reliability drifted from the golden file; "
+        "re-run with LITTLEBOY_UPDATE_GOLDEN=1 if the change is intended"
+    )
+
+
+def test_cli_calibrate_reliability_works():
+    result = runner.invoke(app, ["calibrate", "--scope", "reliability"])
+    assert result.exit_code == 0
+    assert "reliability vs held-out human labels" in result.stdout
+    assert "holdout" in result.stdout

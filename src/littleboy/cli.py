@@ -25,10 +25,12 @@ from littleboy import __version__
 from littleboy.audit.report import render_audit_json, render_audit_text
 from littleboy.calibration import (
     default_corpus,
+    default_outcome_corpus,
     default_scoring_corpus,
     generate_scoring_corpus,
     load_corpus,
     run_corpus,
+    run_reliability,
     run_scoring_corpus,
 )
 from littleboy.case_builder import (
@@ -490,7 +492,10 @@ def calibrate(
         "text", "--format", "-f", help="Output format: 'json' or 'text'."
     ),
     scope: str = typer.Option(
-        "all", "--scope", "-s", help="Which corpora to run: 'audit', 'scoring', or 'all'."
+        "all",
+        "--scope",
+        "-s",
+        help="Which to run: 'audit', 'scoring', 'reliability', or 'all'.",
     ),
     generated: bool = typer.Option(
         False,
@@ -505,12 +510,15 @@ def calibrate(
     if output_format not in {"json", "text"}:
         typer.echo(f"Unknown format '{output_format}'; use 'json' or 'text'.", err=True)
         raise typer.Exit(code=2)
-    if scope not in {"audit", "scoring", "all"}:
-        typer.echo(f"Unknown scope '{scope}'; use 'audit', 'scoring', or 'all'.", err=True)
+    if scope not in {"audit", "scoring", "reliability", "all"}:
+        typer.echo(
+            f"Unknown scope '{scope}'; use 'audit', 'scoring', 'reliability', or 'all'.", err=True
+        )
         raise typer.Exit(code=2)
 
     audit_report = None
     scoring_report = None
+    reliability_report = None
     if scope in {"audit", "all"}:
         corpus = load_corpus(corpus_path) if corpus_path is not None else default_corpus()
         audit_report = run_corpus(corpus)
@@ -519,6 +527,8 @@ def calibrate(
             generate_scoring_corpus(n=n, seed=seed) if generated else default_scoring_corpus()
         )
         scoring_report = run_scoring_corpus(scoring_corpus)
+    if scope in {"reliability", "all"}:
+        reliability_report = run_reliability(default_outcome_corpus())
 
     if output_format == "json":
         payload: dict = {}
@@ -526,6 +536,8 @@ def calibrate(
             payload["audit"] = audit_report.model_dump(mode="json")
         if scoring_report is not None:
             payload["scoring"] = scoring_report.model_dump(mode="json")
+        if reliability_report is not None:
+            payload["reliability"] = reliability_report.model_dump(mode="json")
         typer.echo(json.dumps(payload, indent=2, ensure_ascii=False))
         return
 
@@ -561,6 +573,19 @@ def calibrate(
             )
         for mismatch in s.verdict_mismatches:
             typer.echo(f"  verdict mismatch: {mismatch}")
+
+    if reliability_report is not None:
+        if audit_report is not None or scoring_report is not None:
+            typer.echo("")
+        typer.echo("CALIBRATION (reliability vs held-out human labels):")
+        for split in reliability_report.splits:
+            typer.echo(f"  [{split.split}] n={split.n}")
+            for p in split.policies:
+                lo, hi = p.exact_accuracy_ci.low, p.exact_accuracy_ci.high
+                typer.echo(
+                    f"    {p.policy:14s} exact={p.exact_accuracy:.2f} CI[{lo:.2f},{hi:.2f}]  "
+                    f"disposition={p.disposition_accuracy:.2f}"
+                )
 
 
 @app.command()

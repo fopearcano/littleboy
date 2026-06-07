@@ -28,7 +28,9 @@ from littleboy.deliberation.intake import apply_intake_answer, run_minimal_intak
 from littleboy.deliberation.minimal_case import DEFAULT_QUESTION_COSTS, plan_minimal_questions
 from littleboy.deliberation.voi import (
     cheapest_flip_set,
+    effective_costs,
     expected_cost_first_question,
+    expected_questionnaire_cost,
     minimal_flip_sets,
     value_of_information,
     verdict_distance,
@@ -471,3 +473,85 @@ def test_intake_lookahead_strategy_settles():
     assert transcript.settled is True
     assert transcript.final_verdict == Verdict.ETHICALLY_SUSPICIOUS
     assert "strategy: lookahead" in transcript.notes
+
+
+# --- probabilistic lookahead (v0.13) -----------------------------------------
+
+
+class _DominatingEvaluator:
+    """reversibility < 0.5 forces NOT; else consent==REFUSED forces NOT; else ACCEPTABLE.
+
+    So consent settles only via the (rare) REFUSED, while a low reversibility settles
+    outright -- the cost-optimal first question depends on the answer distribution.
+    """
+
+    def evaluate(self, case: ActionCase) -> _StubReport:
+        rev = case.coercion_profile.reversibility
+        consent = case.effective_consent_status()
+        if rev is not None and rev < 0.5:
+            return _StubReport(Verdict.NOT_ACCEPTABLE)
+        if consent == ConsentStatus.REFUSED:
+            return _StubReport(Verdict.NOT_ACCEPTABLE)
+        return _StubReport(Verdict.ACCEPTABLE)
+
+
+def _dominating_case(probabilities: dict) -> ActionCase:
+    hints = IntakeHints(
+        question_costs={"consent": 1.0, "coercion.reversibility": 5.0},
+        answer_values={"consent": ["given", "refused"], "coercion.reversibility": ["0.0", "1.0"]},
+        answer_probabilities=probabilities,
+    )
+    return ActionCase(
+        title="dominating",
+        acting_agent=MoralAgent(name="A", agent_type=AgentType.TYPE_II),
+        affected_agents=[MoralAgent(name="B", agent_type=AgentType.TYPE_II)],
+        coercion_profile=CoercionProfile(social_pressure=0.3, severity=0.3),
+        consent=ConsentStatus.UNKNOWN,
+        available_alternatives=[],
+        responds_to_existing_coercion=False,
+        consequences=ConsequenceSet(
+            consequences=[
+                ConsequenceEstimate(
+                    description="benign",
+                    horizon=TimeHorizon.SHORT_TERM,
+                    coercion_delta=-0.05,
+                    probability=0.8,
+                    confidence=0.8,
+                )
+            ]
+        ),
+        intake_hints=hints,
+    )
+
+
+def test_answer_probabilities_change_the_optimal_first_question():
+    ev = _DominatingEvaluator()
+    uniform = _dominating_case({})
+    biased = _dominating_case(
+        {
+            "consent": {"given": 0.9, "refused": 0.1},
+            "coercion.reversibility": {"0.0": 0.9, "1.0": 0.1},
+        }
+    )
+    # Uniform: ask the cheap question first.
+    u_field, _ = expected_cost_first_question(uniform, ev, cost=effective_costs(uniform))
+    assert u_field == "consent"
+    # Biased (consent rarely settles; low reversibility usually settles): ask the
+    # costlier-but-usually-settling reversibility first.
+    b_field, _ = expected_cost_first_question(biased, ev, cost=effective_costs(biased))
+    assert b_field == "coercion.reversibility"
+
+
+def test_expected_questionnaire_cost_reports_optimal_total():
+    from littleboy.core.evaluator import EthicalEvaluator
+
+    ev = _DominatingEvaluator()
+    case = _dominating_case({})
+    cost = expected_questionnaire_cost(case, ev, cost=effective_costs(case))
+    assert cost == 3.5  # consent (1) + 0.5 * reversibility (5)
+    # a case whose only unknown cannot flip the verdict needs no questions
+    settled = _load("voi_consent_pivotal.json").model_copy(
+        update={"intake_hints": IntakeHints(answer_values={"consent": ["given"]})}
+    )
+    evaluator = EthicalEvaluator("standard", include_completeness=False)
+    assert expected_questionnaire_cost(settled, evaluator) == 0.0

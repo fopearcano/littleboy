@@ -560,6 +560,13 @@ class IntakeHints(_Base):
         default_factory=dict,
         description="field name -> the plausible answer strings the planner should try.",
     )
+    answer_probabilities: dict[str, dict[str, float]] = Field(
+        default_factory=dict,
+        description=(
+            "field name -> {answer string -> probability}. Lets the expected-cost lookahead "
+            "plan over a non-uniform answer distribution; missing answers default to uniform."
+        ),
+    )
 
 
 class ActionCase(_Base):

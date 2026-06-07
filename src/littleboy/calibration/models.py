@@ -174,3 +174,66 @@ class ScoringCalibrationReport(_CalBase):
     verdict_mismatches: list[str] = Field(default_factory=list)
     per_policy: list[PolicyScoringMetrics] = Field(default_factory=list)
     notes: list[str] = Field(default_factory=list)
+
+
+# =============================================================================
+# External-validity reliability (v0.13): held-out, human-labelled outcomes
+# =============================================================================
+
+
+class OutcomeEntry(_CalBase):
+    """One case with a held-out, human-authored verdict label (not from the heuristics).
+
+    ``split`` is ``"dev"`` (where you may tune) or ``"holdout"`` (reported reliability,
+    never tuned against). The ``human_verdict`` is the labeler's considered judgment.
+    """
+
+    id: str
+    description: str = ""
+    case: ActionCase
+    split: str = "holdout"
+    human_verdict: Verdict
+    labeler: str = "panel"
+
+
+class OutcomeCorpus(_CalBase):
+    """A held-out, independently-labelled outcome set for external-validity calibration."""
+
+    title: str = ""
+    description: str = ""
+    entries: list[OutcomeEntry] = Field(default_factory=list)
+
+
+class PolicyReliability(_CalBase):
+    """Agreement of one policy's verdicts with the human labels, with held-out intervals.
+
+    *Exact* agreement compares the verdict directly; *disposition* agreement compares
+    the coarser permissible / impermissible / insufficient class (more robust to
+    fine distinctions). Both carry a Wilson confidence interval.
+    """
+
+    policy: str
+    n: int = 0
+    exact_correct: int = 0
+    exact_accuracy: float = Field(default=0.0, ge=0.0, le=1.0)
+    exact_accuracy_ci: ConfidenceInterval = Field(default_factory=ConfidenceInterval)
+    disposition_correct: int = 0
+    disposition_accuracy: float = Field(default=0.0, ge=0.0, le=1.0)
+    disposition_accuracy_ci: ConfidenceInterval = Field(default_factory=ConfidenceInterval)
+    disagreements: list[str] = Field(default_factory=list)
+
+
+class SplitReliability(_CalBase):
+    """Per-policy reliability over one split (dev or holdout)."""
+
+    split: str
+    n: int = 0
+    policies: list[PolicyReliability] = Field(default_factory=list)
+
+
+class ReliabilityReport(_CalBase):
+    """External-validity reliability of the engine against held-out human labels."""
+
+    n_cases: int = 0
+    splits: list[SplitReliability] = Field(default_factory=list)
+    notes: list[str] = Field(default_factory=list)
