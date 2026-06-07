@@ -1,0 +1,35 @@
+{
+  "title": "Authority used to shut down questions",
+  "description": "A decision is defended not on its merits but by appeal to the speaker's status, discouraging the scrutiny an ethical check requires.",
+  "acting_agent": { "name": "Department head", "agent_type": "TYPE_II" },
+  "affected_agents": [{ "name": "Junior staff", "agent_type": "TYPE_II" }],
+  "intended_goal": "Push through a contested policy without discussion.",
+  "coercion_profile": { "social_pressure": 0.4, "psychological_pressure": 0.3, "reversibility": 0.8, "severity": 0.35 },
+  "consent": "UNKNOWN",
+  "available_alternatives": [],
+  "responds_to_existing_coercion": false,
+  "expected_consequences": "Staff comply without raising objections.",
+  "agency_profile": { "agent_type": "TYPE_II", "capacity_confidence": 0.8, "vulnerability_level": 0.4 },
+  "language_act": {
+    "text": "Trust me, I'm the expert here. You're not qualified to question this -- leave it to the professionals. End of discussion.",
+    "speaker_agent": "Department head",
+    "target_agents": ["Junior staff"],
+    "declared_intent": "Settle the matter.",
+    "context": {
+      "medium": "speech",
+      "power_asymmetry": 0.8,
+      "urgency": 0.3,
+      "target_vulnerability": 0.4,
+      "stakes": 0.5,
+      "reversibility": 0.8,
+      "audience_scope": 0.3
+    },
+    "ethics_profile": {
+      "clarity": 0.6,
+      "truthfulness": 0.5,
+      "agency_respect": 0.2,
+      "consent_support": 0.3,
+      "silencing_effect": 0.6
+    }
+  }
+}

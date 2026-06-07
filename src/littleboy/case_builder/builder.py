@@ -12,6 +12,8 @@ directly, which keeps the builder honest and auditable.
 
 from __future__ import annotations
 
+from littleboy.audit.models import AuditReport
+from littleboy.audit.stress import AdversarialStressTester
 from littleboy.case_builder.completeness import completeness_report
 from littleboy.case_builder.questions import generate_questions
 from littleboy.case_builder.templates import ScenarioTemplate, get_template
@@ -66,6 +68,16 @@ class CaseBuilder:
     ) -> CaseCompletenessReport:
         """Return how ready ``case`` is for evaluation."""
         return completeness_report(case, policy=self.policy, template=_resolve_template(template))
+
+    def audit(self, case: ActionCase) -> AuditReport:
+        """Adversarially audit how the (possibly partial) case is described.
+
+        Lets a case being built be checked for leading language, missing
+        counterevidence, false consent, fake alternatives, and ideological
+        framing before it is ever evaluated -- the audit's stress-test questions
+        complement the builder's completeness questions.
+        """
+        return AdversarialStressTester(self.policy).audit_case(case)
 
     def apply_answer(self, case: ActionCase, question_id: str, answer: object) -> ActionCase:
         """Return a copy of ``case`` with one simple answer applied.

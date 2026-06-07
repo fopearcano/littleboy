@@ -22,6 +22,8 @@ v0.2.
 
 from __future__ import annotations
 
+from littleboy.audit.adversarial import audit_adjusted_verdict
+from littleboy.audit.stress import AdversarialStressTester
 from littleboy.case_builder.completeness import completeness_report
 from littleboy.core import axioms as ax
 from littleboy.core.agency import assess_agency, assess_consent
@@ -80,8 +82,17 @@ class EthicalEvaluator:
 
     # -- public API -----------------------------------------------------------
 
-    def evaluate(self, case: ActionCase) -> EvaluationReport:
-        """Evaluate a case and return a fully-explained, fully-traced report."""
+    def evaluate(self, case: ActionCase, *, audit: bool = False) -> EvaluationReport:
+        """Evaluate a case and return a fully-explained, fully-traced report.
+
+        When ``audit=True`` (off by default, so existing behaviour is unchanged),
+        the report is additionally run through the :class:`AdversarialStressTester`
+        and a critical red flag can bear on the verdict (see
+        :func:`~littleboy.audit.adversarial.audit_adjusted_verdict`). The
+        rule-engine trace is left intact; the audit is recorded as a separate,
+        clearly-labelled layer, because LittleBoy must judge not only the action
+        but also the description through which the action becomes visible.
+        """
         # 0. Language analysis (v0.5): if the case centres on a language act,
         #    analyse it and fold its linguistic coercion into the coercion model.
         language_analysis = (
@@ -245,7 +256,7 @@ class EthicalEvaluator:
             if completeness.warnings and verdict != Verdict.INSUFFICIENT_DATA:
                 warnings = _unique([*warnings, *completeness.warnings])
 
-        return EvaluationReport(
+        report = EvaluationReport(
             verdict=verdict,
             coercion_score=round(coercion_score, 4),
             data_quality_score=round(dq.score, 4),
@@ -272,6 +283,47 @@ class EthicalEvaluator:
             case_completeness=completeness,
             recommended_questions=recommended_questions,
             explanation=explanation,
+        )
+
+        if audit:
+            report = self._apply_audit(case, report, irreversible=irreversible)
+        return report
+
+    # -- adversarial audit (opt-in) -------------------------------------------
+
+    def _apply_audit(
+        self, case: ActionCase, report: EvaluationReport, *, irreversible: bool
+    ) -> EvaluationReport:
+        """Attach an adversarial audit and let a critical red flag bear on the verdict."""
+        audit_report = AdversarialStressTester(self.policy).audit_evaluation(case, report)
+        new_verdict, new_confidence, notes = audit_adjusted_verdict(
+            verdict=report.verdict,
+            confidence=report.confidence,
+            audit=audit_report,
+            coercion_score=report.coercion_score,
+            irreversible=irreversible,
+            coercion_moderate=self.policy.coercion_moderate,
+        )
+        audit_warnings = [f"[audit] {n}" for n in notes]
+        audit_warnings += [f"[audit] {w}" for w in audit_report.warnings]
+        warnings = _unique([*report.warnings, *audit_warnings])
+
+        explanation = report.explanation
+        if not audit_report.judgment_stable:
+            explanation += (
+                " Adversarial audit: this judgment is UNSTABLE -- the description carries "
+                "red flags that should be resolved before the verdict is relied upon."
+            )
+
+        return report.model_copy(
+            update={
+                "verdict": new_verdict,
+                "confidence": new_confidence,
+                "uncertainty_level": classify_uncertainty(new_confidence),
+                "warnings": warnings,
+                "audit_report": audit_report,
+                "explanation": explanation,
+            }
         )
 
     # -- narrative assembly ---------------------------------------------------

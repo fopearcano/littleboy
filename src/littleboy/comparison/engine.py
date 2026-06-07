@@ -131,7 +131,9 @@ class ComparisonEngine:
     def __init__(self, policy_mode: PolicyMode | str | None = None) -> None:
         self.policy_mode = policy_mode
 
-    def compare(self, comparison_set: ActionComparisonSet) -> ActionComparisonResult:
+    def compare(
+        self, comparison_set: ActionComparisonSet, *, audit: bool = False
+    ) -> ActionComparisonResult:
         mode = self.policy_mode or comparison_set.policy_mode
         policy: PolicyProfile = get_policy(mode)
         evaluator = EthicalEvaluator(policy)
@@ -208,8 +210,37 @@ class ComparisonEngine:
             temporal_missing_data=temporal_missing,
             individual_reports=reports,
         )
+
+        if audit:
+            self._attach_audit(comparison_set, result)
+
         result.comparison_explanation = build_comparison_explanation(result)
         return result
+
+    def _attach_audit(
+        self, comparison_set: ActionComparisonSet, result: ActionComparisonResult
+    ) -> None:
+        """Run the adversarial audit over the comparison and fold its findings in.
+
+        If the best option wins mostly because data about its competitors are
+        missing, the ranking is marked unstable (the audit is opt-in, so default
+        comparisons are unchanged).
+        """
+        from littleboy.audit.stress import AdversarialStressTester
+
+        tester = AdversarialStressTester(self.policy_mode or comparison_set.policy_mode)
+        audit_report = tester.audit_comparison(comparison_set, result)
+        result.audit = audit_report
+        if audit_report.ranking_unstable_due_to_missing_data:
+            result.data_sensitive = True
+            result.ranking_stable = False
+            result.uncertainty_warnings = _unique(
+                [*result.uncertainty_warnings, *audit_report.warnings]
+            )
+        elif audit_report.warnings:
+            result.uncertainty_warnings = _unique(
+                [*result.uncertainty_warnings, *(f"[audit] {w}" for w in audit_report.warnings)]
+            )
 
     def _what_could_change(
         self, ranked: list[ActionRankingEntry], data_sensitive: bool

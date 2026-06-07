@@ -1,0 +1,35 @@
+{
+  "title": "A 'gentle reminder' that is actually a threat",
+  "description": "The structured coercion is described as negligible, but the actual wording is highly manipulative -- the coercion is hidden in the language, not the profile.",
+  "acting_agent": { "name": "Manager", "agent_type": "TYPE_II" },
+  "affected_agents": [{ "name": "Employee", "agent_type": "TYPE_II" }],
+  "intended_goal": "Get the employee to 'volunteer' for unpaid weekend work.",
+  "coercion_profile": { "social_pressure": 0.05, "reversibility": 1.0, "severity": 0.05 },
+  "consent": "GIVEN",
+  "available_alternatives": [],
+  "responds_to_existing_coercion": false,
+  "expected_consequences": "The employee 'agrees' to give up the weekend.",
+  "agency_profile": { "agent_type": "TYPE_II", "capacity_confidence": 0.8, "vulnerability_level": 0.6 },
+  "language_act": {
+    "text": "You have no choice if you care about this team. A good person would stay. Either you step up this weekend or you'll regret it when promotions come around.",
+    "speaker_agent": "Manager",
+    "target_agents": ["Employee"],
+    "declared_intent": "Motivate the employee.",
+    "context": {
+      "medium": "speech",
+      "power_asymmetry": 0.8,
+      "urgency": 0.6,
+      "target_vulnerability": 0.6,
+      "stakes": 0.6,
+      "reversibility": 0.8,
+      "audience_scope": 0.0
+    },
+    "ethics_profile": {
+      "clarity": 0.5,
+      "truthfulness": 0.4,
+      "agency_respect": 0.2,
+      "consent_support": 0.2,
+      "manipulation_risk": 0.6
+    }
+  }
+}

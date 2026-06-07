@@ -116,4 +116,24 @@ def render_comparison_text(result: ActionComparisonResult) -> str:
     _section("Missing data that could change the ranking", result.what_could_change_ranking)
     _section("Missing temporal data", result.temporal_missing_data)
     _section("Uncertainty warnings", result.uncertainty_warnings)
+
+    if result.audit is not None:
+        ca = result.audit
+        lines.append("")
+        lines.append(
+            "Adversarial audit: "
+            f"ranking_unstable_due_to_missing_data={ca.ranking_unstable_due_to_missing_data}"
+        )
+        _section(
+            "Audit findings",
+            [f"[{f.severity.value}/{f.category.value}] {f.title}" for f in ca.findings],
+        )
+        _section(
+            "Per-option audit",
+            [
+                f"{oid}: stable={a.judgment_stable}, red_flags={len(a.red_flags)}"
+                for oid, a in ca.option_audits.items()
+            ],
+        )
+
     return "\n".join(lines)

@@ -118,6 +118,20 @@ def render_text(report: EvaluationReport) -> str:
             ],
         )
 
+    if report.audit_report is not None:
+        ar = report.audit_report
+        _section(
+            "Adversarial audit",
+            [
+                f"judgment_stable = {ar.judgment_stable}  "
+                f"requires_explicit_review = {ar.requires_explicit_review}",
+                *(f"red flag: {t}" for t in ar.red_flags),
+                *(f"adversarial risk: {r}" for r in ar.adversarial_risk_profile.dominant_risks),
+                *(f"bias risk: {r}" for r in ar.bias_profile.dominant_risks),
+                *(f"stress test: {s.question}" for s in ar.stress_tests),
+            ],
+        )
+
     _section("Missing data", report.missing_data)
 
     if report.reasoning_trace is not None:

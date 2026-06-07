@@ -1,0 +1,47 @@
+{
+  "title": "A clumsy, honest, low-coercion request",
+  "description": "A genuinely benign, consensual, low-coercion action described in awkward, unpolished, jargon-poor language -- its moral value could be undervalued because of the poor expression.",
+  "acting_agent": { "name": "Volunteer coordinator", "agent_type": "TYPE_II" },
+  "affected_agents": [{ "name": "Volunteer", "agent_type": "TYPE_II" }],
+  "intended_goal": "Ask if the volunteer would like to help, entirely optionally.",
+  "coercion_profile": { "social_pressure": 0.05, "reversibility": 1.0, "severity": 0.05 },
+  "consent": "GIVEN",
+  "consent_profile": {
+    "status": "GIVEN",
+    "informed": "CONFIRMED",
+    "voluntary": "CONFIRMED",
+    "specific": "CONFIRMED",
+    "revocable": "CONFIRMED",
+    "communicated_by_agent": true
+  },
+  "available_alternatives": [],
+  "responds_to_existing_coercion": false,
+  "expected_consequences": "The volunteer can help or not, freely.",
+  "agency_profile": { "agent_type": "TYPE_II", "capacity_confidence": 0.8, "vulnerability_level": 0.1 },
+  "data_quality": { "completeness": 0.8, "source_reliability": 0.8, "specificity": 0.8, "recency": 0.8, "corroboration": 0.7, "ambiguity": 0.2 },
+  "language_act": {
+    "text": "um so like if maybe you wanted to possibly help out sometime that would be ok but also totally fine if not no worries whatever works",
+    "speaker_agent": "Volunteer coordinator",
+    "target_agents": ["Volunteer"],
+    "declared_intent": "Offer an optional chance to help.",
+    "context": {
+      "medium": "speech",
+      "power_asymmetry": 0.1,
+      "urgency": 0.1,
+      "target_vulnerability": 0.1,
+      "stakes": 0.1,
+      "reversibility": 1.0,
+      "audience_scope": 0.0
+    },
+    "ethics_profile": {
+      "clarity": 0.2,
+      "truthfulness": 0.9,
+      "specificity": 0.2,
+      "context_completeness": 0.5,
+      "agency_respect": 0.8,
+      "consent_support": 0.8,
+      "constructive_potential": 0.2,
+      "manipulation_risk": 0.0
+    }
+  }
+}

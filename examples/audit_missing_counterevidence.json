@@ -1,0 +1,27 @@
+{
+  "title": "A coercive action evidenced only by the actor's own say-so",
+  "description": "A non-trivial coercion is described and justified, but every supporting claim comes from the acting agent, with no corroboration and nothing from the affected party.",
+  "acting_agent": { "name": "Landlord", "agent_type": "TYPE_II" },
+  "affected_agents": [{ "name": "Tenant", "agent_type": "TYPE_II" }],
+  "intended_goal": "Evict the tenant for alleged lease violations.",
+  "coercion_profile": { "legal_constraint": 0.5, "economic_pressure": 0.5, "reversibility": 0.7, "severity": 0.5 },
+  "consent": "REFUSED",
+  "available_alternatives": [],
+  "responds_to_existing_coercion": true,
+  "prior_coercion_description": "The landlord asserts the tenant breached the lease.",
+  "expected_consequences": "The tenant is removed.",
+  "evidence": {
+    "items": [
+      {
+        "claim": "The tenant repeatedly violated the lease.",
+        "source_type": "USER_STATEMENT",
+        "reliability": 0.6,
+        "specificity": 0.5,
+        "recency": 0.6,
+        "corroboration": 0.0,
+        "contested": false,
+        "notes": "Asserted by the landlord; no independent record, no tenant account."
+      }
+    ]
+  }
+}

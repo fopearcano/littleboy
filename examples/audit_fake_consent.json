@@ -1,0 +1,43 @@
+{
+  "title": "Consent signed under pressure, reported by the beneficiary",
+  "description": "A 'yes' is on record, but it was communicated by the acting party, obtained from a highly vulnerable person under a steep power asymmetry, through unclear, pressuring language.",
+  "acting_agent": { "name": "Care-home operator", "agent_type": "TYPE_II", "is_collective": true },
+  "affected_agents": [{ "name": "Elderly resident", "agent_type": "TYPE_II" }],
+  "intended_goal": "Obtain consent to a new fee schedule.",
+  "coercion_profile": { "economic_pressure": 0.4, "social_pressure": 0.4, "reversibility": 0.9, "severity": 0.4 },
+  "consent": "GIVEN",
+  "consent_profile": {
+    "status": "GIVEN",
+    "informed": "UNKNOWN",
+    "voluntary": "UNKNOWN",
+    "specific": "UNKNOWN",
+    "revocable": "UNKNOWN",
+    "communicated_by_agent": false,
+    "notes": "Consent was reported by the operator's staff, not by the resident."
+  },
+  "available_alternatives": [],
+  "responds_to_existing_coercion": false,
+  "expected_consequences": "The resident is recorded as having agreed.",
+  "agency_profile": { "agent_type": "TYPE_II", "capacity_confidence": 0.4, "vulnerability_level": 0.8 },
+  "language_act": {
+    "text": "You have to sign now; there is no other option. Don't argue -- we know what's best for you.",
+    "speaker_agent": "Care-home operator",
+    "target_agents": ["Elderly resident"],
+    "context": {
+      "medium": "contract",
+      "power_asymmetry": 0.9,
+      "urgency": 0.7,
+      "target_vulnerability": 0.8,
+      "stakes": 0.7,
+      "reversibility": 0.6,
+      "audience_scope": 0.0
+    },
+    "ethics_profile": {
+      "clarity": 0.3,
+      "truthfulness": 0.4,
+      "agency_respect": 0.2,
+      "consent_support": 0.2,
+      "manipulation_risk": 0.7
+    }
+  }
+}

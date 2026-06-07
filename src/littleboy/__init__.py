@@ -13,6 +13,17 @@ decision-maker.
 
 from __future__ import annotations
 
+from littleboy.audit import (
+    AdversarialRiskProfile,
+    AdversarialStressTester,
+    AuditCategory,
+    AuditFinding,
+    AuditReport,
+    AuditSeverity,
+    BiasProfile,
+    ComparisonAuditReport,
+    StressTestResult,
+)
 from littleboy.case_builder import (
     CaseBuilder,
     ScenarioTemplate,
@@ -120,7 +131,7 @@ from littleboy.temporal import (
     score_reversibility,
 )
 
-__version__ = "0.7.0"
+__version__ = "0.8.0"
 
 __all__ = [
     "BUILTIN_RULES",
@@ -129,8 +140,17 @@ __all__ = [
     "ActionComparisonSet",
     "ActionOption",
     "ActionRankingEntry",
+    "AdversarialRiskProfile",
+    "AdversarialStressTester",
     "AgencyProfile",
     "AgentType",
+    "AuditCategory",
+    "AuditFinding",
+    "AuditReport",
+    "AuditSeverity",
+    "BiasProfile",
+    "ComparisonAuditReport",
+    "StressTestResult",
     "Alternative",
     "AlternativeAction",
     "AlternativeAnalysis",

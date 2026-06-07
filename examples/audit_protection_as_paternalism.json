@@ -1,0 +1,35 @@
+{
+  "title": "'For your own good' over a competent adult's objection",
+  "description": "Care and protection language is used to justify overriding a vulnerable but competent adult's choices -- protection deployed as control.",
+  "acting_agent": { "name": "Guardian institution", "agent_type": "TYPE_II", "is_collective": true },
+  "affected_agents": [{ "name": "Ward", "agent_type": "TYPE_II" }],
+  "intended_goal": "Restrict the ward's spending and movement 'for their own good'.",
+  "coercion_profile": { "psychological_pressure": 0.5, "legal_constraint": 0.5, "reversibility": 0.7, "severity": 0.5 },
+  "consent": "REFUSED",
+  "available_alternatives": [],
+  "responds_to_existing_coercion": false,
+  "expected_consequences": "The ward's autonomy is curtailed; the institution decides.",
+  "context_notes": "It is for your own good; we know what's best and we are protecting you.",
+  "agency_profile": { "agent_type": "TYPE_II", "capacity_confidence": 0.6, "vulnerability_level": 0.7 },
+  "language_act": {
+    "text": "This is for your own good. We know what's best for you, and we are protecting you from yourself.",
+    "speaker_agent": "Guardian institution",
+    "target_agents": ["Ward"],
+    "declared_intent": "Express care.",
+    "context": {
+      "medium": "speech",
+      "power_asymmetry": 0.8,
+      "urgency": 0.2,
+      "target_vulnerability": 0.7,
+      "stakes": 0.6,
+      "reversibility": 0.7,
+      "audience_scope": 0.0
+    },
+    "ethics_profile": {
+      "clarity": 0.6,
+      "truthfulness": 0.6,
+      "agency_respect": 0.2,
+      "consent_support": 0.2
+    }
+  }
+}

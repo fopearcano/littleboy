@@ -1,0 +1,35 @@
+{
+  "title": "'Nobody is forcing you' -- amid heavy social pressure",
+  "description": "Freedom language ('you're free to choose', 'no one is forcing you') is used to wave away real, heavy social pressure to comply.",
+  "acting_agent": { "name": "Group leader", "agent_type": "TYPE_II" },
+  "affected_agents": [{ "name": "Member", "agent_type": "TYPE_II" }],
+  "intended_goal": "Secure a public 'voluntary' pledge of loyalty from each member.",
+  "coercion_profile": { "social_pressure": 0.6, "psychological_pressure": 0.4, "reversibility": 0.8, "severity": 0.4 },
+  "consent": "GIVEN",
+  "available_alternatives": [],
+  "responds_to_existing_coercion": false,
+  "expected_consequences": "Members 'freely' pledge, in front of the group.",
+  "context_notes": "You're free to choose; no one is forcing you. It's entirely your choice.",
+  "agency_profile": { "agent_type": "TYPE_II", "capacity_confidence": 0.8, "vulnerability_level": 0.4 },
+  "language_act": {
+    "text": "You're free to choose, of course. No one is forcing you. It's entirely your choice -- in front of everyone.",
+    "speaker_agent": "Group leader",
+    "target_agents": ["Member"],
+    "declared_intent": "Emphasise that participation is voluntary.",
+    "context": {
+      "medium": "public_statement",
+      "power_asymmetry": 0.6,
+      "urgency": 0.3,
+      "target_vulnerability": 0.4,
+      "stakes": 0.5,
+      "reversibility": 0.8,
+      "audience_scope": 0.7
+    },
+    "ethics_profile": {
+      "clarity": 0.6,
+      "truthfulness": 0.5,
+      "agency_respect": 0.4,
+      "consent_support": 0.4
+    }
+  }
+}

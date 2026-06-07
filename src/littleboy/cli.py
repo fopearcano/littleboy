@@ -22,6 +22,7 @@ import typer
 from pydantic import ValidationError
 
 from littleboy import __version__
+from littleboy.audit.report import render_audit_json, render_audit_text
 from littleboy.case_builder import (
     CaseBuilder,
     build_case_from_answers,
@@ -104,6 +105,9 @@ def evaluate(
     policy: str = typer.Option(
         "standard", "--policy", "-p", help=f"Policy strictness: {_POLICY_CHOICES}."
     ),
+    audit: bool = typer.Option(
+        False, "--audit", help="Also run the adversarial audit of the description/framing."
+    ),
 ) -> None:
     """Evaluate a single action case from a JSON file under a policy profile."""
     if output_format not in {"json", "text"}:
@@ -116,7 +120,7 @@ def evaluate(
         raise typer.Exit(code=2) from exc
 
     case = _load_case(case_path)
-    report = EthicalEvaluator(policy_mode).evaluate(case)
+    report = EthicalEvaluator(policy_mode).evaluate(case, audit=audit)
     typer.echo(render_text(report) if output_format == "text" else render_json(report))
 
 
@@ -234,6 +238,9 @@ def compare(
     policy: str | None = typer.Option(
         None, "--policy", "-p", help=f"Override policy: {_POLICY_CHOICES} (default: the set's)."
     ),
+    audit: bool = typer.Option(
+        False, "--audit", help="Also run the adversarial audit across the comparison."
+    ),
 ) -> None:
     """Compare candidate actions and rank the least-coercive morally viable path."""
     if output_format not in {"json", "text"}:
@@ -252,7 +259,7 @@ def compare(
         typer.echo(f"Invalid ActionComparisonSet in {set_path}:\n{exc}", err=True)
         raise typer.Exit(code=2) from exc
 
-    result = ComparisonEngine(policy_mode).compare(comparison_set)
+    result = ComparisonEngine(policy_mode).compare(comparison_set, audit=audit)
     if output_format == "json":
         typer.echo(render_comparison_json(result))
     else:
@@ -315,6 +322,36 @@ def temporal(
         typer.echo(render_temporal_json(projection))
     else:
         typer.echo(render_temporal_text(projection))
+
+
+@app.command()
+def audit(
+    case_path: Path = typer.Argument(
+        ...,
+        exists=True,
+        dir_okay=False,
+        readable=True,
+        help="Path to a JSON file describing the ActionCase.",
+    ),
+    output_format: str = typer.Option(
+        "text", "--format", "-f", help="Output format: 'json' or 'text'."
+    ),
+    policy: str = typer.Option(
+        "standard", "--policy", "-p", help=f"Policy strictness: {_POLICY_CHOICES}."
+    ),
+) -> None:
+    """Adversarially audit how a case is described: red flags, bias, and stress tests."""
+    if output_format not in {"json", "text"}:
+        typer.echo(f"Unknown format '{output_format}'; use 'json' or 'text'.", err=True)
+        raise typer.Exit(code=2)
+    policy_mode = _resolve_policy(policy)
+    case = _load_case(case_path)
+    report = EthicalEvaluator(policy_mode).evaluate(case, audit=True)
+    audit_report = report.audit_report
+    if output_format == "json":
+        typer.echo(render_audit_json(audit_report))
+    else:
+        typer.echo(render_audit_text(audit_report))
 
 
 @app.command()

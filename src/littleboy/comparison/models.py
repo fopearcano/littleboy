@@ -16,6 +16,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from littleboy.audit.models import ComparisonAuditReport
 from littleboy.core.enums import PolicyMode, Verdict
 from littleboy.core.models import ActionCase, EvaluationReport
 
@@ -136,6 +137,9 @@ class ActionComparisonResult(_Base):
     long_term_ranking: list[str] = Field(default_factory=list)
     rankings_conflict: bool = False
     temporal_missing_data: list[str] = Field(default_factory=list)
+
+    # Adversarial audit of the comparison (v0.8). None unless requested.
+    audit: ComparisonAuditReport | None = None
 
     comparison_explanation: str = ""
     individual_reports: dict[str, EvaluationReport] = Field(default_factory=dict)

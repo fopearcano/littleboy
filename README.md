@@ -11,14 +11,15 @@ and returns a **transparent, explained verdict** with an honest account of its
 own uncertainty. It is a reasoning engine, not a user interface and not a
 language model.
 
-This is **v0.7**, which adds **Temporal & Consequence Modeling**: LittleBoy now
-judges an action *across time* — short-, medium-, and long-term consequences,
-delayed and cumulative coercion, reversibility, and the non-neutrality of
-inaction — rather than only at the instant it occurs. The guiding thesis: **an
-action is ethically unstable if it reduces visible coercion now while creating
-hidden, cumulative, irreversible, or delayed coercion later.** (v0.6 added the
-comparison engine; v0.5 the language module; v0.4 the scenario builder; v0.3 the
-rule engine and policy layer.) See
+This is **v0.8**, which adds **Adversarial Audit & Bias Testing**: LittleBoy can
+now test its own evaluations against the *way a case is described* — manipulative
+descriptions, missing or distorted evidence, ideological framing, hidden coercion,
+false consent, fake alternatives, under-reported vulnerability, overconfident
+conclusions, and framings designed to lead it toward a desired verdict. The
+guiding thesis: **LittleBoy must judge not only the action, but also the
+description through which the action becomes visible.** (v0.7 added temporal &
+consequence modeling; v0.6 the comparison engine; v0.5 the language module; v0.4
+the scenario builder; v0.3 the rule engine and policy layer.) See
 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md),
 [`docs/ETHICAL_MODEL.md`](docs/ETHICAL_MODEL.md),
 [`docs/RULE_ENGINE.md`](docs/RULE_ENGINE.md),
@@ -30,9 +31,11 @@ rule engine and policy layer.) See
 [`docs/COMPARISON_ENGINE.md`](docs/COMPARISON_ENGINE.md),
 [`docs/TRADEOFF_ANALYSIS.md`](docs/TRADEOFF_ANALYSIS.md),
 [`docs/TEMPORAL_MODEL.md`](docs/TEMPORAL_MODEL.md),
-[`docs/CONSEQUENCE_MODELING.md`](docs/CONSEQUENCE_MODELING.md), and
-[`docs/CUMULATIVE_COERCION.md`](docs/CUMULATIVE_COERCION.md) for the full design
-and formal model.
+[`docs/CONSEQUENCE_MODELING.md`](docs/CONSEQUENCE_MODELING.md),
+[`docs/CUMULATIVE_COERCION.md`](docs/CUMULATIVE_COERCION.md),
+[`docs/ADVERSARIAL_AUDIT.md`](docs/ADVERSARIAL_AUDIT.md),
+[`docs/BIAS_TESTING.md`](docs/BIAS_TESTING.md), and
+[`docs/RED_FLAGS.md`](docs/RED_FLAGS.md) for the full design and formal model.
 
 ---
 
@@ -232,6 +235,62 @@ ranking, and flags when they disagree. CLI: `littleboy temporal <case.json>`. Se
 [`docs/CONSEQUENCE_MODELING.md`](docs/CONSEQUENCE_MODELING.md), and
 [`docs/CUMULATIVE_COERCION.md`](docs/CUMULATIVE_COERCION.md).
 
+## LittleBoy v0.8: Adversarial Audit & Bias Testing
+
+> **A rational ethical engine must not merely evaluate actions. It must also
+> evaluate the conditions under which the action is being described.** LittleBoy
+> must judge not only the action, but also the description through which the
+> action becomes visible.
+
+Every verdict is only as good as the case it was given — and a case is a
+*description*, which can be shaped to lead a conclusion. The `littleboy.audit`
+module is LittleBoy auditing itself against its inputs, deterministically and with
+no NLP/LLM: every finding cites what it saw and what to ask next, and the
+indicators are **risk flags, not proofs** (it does not claim to detect
+manipulation or bias perfectly).
+
+- **Red flags** (`AuditFinding`, severity `info`/`warning`/`serious`/`critical`):
+  deterministic detectors over consent, coercion, evidence, language, temporal,
+  and comparison structure — false consent, justification without a cessation
+  condition, low structured coercion under manipulative language, irreversible
+  action on weak evidence, missing counterevidence, authority capture, and more.
+  See [`docs/RED_FLAGS.md`](docs/RED_FLAGS.md).
+- **Adversarial risk** (`AdversarialRiskProfile`, 12 axes): leading language,
+  missing counterevidence, one-sided description, false necessity/dichotomy, fake
+  alternatives, hidden power asymmetry, hidden vulnerability, consent
+  contamination, ideological capture, overconfidence, data laundering.
+- **Bias indicators** (`BiasProfile`, 10 axes): agent, status, authority, outcome,
+  survivorship, availability, framing, **language-beauty**, sympathy, and
+  dehumanization risk. Beautiful language can distort judgment toward approval;
+  poor expression can hide moral value — the beauty axis warns in **both**
+  directions. See [`docs/BIAS_TESTING.md`](docs/BIAS_TESTING.md).
+- **Adversarial stress tests** (`StressTestResult`): "what if the coercion is
+  under-reported / consent is contaminated / the affected testimony is missing /
+  alternatives were not disclosed / the language is leading / the long-term is
+  worse / the option only looks best because data are missing?" — each with a
+  plausibility and whether the verdict could change.
+- **Ideological-capture checks**: is the coercion axiom applied too narrowly or as
+  a slogan? — care-as-control, freedom-as-pressure, safety-as-domination,
+  "natural"/"traditional" normalisation, autonomy-ignoring-vulnerability,
+  utility-hiding-coercion, physical-force tunnel vision. The audit detects
+  *distorted application* of the axiom, never replacing it.
+
+The audit is **opt-in**, so default evaluation is unchanged. With
+`evaluate(case, audit=True)` the rule-engine trace is preserved and the audit is a
+separate, labelled layer (`report.audit_report`): a **critical** red flag then
+bears on the verdict — high coercion → cannot confidently approve; irreversible →
+blocked (`INSUFFICIENT_DATA`); consent central → consent-integrity warning; high
+ideological-capture risk → requires explicit review; high language-beauty bias →
+warns that persuasive form may be distorting judgment. Any critical finding marks
+the judgment **unstable** and lowers confidence. Comparisons can be audited per
+option and across the set; if the best option wins mostly because data about its
+competitors are missing, the ranking is marked unstable. CLI:
+`littleboy audit <case.json>`, `littleboy evaluate … --audit`,
+`littleboy compare … --audit`. See
+[`docs/ADVERSARIAL_AUDIT.md`](docs/ADVERSARIAL_AUDIT.md),
+[`docs/BIAS_TESTING.md`](docs/BIAS_TESTING.md), and
+[`docs/RED_FLAGS.md`](docs/RED_FLAGS.md).
+
 ## How evidence is represented
 
 An `EvidenceSet` holds `EvidenceItem`s, each a `claim` plus its `source_type`
@@ -330,16 +389,24 @@ src/littleboy/
     cumulative.py   # score_cumulative_coercion (repetition-gated amplifiers)
     projection.py   # project_temporal: coercion across horizons (no import cycle)
     report.py       # temporal JSON / text rendering
+  audit/
+    models.py       # AuditFinding/Report, Adversarial/Bias profiles, StressTestResult
+    red_flags.py    # deterministic consent/coercion/evidence/language/temporal/comparison detectors
+    bias.py         # BiasProfile indicators (incl. language-beauty bias, both directions)
+    adversarial.py  # AdversarialRiskProfile, ideological-capture checks, verdict adjustment
+    stress.py       # AdversarialStressTester (audit_case / audit_evaluation / audit_comparison)
+    report.py       # audit JSON / text rendering
   reasoning/
     report.py       # JSON / text rendering
     experiment.py   # EthicalExperiment runner (falsificatory + heuristic)
-  cli.py            # evaluate / experiment / questions / build-case / templates / analyze-language / compare / temporal
+  cli.py            # evaluate / experiment / questions / build-case / templates / analyze-language / compare / temporal / audit
 tests/              # pytest suite
-examples/           # sample JSON cases (incl. partial_*, language_*, comparison_*, temporal_*)
+examples/           # sample JSON cases (incl. partial_*, language_*, comparison_*, temporal_*, audit_*)
 docs/               # ARCHITECTURE, ETHICAL_MODEL, RULE_ENGINE, POLICY_PROFILES,
                     #   CASE_BUILDER, SCENARIO_TEMPLATES, LANGUAGE_ETHICS,
                     #   LINGUISTIC_COERCION, COMPARISON_ENGINE, TRADEOFF_ANALYSIS,
-                    #   TEMPORAL_MODEL, CONSEQUENCE_MODELING, CUMULATIVE_COERCION
+                    #   TEMPORAL_MODEL, CONSEQUENCE_MODELING, CUMULATIVE_COERCION,
+                    #   ADVERSARIAL_AUDIT, BIAS_TESTING, RED_FLAGS
 ```
 
 ## Installation
@@ -355,7 +422,7 @@ pip install -e ".[dev]"     # pydantic, pytest, typer, ruff
 ## Running the tests
 
 ```bash
-pytest                      # 141 tests
+pytest                      # 158 tests
 ruff check src tests        # lint (optional)
 ```
 
@@ -375,6 +442,9 @@ littleboy compare examples/comparison_basic.json                          # rank
 littleboy compare examples/comparison_irreversible_vs_reversible.json --policy precautionary --format text
 littleboy temporal examples/temporal_low_now_high_later.json              # project coercion across time
 littleboy temporal examples/temporal_cumulative_policy_risk.json --format text
+littleboy audit examples/audit_fake_consent.json                          # adversarial audit of the description
+littleboy evaluate examples/audit_hidden_coercion.json --audit --format text   # evaluate + audit
+littleboy compare examples/comparison_uncertain_data.json --audit         # audit the comparison
 littleboy templates                                                       # list scenario templates
 littleboy version
 ```
@@ -447,6 +517,21 @@ The v0.7 **temporal** examples; run them with `littleboy temporal` and
 | `examples/temporal_irreversible_weak_data.json` | Irreversible action on weak evidence (LB-R020/R024) | `INSUFFICIENT_DATA` |
 | `examples/temporal_cumulative_policy_risk.json` | A small coercion that becomes systemic if normalised (LB-R021) | `NOT_ACCEPTABLE` |
 | `examples/comparison_temporal_tradeoff.json` | A *comparison set* whose immediate and long-term rankings disagree (`littleboy compare`) | — |
+
+The v0.8 **audit** examples; run them with `littleboy audit` (or
+`littleboy evaluate --audit`):
+
+| File | Demonstrates |
+|------|--------------|
+| `examples/audit_hidden_coercion.json` | Low structured coercion, highly manipulative language (inconsistency red flag) |
+| `examples/audit_fake_consent.json` | Consent claimed under pressure, by a third party (critical consent red flag) |
+| `examples/audit_beautiful_language_bad_content.json` | A bad action described beautifully (persuasive counterfeit) |
+| `examples/audit_ugly_language_good_content.json` | A good action described poorly (language-beauty bias, other direction) |
+| `examples/audit_missing_counterevidence.json` | A coercive action evidenced only by the actor's own say-so |
+| `examples/audit_authority_capture.json` | Authority used to suppress questioning |
+| `examples/audit_protection_as_paternalism.json` | "For your own good": care/protection used as control |
+| `examples/audit_freedom_as_social_pressure.json` | "No one is forcing you": freedom language hiding social pressure |
+| `examples/comparison_audit_framing_bias.json` | A *comparison set* whose ranking leans on a thinly-evidenced front-runner (`littleboy compare --audit`) |
 
 (The v0.1 examples `simple_case.json`, `high_coercion_case.json`, and
 `insufficient_data_case.json` remain valid.)
@@ -532,43 +617,46 @@ make consequential decisions about real people.
 
 ## Current development status
 
-**v0.7 — temporal & consequence modeling.** Implemented on top of v0.6: a
-`littleboy.temporal` package that judges an action across time without
-forecasting or any LLM. It models per-horizon consequence estimates,
-reversibility (cost + residual harm + epistemic status), and cumulative coercion
-(repetition-gated systemic amplifiers); `project_temporal` derives per-horizon
-coercion, an expected total, a trend, and the ethically important flags
-(prevents-greater-future-coercion, creates-long-term-dependency,
-reversible-now-irreversible-later) while always carrying its own uncertainty,
-warnings, and missing data. Six new rules (LB-R019 .. LB-R024) consume the
-projection and stay inert on non-temporal cases; the comparison engine gains
-immediate-term vs. long-term rankings and a conflict flag; a `temporal` CLI
-command; six temporal examples; and a 141-test suite (all passing). The temporal
-layer is purely additive — every pre-v0.7 case evaluates identically.
+**v0.8 — adversarial audit & bias testing.** Implemented on top of v0.7: a
+`littleboy.audit` package that audits LittleBoy against its own inputs —
+deterministically, with no NLP/LLM. It produces severity-graded red-flag findings
+(consent, coercion, evidence, language, temporal, comparison), a 12-axis
+`AdversarialRiskProfile`, a 10-axis `BiasProfile` (including a two-directional
+language-beauty bias), adversarial 'what if' stress tests, and ideological-capture
+checks that detect *distorted application* of the coercion axiom without replacing
+it. The audit is opt-in (`evaluate(case, audit=True)`, `compare(set, audit=True)`,
+`CaseBuilder.audit(case)`, and the `audit` CLI command); when enabled, a critical
+red flag bears on the verdict and marks the judgment unstable, while the
+rule-engine trace is preserved as a separate layer. Nine audit examples, three
+docs, and a 158-test suite (all passing). The audit layer is purely additive —
+every pre-v0.8 case evaluates identically when the audit is off.
 
 Earlier phases delivered the core models; coercion/data-quality/evidence scoring;
 consent/agency models; the tri-state Axiom 3 justification; feasibility-aware
 alternatives; the critical-data gate; the ethical experiment runner; the v0.3
-rule engine with four policy profiles and a full reasoning trace (now
-twenty-four rules); the v0.4 scenario builder; the v0.5 language & coercion
-module (no NLP/LLM); and the v0.6 comparison engine. All v0.1–v0.6 inputs remain
-valid.
+rule engine with four policy profiles and a full reasoning trace (twenty-four
+rules); the v0.4 scenario builder; the v0.5 language & coercion module (no
+NLP/LLM); the v0.6 comparison engine; and the v0.7 temporal & consequence model.
+All v0.1–v0.7 inputs remain valid.
 
-**Deliberately not built:** any web UI, any LLM/API integration, any prediction
-that looks certain, any claim to absolute truth, any heavy frameworks.
+**Deliberately not built:** any web UI, any LLM/API integration, any opaque bias
+detection, any prediction that looks certain, any claim to absolute truth, any
+heavy frameworks. The audit's goal is to make LittleBoy **harder to manipulate,
+not more dogmatic**.
 
 ### Recommended next steps
 
 - A deliberation/explanation layer that narrates *why* the top option beats the
-  runner-up across time, and what single fact would most change the verdict or
-  comparison (value of information).
-- Calibrate the temporal horizon weights, the cumulative-coercion gate, and the
-  coercion / language / evidence heuristics against a worked case library with
-  golden-file regression tests.
-- A scenario/Monte-Carlo layer that propagates the supplied probabilities and
-  confidences into a *distribution* over outcomes — still deterministic given its
-  inputs, still no LLM, never hiding the spread behind one number.
-- **Optional** LLM-assisted indicator extraction (language and consequence)
+  runner-up (across time and after audit), and what single fact would most change
+  the verdict or comparison (value of information).
+- Calibrate the audit's risk/bias thresholds and the verdict-adjustment rules —
+  together with the temporal weights and the coercion/language/evidence
+  heuristics — against a worked, adversarial case library with golden-file
+  regression tests, measuring false-alarm and miss rates.
+- Expand the ideological-capture and manipulation lexicons (still transparent,
+  still phrase-cited) and add red flags for collusion across fields (e.g. consent
+  + alternatives + evidence jointly engineered).
+- **Optional** LLM-assisted indicator extraction (language, consequence, audit)
   behind an explicit flag, with the model's suggestions shown, attributed, and
   editable — the deterministic core staying authoritative and the audit trail
   preserved.

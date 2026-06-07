@@ -1,0 +1,40 @@
+{
+  "title": "A polished pitch for a coercive arrangement",
+  "description": "Eloquent, fluent, confident language wraps a manipulative, untruthful message -- a persuasive counterfeit.",
+  "acting_agent": { "name": "Recruiter", "agent_type": "TYPE_II" },
+  "affected_agents": [{ "name": "Candidate", "agent_type": "TYPE_II" }],
+  "intended_goal": "Sign the candidate to a one-sided exclusivity clause.",
+  "coercion_profile": { "economic_pressure": 0.3, "reversibility": 0.6, "severity": 0.3 },
+  "consent": "GIVEN",
+  "available_alternatives": [],
+  "responds_to_existing_coercion": false,
+  "expected_consequences": "The candidate signs, charmed by the presentation.",
+  "agency_profile": { "agent_type": "TYPE_II", "capacity_confidence": 0.8, "vulnerability_level": 0.3 },
+  "language_act": {
+    "text": "This is a once-in-a-lifetime, guaranteed opportunity -- obviously the best choice for someone of your calibre. Act now before it's too late.",
+    "speaker_agent": "Recruiter",
+    "target_agents": ["Candidate"],
+    "declared_intent": "Inspire confidence.",
+    "context": {
+      "medium": "advertisement",
+      "power_asymmetry": 0.4,
+      "urgency": 0.6,
+      "target_vulnerability": 0.3,
+      "stakes": 0.5,
+      "reversibility": 0.6,
+      "audience_scope": 0.2
+    },
+    "ethics_profile": {
+      "clarity": 0.9,
+      "truthfulness": 0.3,
+      "specificity": 0.8,
+      "context_completeness": 0.4,
+      "agency_respect": 0.5,
+      "consent_support": 0.4,
+      "constructive_potential": 0.85,
+      "manipulation_risk": 0.7,
+      "false_necessity": 0.6,
+      "loaded_language": 0.7
+    }
+  }
+}

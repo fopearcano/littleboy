@@ -1,0 +1,52 @@
+{
+  "title": "A thinly-evidenced front-runner vs a well-evidenced equal",
+  "description": "One option edges ahead on a marginally lower coercion score but is barely evidenced; the other is no more coercive and far better evidenced. The audit asks whether the lead is real or an artefact of what was never documented.",
+  "policy_mode": "standard",
+  "options": [
+    {
+      "option_id": "appealing",
+      "title": "The appealing option (fluent, thinly evidenced)",
+      "declared_goal": "resolve the dispute",
+      "case": {
+        "title": "Adopt the elegantly-pitched plan",
+        "acting_agent": { "name": "Proposer", "agent_type": "TYPE_II" },
+        "affected_agents": [{ "name": "Affected party", "agent_type": "TYPE_II" }],
+        "coercion_profile": { "social_pressure": 0.05, "reversibility": 1.0, "severity": 0.03 },
+        "data_quality": { "completeness": 0.55, "source_reliability": 0.55, "specificity": 0.55, "recency": 0.6, "corroboration": 0.3, "ambiguity": 0.35 },
+        "consent": "GIVEN",
+        "available_alternatives": [],
+        "responds_to_existing_coercion": false,
+        "expected_consequences": "Presented as a clear, elegant win.",
+        "language_act": {
+          "text": "This is a clear, well-considered, win-win path that respects everyone involved.",
+          "speaker_agent": "Proposer",
+          "target_agents": ["Affected party"],
+          "context": { "medium": "public_statement", "power_asymmetry": 0.15, "urgency": 0.15, "target_vulnerability": 0.1, "stakes": 0.3, "reversibility": 1.0, "audience_scope": 0.3 },
+          "ethics_profile": { "clarity": 0.9, "specificity": 0.85, "constructive_potential": 0.9, "truthfulness": 1.0, "agency_respect": 0.8, "consent_support": 0.8 }
+        }
+      }
+    },
+    {
+      "option_id": "plain",
+      "title": "The plain option (unpolished, well evidenced)",
+      "declared_goal": "resolve the dispute",
+      "case": {
+        "title": "Adopt the plainly-described plan",
+        "acting_agent": { "name": "Proposer", "agent_type": "TYPE_II" },
+        "affected_agents": [{ "name": "Affected party", "agent_type": "TYPE_II" }],
+        "coercion_profile": { "social_pressure": 0.12, "reversibility": 0.95, "severity": 0.08 },
+        "data_quality": { "completeness": 0.85, "source_reliability": 0.85, "specificity": 0.85, "recency": 0.85, "corroboration": 0.85, "ambiguity": 0.15 },
+        "consent": "GIVEN",
+        "available_alternatives": [],
+        "responds_to_existing_coercion": false,
+        "expected_consequences": "Described flatly; outcomes documented and independently reviewed.",
+        "evidence": {
+          "items": [
+            { "claim": "Independent review confirms low coercion and full reversibility.", "source_type": "EXPERT_REPORT", "reliability": 0.85, "specificity": 0.85, "recency": 0.85, "corroboration": 0.85, "contested": false },
+            { "claim": "The affected party corroborates the account.", "source_type": "DIRECT_OBSERVATION", "reliability": 0.85, "specificity": 0.8, "recency": 0.85, "corroboration": 0.8, "contested": false }
+          ]
+        }
+      }
+    }
+  ]
+}

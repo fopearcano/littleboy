@@ -20,6 +20,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from littleboy.audit.models import AuditReport
 from littleboy.core.enums import (
     AgentType,
     ConsentStatus,
@@ -683,6 +684,10 @@ class EvaluationReport(_Base):
     reasoning_trace: ReasoningTrace | None = None
     language_analysis: LanguageAnalysis | None = None
     temporal_projection: TemporalProjectionResult | None = None
+    audit_report: AuditReport | None = Field(
+        default=None,
+        description="Adversarial audit of the description/framing (v0.8). None unless requested.",
+    )
 
     case_completeness: CaseCompletenessReport | None = None
     recommended_questions: list[Question] = Field(default_factory=list)
