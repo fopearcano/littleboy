@@ -23,6 +23,9 @@ from littleboy.core.enums import (
     AgentType,
     ConsentStatus,
     EpistemicStatus,
+    PolicyMode,
+    RuleResultStatus,
+    RuleSeverity,
     SourceType,
     UncertaintyLevel,
     Verdict,
@@ -47,13 +50,25 @@ from littleboy.core.models import (
     ExperimentSummary,
     JustificationResult,
     MoralAgent,
+    ReasoningTrace,
+    RuleResult,
 )
 from littleboy.data.evidence import EvidenceItem, EvidenceSet
 from littleboy.reasoning.experiment import EthicalExperiment, EthicalExperimentResult
+from littleboy.rules import (
+    BUILTIN_RULES,
+    PolicyProfile,
+    Rule,
+    RuleEngine,
+    RuleRegistry,
+    default_registry,
+    get_policy,
+)
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 
 __all__ = [
+    "BUILTIN_RULES",
     "ActionCase",
     "AgencyProfile",
     "AgentType",
@@ -76,6 +91,15 @@ __all__ = [
     "ExperimentSummary",
     "JustificationResult",
     "MoralAgent",
+    "PolicyMode",
+    "PolicyProfile",
+    "ReasoningTrace",
+    "Rule",
+    "RuleEngine",
+    "RuleRegistry",
+    "RuleResult",
+    "RuleResultStatus",
+    "RuleSeverity",
     "SourceType",
     "UncertaintyLevel",
     "Verdict",
@@ -83,8 +107,10 @@ __all__ = [
     "analyse_alternatives",
     "assess_agency",
     "assess_consent",
+    "default_registry",
     "detect_missing_critical_data",
     "evaluate_coercion_justification",
+    "get_policy",
     "recommended_next_questions",
     "__version__",
 ]

@@ -1,0 +1,45 @@
+{
+  "title": "Justification that contradicts the evidence",
+  "description": "The justification asserts that no less coercive alternative is available, yet a feasible, clearly less coercive alternative is supplied in the same case. LB-R012 flags the contradiction.",
+  "acting_agent": { "name": "Official", "agent_type": "TYPE_II" },
+  "affected_agents": [{ "name": "Subject", "agent_type": "TYPE_II" }],
+  "intended_goal": "Compel compliance.",
+  "coercion_profile": {
+    "physical_force": 0.7,
+    "threat": 0.4,
+    "duration": 0.3,
+    "reversibility": 0.6,
+    "scope_number_of_agents": 1,
+    "severity": 0.5
+  },
+  "available_alternatives": [
+    {
+      "title": "Request compliance voluntarily",
+      "estimated_coercion_score": 0.1,
+      "feasibility": 0.9,
+      "notes": "A feasible, far less coercive option."
+    }
+  ],
+  "data_quality": {
+    "completeness": 0.8,
+    "source_reliability": 0.8,
+    "specificity": 0.8,
+    "recency": 0.8,
+    "corroboration": 0.75,
+    "ambiguity": 0.2
+  },
+  "consent": "NOT_APPLICABLE",
+  "responds_to_existing_coercion": true,
+  "prior_coercion_description": "A prior refusal to comply.",
+  "expected_consequences": "Compliance is compelled.",
+  "justification": {
+    "responds_to_existing_or_imminent_coercion": "CONFIRMED",
+    "no_less_coercive_alternative_available": "CONFIRMED",
+    "necessity": "CONFIRMED",
+    "proportionality": "CONFIRMED",
+    "expected_total_coercion_reduction": 0.4,
+    "cessation_condition_defined": "CONFIRMED",
+    "reversibility": "CONFIRMED",
+    "justification_notes": "Claims no less coercive option exists -- contradicted by the supplied alternative."
+  }
+}

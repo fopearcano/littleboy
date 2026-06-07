@@ -1,0 +1,26 @@
+{
+  "title": "Irreversible action on weak evidence",
+  "description": "A substantially coercive, effectively irreversible action proposed on a weak epistemic basis. LB-R010 blocks a confident judgment: irreversible acts demand strong evidence.",
+  "acting_agent": { "name": "Operator", "agent_type": "TYPE_II" },
+  "affected_agents": [{ "name": "Subject", "agent_type": "TYPE_II" }],
+  "intended_goal": "Carry out a one-way, irreversible measure.",
+  "coercion_profile": {
+    "physical_force": 0.5,
+    "duration": 0.2,
+    "reversibility": 0.1,
+    "scope_number_of_agents": 1,
+    "severity": 0.4
+  },
+  "available_alternatives": [],
+  "data_quality": {
+    "completeness": 0.6,
+    "source_reliability": 0.6,
+    "specificity": 0.5,
+    "recency": 0.6,
+    "corroboration": 0.5,
+    "ambiguity": 0.2
+  },
+  "consent": "GIVEN",
+  "responds_to_existing_coercion": false,
+  "expected_consequences": "A permanent, irreversible change to the subject's situation."
+}

@@ -24,6 +24,9 @@ from littleboy.core.enums import (
     AgentType,
     ConsentStatus,
     EpistemicStatus,
+    PolicyMode,
+    RuleResultStatus,
+    RuleSeverity,
     UncertaintyLevel,
     Verdict,
 )
@@ -402,6 +405,52 @@ class ExperimentSummary(_Base):
     notes: list[str] = Field(default_factory=list)
 
 
+class RuleResult(_Base):
+    """The self-explaining outcome of evaluating one rule against a case.
+
+    Every rule must explain itself: a result records not just pass/fail but the
+    axioms it invoked, the evidence it used, what it found missing, and how it
+    affects confidence and the verdict. ``verdict_cap`` is the least-permissive
+    verdict the rule forces (used by blockers); ``verdict_delta`` is the number
+    of "downgrade notches" the rule requests.
+    """
+
+    rule_id: str
+    name: str = ""
+    status: RuleResultStatus
+    severity: RuleSeverity
+    message: str = ""
+    axioms_invoked: list[str] = Field(default_factory=list)
+    evidence_used: list[str] = Field(default_factory=list)
+    missing_data: list[str] = Field(default_factory=list)
+    confidence_delta: float = 0.0
+    verdict_delta: int = Field(default=0, ge=0)
+    verdict_cap: Verdict | None = None
+    trace_notes: list[str] = Field(default_factory=list)
+
+
+class ReasoningTrace(_Base):
+    """The complete, auditable record of how a verdict was reached.
+
+    It lets a reader see exactly why the verdict happened: which rules applied,
+    which were skipped, which failed or were unknown, which blocked approval or
+    flagged a contradiction, how confidence was adjusted, and under which policy.
+    """
+
+    policy_mode: PolicyMode
+    applied: list[RuleResult] = Field(default_factory=list)
+    skipped: list[str] = Field(default_factory=list)
+    failed: list[str] = Field(default_factory=list)
+    unknown: list[str] = Field(default_factory=list)
+    blockers: list[str] = Field(default_factory=list)
+    contradictions: list[str] = Field(default_factory=list)
+    missing_data: list[str] = Field(default_factory=list)
+    confidence_adjustments: list[str] = Field(default_factory=list)
+    base_confidence: float = Field(default=0.0, ge=0.0, le=1.0)
+    final_confidence: float = Field(default=0.0, ge=0.0, le=1.0)
+    final_verdict: Verdict
+
+
 # =============================================================================
 # Case input and report output
 # =============================================================================
@@ -509,6 +558,7 @@ class EvaluationReport(_Base):
         ge=0.0, le=1.0, description="How much LittleBoy trusts this verdict, given the inputs."
     )
     uncertainty_level: UncertaintyLevel
+    policy_mode: PolicyMode = PolicyMode.STANDARD
 
     consent_status: str | None = None
     agency_status: str | None = None
@@ -525,6 +575,7 @@ class EvaluationReport(_Base):
     justification_result: JustificationResult | None = None
     alternatives_analysis: AlternativeAnalysis | None = None
     ethical_experiment: ExperimentSummary | None = None
+    reasoning_trace: ReasoningTrace | None = None
 
     explanation: str = Field(
         default="", description="A clear, non-rhetorical plain-language summary."

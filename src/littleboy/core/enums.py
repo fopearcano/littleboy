@@ -121,3 +121,38 @@ class UncertaintyLevel(StrEnum):
     MODERATE = "MODERATE"
     HIGH = "HIGH"
     CRITICAL = "CRITICAL"
+
+
+class RuleSeverity(StrEnum):
+    """How forcefully a rule's finding bears on the verdict.
+
+    - ``INFO``: informational only.
+    - ``WARNING``: surfaced to the user, may lower confidence.
+    - ``DOWNGRADE``: pulls the verdict toward less permissible.
+    - ``BLOCKER``: caps the verdict (e.g. NOT_ACCEPTABLE or INSUFFICIENT_DATA).
+    - ``CONTRADICTION``: the case asserts mutually incompatible things.
+    """
+
+    INFO = "info"
+    WARNING = "warning"
+    DOWNGRADE = "downgrade"
+    BLOCKER = "blocker"
+    CONTRADICTION = "contradiction"
+
+
+class RuleResultStatus(StrEnum):
+    """The outcome of evaluating a single rule against a case."""
+
+    PASSED = "passed"
+    FAILED = "failed"
+    UNKNOWN = "unknown"
+    NOT_APPLICABLE = "not_applicable"
+
+
+class PolicyMode(StrEnum):
+    """Named strictness profiles. They change operational thresholds, never axioms."""
+
+    PERMISSIVE = "permissive"
+    STANDARD = "standard"
+    STRICT = "strict"
+    PRECAUTIONARY = "precautionary"

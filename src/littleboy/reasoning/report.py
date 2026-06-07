@@ -26,7 +26,7 @@ def render_json(report: EvaluationReport, *, indent: int = 2) -> str:
 def render_text(report: EvaluationReport) -> str:
     """Render the report as a readable, sectioned text block."""
     lines: list[str] = []
-    lines.append(f"VERDICT: {report.verdict.value}")
+    lines.append(f"VERDICT: {report.verdict.value}   [policy: {report.policy_mode.value}]")
     lines.append(
         f"  coercion={report.coercion_score:.2f}  "
         f"data_quality={report.data_quality_score:.2f}  "
@@ -82,17 +82,19 @@ def render_text(report: EvaluationReport) -> str:
         )
 
     _section("Missing data", report.missing_data)
+
+    if report.reasoning_trace is not None:
+        tr = report.reasoning_trace
+        applied = [f"{r.rule_id} {r.name}: {r.status.value}/{r.severity.value}" for r in tr.applied]
+        _section(f"Applied rules ({tr.policy_mode.value})", applied)
+        _section("Blockers", tr.blockers)
+        _section("Contradictions", tr.contradictions)
+        _section("Confidence adjustments", tr.confidence_adjustments)
+
     _section("Warnings", report.warnings)
 
     if report.ethical_experiment is not None:
         ex = report.ethical_experiment
-        _section(
-            "Ethical experiment",
-            [
-                f"can_be_judged = {ex.can_be_judged}",
-                f"provisional_verdict = {ex.provisional_verdict.value}",
-                *(f"open question: {q}" for q in ex.open_questions),
-            ],
-        )
+        _section("Recommended next questions", ex.open_questions)
 
     return "\n".join(lines)

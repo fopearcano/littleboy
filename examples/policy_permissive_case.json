@@ -1,0 +1,26 @@
+{
+  "title": "Firm but bounded workplace mandate",
+  "description": "An employer imposes a moderately forceful, reversible mandate. Coercion sits between the STANDARD and PERMISSIVE 'high' thresholds, so the verdict depends on the policy in force.",
+  "acting_agent": { "name": "Employer", "agent_type": "TYPE_II", "is_collective": true },
+  "affected_agents": [{ "name": "Employees", "agent_type": "TYPE_II", "is_collective": true }],
+  "intended_goal": "Enforce a workplace policy.",
+  "coercion_profile": {
+    "physical_force": 0.6,
+    "duration": 0.1,
+    "reversibility": 0.9,
+    "scope_number_of_agents": 1,
+    "severity": 0.1
+  },
+  "available_alternatives": [],
+  "data_quality": {
+    "completeness": 0.85,
+    "source_reliability": 0.85,
+    "specificity": 0.8,
+    "recency": 0.85,
+    "corroboration": 0.8,
+    "ambiguity": 0.15
+  },
+  "consent": "GIVEN",
+  "responds_to_existing_coercion": false,
+  "expected_consequences": "Compliance is obtained; the effect is reversible."
+}

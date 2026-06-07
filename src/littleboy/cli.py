@@ -22,10 +22,13 @@ import typer
 from pydantic import ValidationError
 
 from littleboy import __version__
+from littleboy.core.enums import PolicyMode
 from littleboy.core.evaluator import EthicalEvaluator
 from littleboy.core.models import ActionCase
 from littleboy.reasoning.experiment import EthicalExperiment
 from littleboy.reasoning.report import render_json, render_text
+
+_POLICY_CHOICES = ", ".join(m.value for m in PolicyMode)
 
 app = typer.Typer(
     add_completion=False,
@@ -59,14 +62,22 @@ def evaluate(
     output_format: str = typer.Option(
         "json", "--format", "-f", help="Output format: 'json' or 'text'."
     ),
+    policy: str = typer.Option(
+        "standard", "--policy", "-p", help=f"Policy strictness: {_POLICY_CHOICES}."
+    ),
 ) -> None:
-    """Evaluate a single action case from a JSON file."""
+    """Evaluate a single action case from a JSON file under a policy profile."""
     if output_format not in {"json", "text"}:
         typer.echo(f"Unknown format '{output_format}'; use 'json' or 'text'.", err=True)
         raise typer.Exit(code=2)
+    try:
+        policy_mode = PolicyMode(policy)
+    except ValueError as exc:
+        typer.echo(f"Unknown policy '{policy}'; use one of: {_POLICY_CHOICES}.", err=True)
+        raise typer.Exit(code=2) from exc
 
     case = _load_case(case_path)
-    report = EthicalEvaluator().evaluate(case)
+    report = EthicalEvaluator(policy_mode).evaluate(case)
     typer.echo(render_text(report) if output_format == "text" else render_json(report))
 
 

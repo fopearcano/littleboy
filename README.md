@@ -11,10 +11,13 @@ and returns a **transparent, explained verdict** with an honest account of its
 own uncertainty. It is a reasoning engine, not a user interface and not a
 language model.
 
-This is **v0.2**, a foundation focused on rigour and auditability. See
-[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) and
-[`docs/ETHICAL_MODEL.md`](docs/ETHICAL_MODEL.md) for the full design and formal
-model.
+This is **v0.3**, which adds a formal, inspectable **rule engine** and **policy
+layer**: every verdict is now traceable to explicit, named rules. See
+[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md),
+[`docs/ETHICAL_MODEL.md`](docs/ETHICAL_MODEL.md),
+[`docs/RULE_ENGINE.md`](docs/RULE_ENGINE.md), and
+[`docs/POLICY_PROFILES.md`](docs/POLICY_PROFILES.md) for the full design and
+formal model.
 
 ---
 
@@ -49,6 +52,32 @@ it (`src/littleboy/core/axioms.py`):
   whether a case can be judged at all, and what questions remain.
 
 All v0.1 inputs still validate and evaluate identically (back-compatible).
+
+## LittleBoy v0.3: Rule Engine
+
+v0.3 turns LittleBoy from a scoring system into a transparent **reasoning
+machine**. The verdict is no longer produced by opaque branching: it is
+synthesized from twelve explicit, self-explaining **rules** (LB-R001 .. LB-R012),
+evaluated under a chosen **policy profile**, and recorded in a complete
+**reasoning trace**.
+
+- **Rules** (`littleboy.rules`): each rule reads a `RuleContext`, cites the
+  axioms it serves, and returns a `RuleResult` with a status, a severity
+  (`info` / `warning` / `downgrade` / `blocker` / `contradiction`), a
+  confidence delta, and a verdict effect. The twelve rules cover duty, coercion
+  detection, consent, data quality, evidence quality, less-coercive
+  alternatives, justified coercion, vulnerability, informational manipulation,
+  irreversibility, cessation, and contradiction.
+- **Policy profiles** (`PolicyMode`: `permissive` / `standard` / `strict` /
+  `precautionary`) change *operational thresholds*, never the axioms. The
+  default is `standard`, which reproduces v0.2 behaviour.
+- **Reasoning trace** (`ReasoningTrace`): every report records which rules
+  applied, which were skipped, which failed or were unknown, which blocked
+  approval, which flagged a contradiction, and every confidence adjustment —
+  so a reader can reconstruct exactly *why* the verdict happened.
+
+See [`docs/RULE_ENGINE.md`](docs/RULE_ENGINE.md) and
+[`docs/POLICY_PROFILES.md`](docs/POLICY_PROFILES.md).
 
 ## How evidence is represented
 
@@ -114,13 +143,20 @@ src/littleboy/
   data/
     quality.py      # data-quality scoring, epistemic blend, confidence, uncertainty
     evidence.py     # EvidenceItem / EvidenceSet and their scoring
+  rules/
+    base.py         # Rule base class + RuleContext
+    registry.py     # RuleRegistry (register / list / evaluate / enable-disable)
+    policy.py       # PolicyProfile + the four built-in policy modes
+    builtin_rules.py# LB-R001 .. LB-R012
+    engine.py       # RuleEngine: runs rules and synthesizes the verdict
+    trace.py        # builds the ReasoningTrace
   reasoning/
     report.py       # JSON / text rendering
     experiment.py   # EthicalExperiment runner (falsificatory + heuristic)
   cli.py            # littleboy evaluate / experiment / version
 tests/              # pytest suite
 examples/           # sample JSON cases
-docs/               # ARCHITECTURE.md, ETHICAL_MODEL.md
+docs/               # ARCHITECTURE, ETHICAL_MODEL, RULE_ENGINE, POLICY_PROFILES
 ```
 
 ## Installation
@@ -136,20 +172,23 @@ pip install -e ".[dev]"     # pydantic, pytest, typer, ruff
 ## Running the tests
 
 ```bash
-pytest                      # 63 tests
+pytest                      # 79 tests
 ruff check src tests        # lint (optional)
 ```
 
 ## CLI usage
 
 ```bash
-littleboy evaluate examples/high_coercion_missing_consent.json          # JSON (default)
-littleboy evaluate examples/manipulative_language_case.json --format text
-littleboy experiment examples/high_coercion_missing_consent.json        # falsificatory + heuristic
+littleboy evaluate examples/high_coercion_missing_consent.json            # JSON (default), standard policy
+littleboy evaluate examples/policy_strict_case.json --policy strict       # choose a policy
+littleboy evaluate examples/manipulative_language_case.json --policy strict --format text
+littleboy experiment examples/high_coercion_missing_consent.json          # falsificatory + heuristic
 littleboy version
 ```
 
-Malformed input fails gracefully with an explanation and a non-zero exit code.
+`--policy` accepts `permissive`, `standard` (default), `strict`, or
+`precautionary`. Malformed input (or an unknown policy) fails gracefully with an
+explanation and a non-zero exit code.
 
 ## Example cases
 
@@ -160,48 +199,71 @@ Malformed input fails gracefully with an explanation and a non-zero exit code.
 | `examples/justified_emergency_coercion.json` | Temporary, justified defensive coercion (Axiom 3) | `ACCEPTABLE_WITH_RESERVATIONS` |
 | `examples/manipulative_language_case.json` | Informational/linguistic coercion (dark patterns) | `NOT_ACCEPTABLE` |
 
+The v0.3 policy examples show how the rule engine and policy layer matter:
+
+| File | Demonstrates |
+|------|--------------|
+| `examples/policy_permissive_case.json` | `NOT_ACCEPTABLE` under `standard`, `ACCEPTABLE_WITH_RESERVATIONS` under `permissive` |
+| `examples/policy_strict_case.json` | unknown consent: permitted-with-reservations under `standard`, blocked (`ETHICALLY_SUSPICIOUS`) under `strict` |
+| `examples/contradiction_case.json` | LB-R012 flags a justification that contradicts a supplied alternative |
+| `examples/irreversible_low_data_case.json` | LB-R010 blocks: irreversible action on weak evidence → `INSUFFICIENT_DATA` |
+
 (The v0.1 examples `simple_case.json`, `high_coercion_case.json`, and
 `insufficient_data_case.json` remain valid.)
 
 ### Example output (abridged)
 
-`littleboy evaluate examples/manipulative_language_case.json --format text`:
+`littleboy evaluate examples/policy_permissive_case.json --format text`:
 
 ```text
-VERDICT: NOT_ACCEPTABLE
-  coercion=1.00  data_quality=0.62  evidence=0.42  confidence=0.31  uncertainty=HIGH
+VERDICT: NOT_ACCEPTABLE   [policy: standard]
+  coercion=0.65  data_quality=0.71  evidence=0.00  confidence=0.71  uncertainty=MODERATE
 
-Verdict: NOT_ACCEPTABLE (coercion 1.00, confidence 0.31, uncertainty HIGH).
-Primary basis: Coercion is high (1.00) and no Axiom 3 justification was supplied.
-
-Consent: DISPUTED (informed=DISPUTED, voluntary=DISPUTED, specific=UNKNOWN, revocable=LIKELY)
-Agency:  TYPE_II (capacity_confidence=0.70, vulnerability=0.00)
-
-Coercion reasoning:
-  - coercion channels present: informational manipulation (0.80), economic pressure (0.50), ...
-  - score = min(1, means_intensity * (1 + aggravation)) = min(1, 0.94 * 1.57) = 1.00
-
-Evidence reasoning:
-  - 2 item(s); average reliability = 0.70
-  - overall_evidence_score = 0.42
-  - contested claim(s): Wording was A/B tested to maximise accidental sign-ups
+Applied rules (standard):
+  - LB-R001 Type II Duty Rule: passed/info
+  - LB-R002 Coercion Detection Rule: failed/blocker
+  - LB-R004 Data Quality Rule: passed/info
+  - LB-R007 Justified Coercion Rule: failed/blocker
+  ...
+Blockers:
+  - LB-R002
+  - LB-R007
 ```
 
 The JSON form (default) is the machine-readable report and includes every field:
-verdict, scores, confidence, consent/agency status, justification result,
-alternatives analysis, missing data, warnings, axioms invoked, the ethical
-experiment summary, and a plain-language explanation.
+verdict, scores, confidence, `policy_mode`, consent/agency status, justification
+result, alternatives analysis, missing data, warnings, axioms invoked, the
+ethical experiment summary, a plain-language explanation, and the full
+`reasoning_trace`:
+
+```json
+{
+  "verdict": "NOT_ACCEPTABLE",
+  "confidence": 0.71,
+  "policy_mode": "standard",
+  "reasoning_trace": {
+    "applied": [ "...one entry per rule..." ],
+    "blockers": ["LB-R002", "LB-R007"],
+    "contradictions": [],
+    "missing_data": [],
+    "confidence_adjustments": []
+  }
+}
+```
 
 ## Using the library
 
 ```python
-from littleboy import ActionCase, EthicalEvaluator, EthicalExperiment
+from littleboy import ActionCase, EthicalEvaluator, PolicyMode, EthicalExperiment
 
-case = ActionCase.model_validate(... )      # or build with the typed models
-report = EthicalEvaluator().evaluate(case)
-print(report.verdict, report.confidence)
+case = ActionCase.model_validate(... )                  # or build with the typed models
+report = EthicalEvaluator(PolicyMode.STRICT).evaluate(case)
+print(report.verdict, report.confidence, report.policy_mode)
+print(report.reasoning_trace.blockers)                  # which rules blocked approval
+for rule in report.reasoning_trace.applied:             # full, auditable trace
+    print(rule.rule_id, rule.status, rule.severity, rule.message)
 
-experiment = EthicalExperiment().run(case)  # contradictions + open questions
+experiment = EthicalExperiment().run(case)              # contradictions + open questions
 print(experiment.recommended_next_questions)
 ```
 
@@ -218,23 +280,29 @@ make consequential decisions about real people.
 
 ## Current development status
 
-**v0.2 — rigour and auditability.** Implemented: explicit epistemic states;
-structured evidence; consent and agency models; a tri-state Axiom 3
-justification; feasibility-aware alternatives; a critical-data gate; an ethical
-experiment runner; an upgraded report with a plain-language explanation; CLI
-`evaluate`/`experiment`; and a 63-test suite (all passing).
+**v0.3 — formal rule engine and policy layer.** Implemented on top of v0.2: a
+twelve-rule engine (LB-R001 .. LB-R012); a `RuleRegistry`; four policy profiles
+(`permissive` / `standard` / `strict` / `precautionary`); a deterministic,
+policy-parameterized verdict synthesis; a complete `ReasoningTrace` on every
+report; a `--policy` CLI flag; and a 79-test suite (all passing). The `standard`
+policy reproduces v0.2 behaviour, and all v0.1/v0.2 inputs remain valid.
+
+Earlier phases delivered the core models, coercion/data-quality/evidence
+scoring, consent/agency models, the tri-state Axiom 3 justification,
+feasibility-aware alternatives, the critical-data gate, and the ethical
+experiment runner.
 
 **Deliberately not built:** any web UI, any LLM/API integration, any claim to
 absolute truth, any heavy frameworks.
 
 ### Recommended next steps
 
-- Calibrate the coercion / evidence heuristics against a worked case library
-  with golden-file regression tests; add per-channel weights with justification.
+- Calibrate the coercion / evidence heuristics and the policy thresholds against
+  a worked case library with golden-file regression tests.
+- Allow rules and policies to be loaded from external configuration (a rule
+  pack), so the rule set is data, not only code.
 - Model `EthicalTruth` as explicitly derived, queryable propositions with a
-  derivation trace from specific axioms.
-- Extend the experiment runner toward multi-action comparison that minimises
-  *total system* coercion (Axiom 2 at the system level).
+  derivation trace from specific axioms and rules.
 
 ## License
 

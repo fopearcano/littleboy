@@ -1,0 +1,26 @@
+{
+  "title": "Mild pressure with unknown consent",
+  "description": "A mildly coercive action where consent is unknown. STANDARD lowers confidence but still permits with reservations; STRICT treats unknown consent as a blocker.",
+  "acting_agent": { "name": "Platform", "agent_type": "TYPE_II", "is_collective": true },
+  "affected_agents": [{ "name": "Users", "agent_type": "TYPE_II", "is_collective": true }],
+  "intended_goal": "Apply a mild default setting.",
+  "coercion_profile": {
+    "economic_pressure": 0.25,
+    "duration": 0.0,
+    "reversibility": 0.8,
+    "scope_number_of_agents": 1,
+    "severity": 0.1
+  },
+  "available_alternatives": [],
+  "data_quality": {
+    "completeness": 0.7,
+    "source_reliability": 0.7,
+    "specificity": 0.6,
+    "recency": 0.7,
+    "corroboration": 0.6,
+    "ambiguity": 0.15
+  },
+  "consent": "UNKNOWN",
+  "responds_to_existing_coercion": false,
+  "expected_consequences": "A mild, reversible default is applied to users."
+}
