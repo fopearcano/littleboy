@@ -1,0 +1,63 @@
+{
+  "title": "Voluntary opt-in newsletter",
+  "description": "A company offers an opt-in newsletter. Users actively tick a box to subscribe and can unsubscribe from any message.",
+  "acting_agent": { "name": "Company", "agent_type": "TYPE_II", "is_collective": true },
+  "affected_agents": [
+    { "name": "Subscribers", "agent_type": "TYPE_II", "is_collective": true }
+  ],
+  "intended_goal": "Send updates only to people who asked for them.",
+  "coercion_profile": {
+    "social_pressure": 0.05,
+    "duration": 0.1,
+    "reversibility": 1.0,
+    "scope_number_of_agents": 50,
+    "severity": 0.05
+  },
+  "available_alternatives": [],
+  "data_quality": {
+    "completeness": 0.9,
+    "source_reliability": 0.9,
+    "specificity": 0.85,
+    "recency": 0.9,
+    "corroboration": 0.85,
+    "ambiguity": 0.1
+  },
+  "evidence": {
+    "items": [
+      {
+        "claim": "Subscription requires an explicit opt-in checkbox",
+        "source_type": "DOCUMENT",
+        "reliability": 0.9,
+        "specificity": 0.9,
+        "recency": 0.9,
+        "corroboration": 0.8
+      },
+      {
+        "claim": "An unsubscribe link is present in every message",
+        "source_type": "DIRECT_OBSERVATION",
+        "reliability": 0.95,
+        "specificity": 0.9,
+        "recency": 0.9,
+        "corroboration": 0.7
+      }
+    ]
+  },
+  "consent": "GIVEN",
+  "consent_profile": {
+    "status": "GIVEN",
+    "informed": "CONFIRMED",
+    "voluntary": "CONFIRMED",
+    "specific": "LIKELY",
+    "revocable": "CONFIRMED",
+    "communicated_by_agent": true
+  },
+  "agency_profile": {
+    "agent_type": "TYPE_II",
+    "capacity_confidence": 0.9,
+    "language_symbolic_capacity": "CONFIRMED",
+    "decision_capacity": "CONFIRMED",
+    "vulnerability_level": 0.1
+  },
+  "responds_to_existing_coercion": false,
+  "expected_consequences": "Only opted-in users receive messages; stopping is easy."
+}

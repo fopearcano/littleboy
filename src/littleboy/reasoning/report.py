@@ -19,7 +19,7 @@ def report_to_dict(report: EvaluationReport) -> dict:
 
 
 def render_json(report: EvaluationReport, *, indent: int = 2) -> str:
-    """Render the report as an indented JSON string."""
+    """Render the report as an indented JSON string (the machine-readable form)."""
     return json.dumps(report_to_dict(report), indent=indent, ensure_ascii=False)
 
 
@@ -28,11 +28,20 @@ def render_text(report: EvaluationReport) -> str:
     lines: list[str] = []
     lines.append(f"VERDICT: {report.verdict.value}")
     lines.append(
-        f"  coercion_score={report.coercion_score:.2f}  "
-        f"data_quality_score={report.data_quality_score:.2f}  "
+        f"  coercion={report.coercion_score:.2f}  "
+        f"data_quality={report.data_quality_score:.2f}  "
+        f"evidence={report.evidence_score:.2f}  "
         f"confidence={report.confidence:.2f}  "
         f"uncertainty={report.uncertainty_level.value}"
     )
+    if report.explanation:
+        lines.append("")
+        lines.append(report.explanation)
+    if report.consent_status:
+        lines.append("")
+        lines.append(f"Consent: {report.consent_status}")
+    if report.agency_status:
+        lines.append(f"Agency:  {report.agency_status}")
 
     def _section(title: str, items: list[str]) -> None:
         lines.append("")
@@ -46,7 +55,44 @@ def render_text(report: EvaluationReport) -> str:
     _section("Axioms invoked", report.axioms_invoked)
     _section("Coercion reasoning", report.coercion_reasoning)
     _section("Data-quality reasoning", report.data_quality_reasoning)
+    _section("Evidence reasoning", report.evidence_reasoning)
+
+    if report.justification_result is not None:
+        jr = report.justification_result
+        _section(
+            "Coercion justification (Axiom 3)",
+            [
+                f"is_justified = {jr.is_justified} (confidence {jr.confidence:.2f})",
+                *(f"satisfied: {c}" for c in jr.satisfied_conditions),
+                *(f"failed: {c}" for c in jr.failed_conditions),
+                *(f"unknown: {c}" for c in jr.unknown_conditions),
+            ],
+        )
+
+    if report.alternatives_analysis is not None:
+        aa = report.alternatives_analysis
+        _section(
+            "Alternatives analysis (Axiom 2)",
+            [
+                f"evaluated = {aa.evaluated}, count = {aa.count}",
+                *(f"feasible less coercive: {a}" for a in aa.feasible_less_coercive),
+                *(f"less coercive but infeasible: {a}" for a in aa.infeasible_less_coercive),
+                *(f"unquantified: {a}" for a in aa.unquantified),
+            ],
+        )
+
     _section("Missing data", report.missing_data)
-    _section("Less coercive alternatives", report.less_coercive_alternatives)
     _section("Warnings", report.warnings)
+
+    if report.ethical_experiment is not None:
+        ex = report.ethical_experiment
+        _section(
+            "Ethical experiment",
+            [
+                f"can_be_judged = {ex.can_be_judged}",
+                f"provisional_verdict = {ex.provisional_verdict.value}",
+                *(f"open question: {q}" for q in ex.open_questions),
+            ],
+        )
+
     return "\n".join(lines)

@@ -95,6 +95,25 @@ def assess_data_quality(profile: DataQualityProfile | None) -> DataQualityAssess
     )
 
 
+def combine_epistemic_score(
+    data_quality_score: float,
+    *,
+    evidence_provided: bool,
+    evidence_score: float,
+) -> float:
+    """Blend the data-quality score with the evidence score into one basis.
+
+    When no evidence set is supplied, the epistemic basis is simply the
+    data-quality score (preserving v0.1 behaviour). When both are present they
+    are averaged. When only evidence is present, it stands in for data quality.
+    """
+    if not evidence_provided:
+        return data_quality_score
+    if data_quality_score > 0.0:
+        return 0.5 * data_quality_score + 0.5 * evidence_score
+    return evidence_score
+
+
 def compute_confidence(data_quality_score: float, n_structural_unknowns: int) -> float:
     """Combine data quality with structural unknowns into a confidence in ``[0, 1]``.
 

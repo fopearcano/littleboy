@@ -1,0 +1,38 @@
+{
+  "title": "Silent data collection from possibly vulnerable users",
+  "description": "An app collects sensitive data from users for profiling. Whether users were informed or consented is unclear, the sourcing is weak, and the users may be vulnerable.",
+  "acting_agent": { "name": "App operator", "agent_type": "TYPE_II", "is_collective": true },
+  "affected_agents": [
+    { "name": "Users", "agent_type": "TYPE_II", "is_collective": true }
+  ],
+  "intended_goal": "Collect data for behavioural profiling.",
+  "coercion_profile": {
+    "informational_manipulation": 0.7,
+    "psychological_pressure": 0.4,
+    "economic_pressure": 0.3,
+    "duration": 0.6,
+    "reversibility": 0.3,
+    "scope_number_of_agents": 10000,
+    "severity": 0.6
+  },
+  "available_alternatives": null,
+  "data_quality": {
+    "completeness": 0.5,
+    "source_reliability": 0.5,
+    "specificity": 0.4,
+    "recency": 0.6,
+    "corroboration": 0.4,
+    "ambiguity": 0.5,
+    "missing_critical_facts": ["whether users were informed", "whether consent was obtained"]
+  },
+  "consent": "UNKNOWN",
+  "agency_profile": {
+    "agent_type": "TYPE_II",
+    "capacity_confidence": 0.6,
+    "language_symbolic_capacity": "LIKELY",
+    "decision_capacity": "UNKNOWN",
+    "vulnerability_level": 0.8
+  },
+  "responds_to_existing_coercion": false,
+  "expected_consequences": "Sensitive data is collected and used for profiling."
+}

@@ -1,0 +1,55 @@
+{
+  "title": "Restraining an attacker to stop an assault",
+  "description": "A bystander physically restrains a person who is actively assaulting another, using the minimum force necessary, and releases them as soon as the threat ends.",
+  "acting_agent": { "name": "Bystander", "agent_type": "TYPE_II" },
+  "affected_agents": [
+    { "name": "Attacker", "agent_type": "TYPE_II" },
+    { "name": "Victim", "agent_type": "TYPE_II" }
+  ],
+  "intended_goal": "Stop an ongoing assault with the minimum force necessary.",
+  "coercion_profile": {
+    "physical_force": 0.7,
+    "threat": 0.3,
+    "duration": 0.2,
+    "reversibility": 0.9,
+    "scope_number_of_agents": 1,
+    "severity": 0.5
+  },
+  "available_alternatives": [
+    {
+      "title": "Do nothing",
+      "estimated_coercion_score": 0.95,
+      "feasibility": 1.0,
+      "expected_risk": 0.9,
+      "notes": "Allows the assault to continue: higher total coercion suffered by the victim."
+    },
+    {
+      "title": "Verbal de-escalation only",
+      "estimated_coercion_score": 0.15,
+      "feasibility": 0.2,
+      "notes": "Less coercive, but not feasible against an active physical assault."
+    }
+  ],
+  "data_quality": {
+    "completeness": 0.8,
+    "source_reliability": 0.8,
+    "specificity": 0.8,
+    "recency": 0.9,
+    "corroboration": 0.7,
+    "ambiguity": 0.2
+  },
+  "consent": "NOT_APPLICABLE",
+  "responds_to_existing_coercion": true,
+  "prior_coercion_description": "An active physical assault by the attacker on the victim.",
+  "expected_consequences": "The assault stops; the attacker is briefly restrained and then released.",
+  "justification": {
+    "responds_to_existing_or_imminent_coercion": "CONFIRMED",
+    "no_less_coercive_alternative_available": "LIKELY",
+    "necessity": "CONFIRMED",
+    "proportionality": "LIKELY",
+    "expected_total_coercion_reduction": 0.6,
+    "cessation_condition_defined": "CONFIRMED",
+    "reversibility": "CONFIRMED",
+    "justification_notes": "Minimum force; restraint ends once the threat is neutralized."
+  }
+}

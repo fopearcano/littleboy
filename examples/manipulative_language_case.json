@@ -1,0 +1,65 @@
+{
+  "title": "Dark-pattern subscription wording",
+  "description": "A checkout page uses deliberately confusing wording and a pre-ticked box to push users into a paid subscription they did not intend.",
+  "acting_agent": { "name": "Retailer", "agent_type": "TYPE_II", "is_collective": true },
+  "affected_agents": [
+    { "name": "Shoppers", "agent_type": "TYPE_II", "is_collective": true }
+  ],
+  "intended_goal": "Maximise subscription sign-ups.",
+  "coercion_profile": {
+    "informational_manipulation": 0.8,
+    "psychological_pressure": 0.4,
+    "economic_pressure": 0.5,
+    "duration": 0.4,
+    "reversibility": 0.6,
+    "scope_number_of_agents": 5000,
+    "severity": 0.5
+  },
+  "available_alternatives": [
+    {
+      "title": "Clear, neutral wording with genuine opt-in",
+      "estimated_coercion_score": 0.05,
+      "feasibility": 0.95,
+      "notes": "Plain language, no pre-ticked boxes."
+    }
+  ],
+  "data_quality": {
+    "completeness": 0.8,
+    "source_reliability": 0.8,
+    "specificity": 0.8,
+    "recency": 0.8,
+    "corroboration": 0.7,
+    "ambiguity": 0.2
+  },
+  "evidence": {
+    "items": [
+      {
+        "claim": "The consent box is pre-ticked by default",
+        "source_type": "DIRECT_OBSERVATION",
+        "reliability": 0.9,
+        "specificity": 0.9,
+        "recency": 0.9,
+        "corroboration": 0.7
+      },
+      {
+        "claim": "Wording was A/B tested to maximise accidental sign-ups",
+        "source_type": "TESTIMONY",
+        "reliability": 0.5,
+        "specificity": 0.6,
+        "recency": 0.6,
+        "corroboration": 0.3,
+        "contested": true
+      }
+    ]
+  },
+  "consent": "DISPUTED",
+  "consent_profile": {
+    "status": "DISPUTED",
+    "informed": "DISPUTED",
+    "voluntary": "DISPUTED",
+    "specific": "UNKNOWN",
+    "revocable": "LIKELY"
+  },
+  "responds_to_existing_coercion": false,
+  "expected_consequences": "Some users are enrolled in paid subscriptions they did not intend."
+}

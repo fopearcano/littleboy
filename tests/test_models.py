@@ -5,10 +5,10 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
-from littleboy import AgentType, CoercionProfile, MoralAgent
+from littleboy import AgentType, CoercionProfile, EpistemicStatus, MoralAgent
 from littleboy.core.axioms import (
     agent_can_bear_duties,
-    check_coercion_justification,
+    evaluate_coercion_justification,
 )
 from littleboy.core.models import CoercionJustification
 from littleboy.core.scoring import HEURISTIC_DISCLAIMER, score_coercion
@@ -89,36 +89,55 @@ def test_unknown_reversibility_is_flagged_in_assessment():
     assert unknown.reversibility_known is False
 
 
-# --- Axiom 3 justification checking ------------------------------------------
+# --- Axiom 3 justification checking (epistemic, tri-state) -------------------
 
 
-def test_justification_requires_all_five_conditions():
-    complete = CoercionJustification(
-        responds_to_existing_coercion=True,
-        no_less_coercive_alternative=True,
-        necessary_for_lower_total_coercion=True,
-        proportional=True,
-        stops_when_neutralized=True,
+def _full_justification(**overrides) -> CoercionJustification:
+    base = dict(
+        responds_to_existing_or_imminent_coercion=EpistemicStatus.CONFIRMED,
+        no_less_coercive_alternative_available=EpistemicStatus.CONFIRMED,
+        necessity=EpistemicStatus.CONFIRMED,
+        proportionality=EpistemicStatus.CONFIRMED,
+        expected_total_coercion_reduction=0.5,
+        cessation_condition_defined=EpistemicStatus.CONFIRMED,
+        reversibility=EpistemicStatus.CONFIRMED,
     )
-    result = check_coercion_justification(complete)
-    assert result.justified is True
+    base.update(overrides)
+    return CoercionJustification(**base)
+
+
+def test_complete_justification_is_justified():
+    result = evaluate_coercion_justification(_full_justification())
+    assert result.is_justified is True
     assert result.failed_conditions == []
+    assert result.unknown_conditions == []
+    assert result.confidence > 0.8
 
 
-def test_partial_justification_is_not_justified():
-    partial = CoercionJustification(
-        responds_to_existing_coercion=True,
-        no_less_coercive_alternative=False,
-        necessary_for_lower_total_coercion=True,
-        proportional=True,
-        stops_when_neutralized=False,
+def test_unknown_condition_makes_justification_unknown_not_false():
+    # A genuinely unknown condition must NOT collapse to "false".
+    result = evaluate_coercion_justification(_full_justification(necessity=EpistemicStatus.UNKNOWN))
+    assert result.is_justified is None
+    assert "the coercion is necessary" in result.unknown_conditions
+
+
+def test_negative_reduction_refutes_justification():
+    result = evaluate_coercion_justification(
+        _full_justification(expected_total_coercion_reduction=-0.2)
     )
-    result = check_coercion_justification(partial)
-    assert result.justified is False
-    assert len(result.failed_conditions) == 2
+    assert result.is_justified is False
+    assert result.failed_conditions
 
 
-def test_absent_justification_fails_every_condition():
-    result = check_coercion_justification(None)
-    assert result.justified is False
-    assert len(result.failed_conditions) == 5
+def test_disputed_condition_fails_justification():
+    result = evaluate_coercion_justification(
+        _full_justification(proportionality=EpistemicStatus.DISPUTED)
+    )
+    assert result.is_justified is False
+
+
+def test_absent_justification_is_unknown_not_false():
+    result = evaluate_coercion_justification(None)
+    assert result.is_justified is None
+    assert result.unknown_conditions
+    assert result.confidence == 0.0
