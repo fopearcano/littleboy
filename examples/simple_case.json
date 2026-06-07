@@ -1,0 +1,38 @@
+{
+  "title": "Optional after-hours workshop invitation",
+  "description": "A manager invites team members to a voluntary, optional skill-building workshop after hours. Declining carries no penalty and attendance is tracked privately.",
+  "acting_agent": {
+    "name": "Team manager",
+    "agent_type": "TYPE_II",
+    "description": "A human team manager."
+  },
+  "affected_agents": [
+    {
+      "name": "Team members",
+      "agent_type": "TYPE_II",
+      "is_collective": true
+    }
+  ],
+  "intended_goal": "Offer optional professional development.",
+  "coercion_profile": {
+    "social_pressure": 0.1,
+    "duration": 0.05,
+    "reversibility": 1.0,
+    "scope_number_of_agents": 8,
+    "severity": 0.05
+  },
+  "available_alternatives": [],
+  "data_quality": {
+    "completeness": 0.9,
+    "source_reliability": 0.9,
+    "specificity": 0.85,
+    "recency": 0.9,
+    "corroboration": 0.8,
+    "ambiguity": 0.1,
+    "missing_critical_facts": []
+  },
+  "context_notes": "Attendance is explicitly optional; no consequences for declining.",
+  "consent": "GIVEN",
+  "responds_to_existing_coercion": false,
+  "expected_consequences": "Some employees gain new skills; no one is penalised."
+}

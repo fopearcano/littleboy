@@ -1,0 +1,38 @@
+{
+  "title": "Coerced confession under threat",
+  "description": "An interrogator threatens a detainee with indefinite detention unless they sign a confession. No prior coercion by the detainee is alleged.",
+  "acting_agent": {
+    "name": "Interrogator",
+    "agent_type": "TYPE_II"
+  },
+  "affected_agents": [
+    {
+      "name": "Detainee",
+      "agent_type": "TYPE_II"
+    }
+  ],
+  "intended_goal": "Obtain a signed confession.",
+  "coercion_profile": {
+    "threat": 0.9,
+    "psychological_pressure": 0.8,
+    "legal_constraint": 0.7,
+    "duration": 0.7,
+    "reversibility": 0.2,
+    "scope_number_of_agents": 1,
+    "severity": 0.85
+  },
+  "available_alternatives": null,
+  "data_quality": {
+    "completeness": 0.8,
+    "source_reliability": 0.8,
+    "specificity": 0.8,
+    "recency": 0.8,
+    "corroboration": 0.7,
+    "ambiguity": 0.2,
+    "missing_critical_facts": []
+  },
+  "context_notes": "The detainee has not consented and is not alleged to have coerced anyone.",
+  "consent": "REFUSED",
+  "responds_to_existing_coercion": false,
+  "expected_consequences": "The detainee signs under duress; the confession's reliability is doubtful."
+}

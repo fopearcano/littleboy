@@ -1,0 +1,24 @@
+{
+  "title": "Ambiguous report of workplace pressure",
+  "description": "A vague second-hand report that 'someone was pressured at work'. Almost no reliable detail is available.",
+  "acting_agent": null,
+  "intended_goal": null,
+  "coercion_profile": {
+    "psychological_pressure": 0.5
+  },
+  "available_alternatives": null,
+  "data_quality": {
+    "completeness": 0.2,
+    "source_reliability": 0.3,
+    "specificity": 0.2,
+    "recency": 0.4,
+    "corroboration": 0.1,
+    "ambiguity": 0.8,
+    "missing_critical_facts": [
+      "who applied the pressure",
+      "what was demanded",
+      "whether consent was given"
+    ]
+  },
+  "context_notes": "Reported informally; unverified."
+}
