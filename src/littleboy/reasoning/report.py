@@ -31,7 +31,10 @@ def render_json(report: EvaluationReport, *, indent: int = 2) -> str:
 def render_text(report: EvaluationReport) -> str:
     """Render the report as a readable, sectioned text block."""
     lines: list[str] = []
-    lines.append(f"VERDICT: {report.verdict.value}   [policy: {report.policy_mode.value}]")
+    policy = report.policy_mode.value
+    if report.policy_label:
+        policy = f"{report.policy_label} (custom, base {policy})"
+    lines.append(f"VERDICT: {report.verdict.value}   [policy: {policy}]")
     lines.append(
         f"  coercion={report.coercion_score:.2f}  "
         f"data_quality={report.data_quality_score:.2f}  "

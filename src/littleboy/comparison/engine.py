@@ -128,7 +128,7 @@ def _long_term_key(entry: ActionRankingEntry) -> tuple:
 class ComparisonEngine:
     """Compare a set of candidate actions under a policy profile."""
 
-    def __init__(self, policy_mode: PolicyMode | str | None = None) -> None:
+    def __init__(self, policy_mode: PolicyMode | PolicyProfile | str | None = None) -> None:
         self.policy_mode = policy_mode
 
     def compare(

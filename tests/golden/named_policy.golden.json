@@ -1,0 +1,25 @@
+{
+  "name": "research_gate_025",
+  "profile": {
+    "mode": "standard",
+    "min_data_quality_for_approval": 0.25,
+    "min_evidence_quality_for_approval": 0.3,
+    "min_confidence": 0.3,
+    "data_quality_good": 0.7,
+    "max_coercion_for_acceptable": 0.6,
+    "coercion_moderate": 0.3,
+    "irreversible_requires_high_certainty": true,
+    "irreversible_min_epistemic": 0.5,
+    "unknown_consent_is_blocker": false,
+    "vulnerability_confidence_penalty": 0.15,
+    "alternative_downgrade_steps": 1,
+    "informational_manipulation_severe": true
+  },
+  "provenance": {
+    "base": "standard",
+    "changes": {
+      "min_data_quality_for_approval": "0.35 -> 0.25"
+    },
+    "description": "data gate lowered after the v0.20 diagnosis"
+  }
+}

@@ -697,6 +697,14 @@ class EvaluationReport(_Base):
     )
     uncertainty_level: UncertaintyLevel
     policy_mode: PolicyMode = PolicyMode.STANDARD
+    policy_label: str = Field(
+        default="",
+        description=(
+            "Non-empty when the evaluation ran under a named custom policy: the profile's "
+            "name. Empty for built-in policies, so a verdict under a tuned policy is never "
+            "mistaken for a built-in one."
+        ),
+    )
 
     consent_status: str | None = None
     agency_status: str | None = None

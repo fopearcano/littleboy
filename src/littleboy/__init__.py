@@ -172,12 +172,17 @@ from littleboy.language import (
 from littleboy.reasoning.experiment import EthicalExperiment, EthicalExperimentResult
 from littleboy.rules import (
     BUILTIN_RULES,
+    NamedPolicy,
     PolicyProfile,
+    PolicyProvenance,
     Rule,
     RuleEngine,
     RuleRegistry,
     default_registry,
     get_policy,
+    load_named_policy,
+    resolve_policy_ref,
+    save_named_policy,
 )
 from littleboy.temporal import (
     ConsequenceEstimate,
@@ -195,7 +200,7 @@ from littleboy.temporal import (
     score_reversibility,
 )
 
-__version__ = "0.21.0"
+__version__ = "0.22.0"
 
 __all__ = [
     "AuditCorpus",
@@ -308,8 +313,10 @@ __all__ = [
     "LanguageMedium",
     "ManipulationFinding",
     "MoralAgent",
+    "NamedPolicy",
     "PolicyMode",
     "PolicyProfile",
+    "PolicyProvenance",
     "Question",
     "QuestionCategory",
     "QuestionPriority",
@@ -350,8 +357,11 @@ __all__ = [
     "get_policy",
     "get_template",
     "list_templates",
+    "load_named_policy",
     "project_temporal",
     "recommended_next_questions",
+    "resolve_policy_ref",
+    "save_named_policy",
     "score_constructive_language",
     "score_cumulative_coercion",
     "score_language_ethics",

@@ -13,8 +13,13 @@ from littleboy.rules.engine import RuleEngine, RuleEngineOutcome
 from littleboy.rules.policy import (
     DEFAULT_POLICY_MODE,
     DEFAULT_PROFILES,
+    NamedPolicy,
     PolicyProfile,
+    PolicyProvenance,
     get_policy,
+    load_named_policy,
+    resolve_policy_ref,
+    save_named_policy,
 )
 from littleboy.rules.registry import RuleRegistry
 
@@ -22,7 +27,9 @@ __all__ = [
     "BUILTIN_RULES",
     "DEFAULT_POLICY_MODE",
     "DEFAULT_PROFILES",
+    "NamedPolicy",
     "PolicyProfile",
+    "PolicyProvenance",
     "Rule",
     "RuleContext",
     "RuleEngine",
@@ -30,4 +37,7 @@ __all__ = [
     "RuleRegistry",
     "default_registry",
     "get_policy",
+    "load_named_policy",
+    "resolve_policy_ref",
+    "save_named_policy",
 ]

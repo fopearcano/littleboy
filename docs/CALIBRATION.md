@@ -586,7 +586,16 @@ verdict under the built-ins are asserted unchanged after a run. Pinned by
 littleboy tune --set min_data_quality_for_approval=0.25 --external      # the full impact
 littleboy tune --set coercion_moderate=0.2 --base strict --independent  # any base, any corpus
 littleboy tune --set min_confidence=0.2 --external --no-goldens --format json
+littleboy tune --set min_data_quality_for_approval=0.25 --external \
+  --save my_policy.json --name research_gate_025      # v0.22: adopt as a named policy file
 ```
+
+A vetted candidate can be **saved as a named policy** (v0.22): `--save` writes a
+`NamedPolicy` JSON (profile + clock-free provenance: base, exact changes,
+description) with the full tuning-impact report alongside
+(`<stem>.impact.json`), and every `--policy` option then accepts the file —
+reports carry the custom name (`policy_label`) so it is never mistaken for a
+built-in. See [`docs/POLICY_PROFILES.md`](POLICY_PROFILES.md).
 
 ## Limitations
 

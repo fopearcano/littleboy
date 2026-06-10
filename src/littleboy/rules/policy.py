@@ -12,6 +12,9 @@ risk postures (e.g. a permissive research setting vs. a precautionary one).
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 from pydantic import BaseModel, ConfigDict, Field
 
 from littleboy.core.enums import PolicyMode
@@ -136,3 +139,76 @@ def get_policy(policy: PolicyMode | PolicyProfile | str | None) -> PolicyProfile
         return policy
     mode = PolicyMode(policy) if isinstance(policy, str) else policy
     return DEFAULT_PROFILES[mode]
+
+
+# =============================================================================
+# Named custom policies as data (v0.22)
+# =============================================================================
+
+
+class PolicyProvenance(BaseModel):
+    """Where a custom policy came from -- so a tuned profile is never anonymous.
+
+    Deliberately clock-free (no timestamps) so saved policies are deterministic
+    and diffable. ``changes`` uses the tuner's ``'before -> after'`` rendering.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    base: str = Field(description="The built-in policy the profile was derived from.")
+    changes: dict[str, str] = Field(
+        default_factory=dict, description="Changed parameters, as 'before -> after'."
+    )
+    description: str = ""
+
+
+class NamedPolicy(BaseModel):
+    """A custom :class:`PolicyProfile` with a name and provenance, storable as JSON.
+
+    The built-in profiles stay untouched; a named policy is *data* -- saved,
+    loaded, validated, and passed anywhere a policy mode is accepted. Reports
+    produced under it carry the name (``policy_label``), so a verdict under a
+    tuned policy is never mistaken for a built-in one.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str
+    profile: PolicyProfile
+    provenance: PolicyProvenance | None = None
+
+
+def save_named_policy(path: str | Path, named: NamedPolicy) -> None:
+    """Write a named policy to a JSON file (deterministic, human-diffable)."""
+    Path(path).write_text(
+        json.dumps(named.model_dump(mode="json"), indent=2, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
+
+
+def load_named_policy(path: str | Path) -> NamedPolicy:
+    """Load and validate a named policy from a JSON file.
+
+    Validation runs through the same models as everywhere else, so a corrupt or
+    out-of-range profile is rejected on load, not discovered mid-evaluation.
+    """
+    return NamedPolicy.model_validate_json(Path(path).read_text(encoding="utf-8"))
+
+
+def resolve_policy_ref(ref: str) -> tuple[PolicyProfile | PolicyMode, str]:
+    """Resolve a CLI-style policy reference to ``(policy, label)``.
+
+    A built-in mode name resolves to the mode with an empty label; a path to a
+    named-policy JSON file resolves to its profile with its name as the label
+    (non-empty label == custom policy). Anything else raises ``ValueError``.
+    """
+    try:
+        return PolicyMode(ref), ""
+    except ValueError:
+        pass
+    path = Path(ref)
+    if path.is_file():
+        named = load_named_policy(path)
+        return named.profile, named.name
+    modes = ", ".join(m.value for m in PolicyMode)
+    raise ValueError(f"unknown policy {ref!r}: not a built-in mode ({modes}) and not a policy file")

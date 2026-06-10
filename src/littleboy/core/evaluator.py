@@ -75,10 +75,14 @@ class EthicalEvaluator:
         *,
         engine: RuleEngine | None = None,
         include_completeness: bool = True,
+        policy_label: str = "",
     ) -> None:
         self.policy: PolicyProfile = get_policy(policy)
         self.engine = engine or RuleEngine(self.policy)
         self.include_completeness = include_completeness
+        # Non-empty for a *named custom* policy: stamped onto every report so a
+        # verdict under a tuned profile is never mistaken for a built-in one.
+        self.policy_label = policy_label
 
     # -- public API -----------------------------------------------------------
 
@@ -264,6 +268,7 @@ class EthicalEvaluator:
             confidence=round(confidence, 4),
             uncertainty_level=uncertainty,
             policy_mode=self.policy.mode,
+            policy_label=self.policy_label,
             consent_status=consent.summary,
             agency_status=agency.summary,
             main_reasons=main_reasons,

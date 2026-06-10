@@ -25,6 +25,7 @@ from pydantic import ValidationError
 from littleboy import __version__
 from littleboy.audit.report import render_audit_json, render_audit_text
 from littleboy.calibration import (
+    candidate_profile,
     cross_validate_threshold_policy,
     cv_gain_inference,
     default_corpus,
@@ -81,6 +82,13 @@ from littleboy.reasoning.report import (
     render_language_text,
     render_text,
 )
+from littleboy.rules.policy import (
+    NamedPolicy,
+    PolicyProfile,
+    PolicyProvenance,
+    resolve_policy_ref,
+    save_named_policy,
+)
 from littleboy.temporal.report import render_temporal_json, render_temporal_text
 
 _POLICY_CHOICES = ", ".join(m.value for m in PolicyMode)
@@ -106,12 +114,26 @@ def _load_case(case_path: Path) -> ActionCase:
         raise typer.Exit(code=2) from exc
 
 
-def _resolve_policy(policy: str) -> PolicyMode:
+def _resolve_policy_ref(policy: str) -> tuple[PolicyMode | PolicyProfile, str]:
+    """Resolve a built-in mode name or a named-policy JSON path to (policy, label)."""
     try:
-        return PolicyMode(policy)
-    except ValueError as exc:
-        typer.echo(f"Unknown policy '{policy}'; use one of: {_POLICY_CHOICES}.", err=True)
+        return resolve_policy_ref(policy)
+    except (ValueError, ValidationError) as exc:
+        typer.echo(
+            f"Unknown policy '{policy}': use one of {_POLICY_CHOICES}, "
+            f"or a path to a named-policy JSON file. ({exc})",
+            err=True,
+        )
         raise typer.Exit(code=2) from exc
+
+
+def _resolve_policy(policy: str) -> PolicyMode | PolicyProfile:
+    """Resolve a policy reference; announce custom policies on stderr (stdout stays pure)."""
+    resolved, label = _resolve_policy_ref(policy)
+    if label:
+        base = resolved.mode.value if isinstance(resolved, PolicyProfile) else str(resolved)
+        typer.echo(f"[using custom policy '{label}' (base {base}) from {policy}]", err=True)
+    return resolved
 
 
 def _resolve_template(template: str | None) -> ScenarioTemplate | None:
@@ -147,14 +169,10 @@ def evaluate(
     if output_format not in {"json", "text"}:
         typer.echo(f"Unknown format '{output_format}'; use 'json' or 'text'.", err=True)
         raise typer.Exit(code=2)
-    try:
-        policy_mode = PolicyMode(policy)
-    except ValueError as exc:
-        typer.echo(f"Unknown policy '{policy}'; use one of: {_POLICY_CHOICES}.", err=True)
-        raise typer.Exit(code=2) from exc
+    policy_obj, label = _resolve_policy_ref(policy)
 
     case = _load_case(case_path)
-    report = EthicalEvaluator(policy_mode).evaluate(case, audit=audit)
+    report = EthicalEvaluator(policy_obj, policy_label=label).evaluate(case, audit=audit)
     typer.echo(render_text(report) if output_format == "text" else render_json(report))
 
 
@@ -1072,6 +1090,17 @@ def tune(
     goldens: bool = typer.Option(
         True, "--goldens/--no-goldens", help="Check which golden files would break."
     ),
+    save: Path | None = typer.Option(
+        None,
+        "--save",
+        help="Write the candidate as a named-policy JSON (plus <stem>.impact.json alongside).",
+    ),
+    name: str | None = typer.Option(
+        None, "--name", help="Name for the saved policy (default: the file stem)."
+    ),
+    describe: str = typer.Option(
+        "", "--describe", help="Provenance description for the saved policy."
+    ),
     output_format: str = typer.Option(
         "text", "--format", "-f", help="Output format: 'json' or 'text'."
     ),
@@ -1105,6 +1134,25 @@ def tune(
     except (ValueError, ValidationError) as exc:
         typer.echo(f"Invalid candidate change: {exc}", err=True)
         raise typer.Exit(code=2) from exc
+
+    if save is not None:
+        named = NamedPolicy(
+            name=name or save.stem,
+            profile=candidate_profile(base_mode, changes),
+            provenance=PolicyProvenance(
+                base=impact.base_policy, changes=impact.changes, description=describe
+            ),
+        )
+        save_named_policy(save, named)
+        impact_path = save.with_suffix(".impact.json")
+        impact_path.write_text(
+            json.dumps(impact.model_dump(mode="json"), indent=2, ensure_ascii=False) + "\n",
+            encoding="utf-8",
+        )
+        typer.echo(
+            f"[saved candidate policy '{named.name}' to {save}; impact report to {impact_path}]",
+            err=True,
+        )
 
     if output_format == "json":
         typer.echo(json.dumps(impact.model_dump(mode="json"), indent=2, ensure_ascii=False))

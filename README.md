@@ -11,21 +11,21 @@ and returns a **transparent, explained verdict** with an honest account of its
 own uncertainty. It is a reasoning engine, not a user interface and not a
 language model.
 
-This is **v0.21**, which closes the loop from agenda to **decision** with a
-**dry-run tuner**: `littleboy tune --set min_data_quality_for_approval=0.25`
-builds a validated candidate profile (never touching the built-ins — dryness is
-under test) and reports the full before/after impact with nothing silent — every
-verdict flip with its direction, agreement with **every** labeller per split
-(Wilson intervals and deltas, so the cost to one stakeholder of pleasing another
-is on the table: the data-gate change gains emil +0.075 and **costs fay
-−0.075**), and **which golden files would break** if adopted, each checked by
-recomputation over its underlying packaged corpus. The report itself warns that
-an agreement gain is not a justification. (v0.20 turned the per-case
-classifications into a corpus-level diagnosis with fractions, recurring accounts,
-and a tuning agenda; v0.19 added fact accounts and the unified classification;
-v0.18 made disagreements inspectable case by case: trace diffs, threshold flips,
-and the engine-verified minimal parameter account; v0.17 gave the fitting gain a
-real p-value —
+This is **v0.22**, which makes a vetted candidate a **first-class named policy —
+adoption as data, with the built-ins untouched**: `littleboy tune ... --save
+my_policy.json` writes the candidate `PolicyProfile` with **clock-free
+provenance** (base, exact changes, description) and the full tuning-impact report
+alongside; every `--policy` option (and `tune --base`) then accepts the file;
+loading re-validates through the same models, round-trip behaviour is
+golden-pinned; and every report carries a `policy_label` so a verdict under a
+tuned policy is **never mistaken for a built-in** (`VERDICT: ... [policy:
+research_gate_025 (custom, base standard)]`). (v0.21 added the dry-run tuner:
+every flip, every stakeholder delta, every golden, nothing silent; v0.20 turned
+the per-case classifications into a corpus-level diagnosis with fractions,
+recurring accounts, and a tuning agenda; v0.19 added fact accounts and the
+unified classification; v0.18 made disagreements inspectable case by case: trace
+diffs, threshold flips, and the engine-verified minimal parameter account; v0.17
+gave the fitting gain a real p-value —
 Nadeau–Bengio corrected t over repeated stratified CV + an exact sign test — and a
 40-case × 5-labeller external set; v0.16 added k-fold cross-validated fitting and
 a 16-case independent panel; v0.15 imported real labels from CSV and added the
@@ -736,6 +736,36 @@ See [`docs/CALIBRATION.md`](docs/CALIBRATION.md).
 Deterministic, typed, evaluation-only, additive — the verdict itself is unchanged.
 See [`docs/CALIBRATION.md`](docs/CALIBRATION.md).
 
+## LittleBoy v0.22: Named custom policies as data
+
+> A vetted candidate should become a real, named policy — saved, loaded,
+> validated, carried on every report — while the built-ins stay untouched and a
+> tuned verdict is never mistaken for a built-in one.
+
+- **`NamedPolicy` + `PolicyProvenance`** (`littleboy.rules.policy`): a custom
+  `PolicyProfile` with a name and provenance — the base it was derived from, the
+  exact parameter changes (`'0.35 -> 0.25'`), and a description. Provenance is
+  deliberately **clock-free** (no timestamps), so saved policies are
+  deterministic and diffable. `save_named_policy` / `load_named_policy` write
+  and re-validate human-diffable JSON (a corrupt or out-of-range profile is
+  rejected *on load*); `littleboy tune ... --save my_policy.json --name ...
+  --describe ...` writes the policy **with the full tuning-impact report
+  alongside** (`my_policy.impact.json`) — the decision record archived next to
+  the decision.
+- **Accepted everywhere, never anonymous**: every CLI `--policy` (and `tune
+  --base`) resolves a built-in mode name *or* a named-policy file
+  (`resolve_policy_ref` in the library); engines already accept a
+  `PolicyProfile`. Every `EvaluationReport` now carries a `policy_label` —
+  empty for built-ins (old reports byte-identical), the custom name otherwise —
+  the text rendering reads `[policy: research_gate_025 (custom, base
+  standard)]`, and CLI commands announce a loaded custom policy on stderr so
+  stdout JSON stays pure. Round-trip (save → load → identical verdicts) and the
+  saved payload are pinned by tests and a golden file; `DEFAULT_PROFILES` is
+  asserted untouched by save/load.
+
+Deterministic, typed, additive — the verdict under every built-in policy is
+unchanged. See [`docs/POLICY_PROFILES.md`](docs/POLICY_PROFILES.md).
+
 ## How evidence is represented
 
 An `EvidenceSet` holds `EvidenceItem`s, each a `claim` plus its `source_type`
@@ -803,7 +833,7 @@ src/littleboy/
   rules/
     base.py         # Rule base class + RuleContext
     registry.py     # RuleRegistry (register / list / evaluate / enable-disable)
-    policy.py       # PolicyProfile + the four built-in policy modes
+    policy.py       # PolicyProfile, the four built-in modes, NamedPolicy save/load/resolve (v0.22)
     builtin_rules.py# LB-R001 .. LB-R024 (incl. the language and temporal rules)
     engine.py       # RuleEngine: runs rules and synthesizes the verdict
     trace.py        # builds the ReasoningTrace
@@ -895,7 +925,7 @@ pip install -e ".[dev]"     # pydantic, pytest, typer, ruff
 ## Running the tests
 
 ```bash
-pytest                      # 310 tests
+pytest                      # 323 tests
 ruff check src tests        # lint (optional)
 ```
 
@@ -940,6 +970,8 @@ littleboy explain-disagreement policy_strict_borderline --independent --against 
 littleboy explain-disagreement --all --external --against hana            # one line per disagreement + classification tally
 littleboy diagnose --external --against hana                              # corpus-level diagnosis: fractions, recurring accounts, agenda
 littleboy tune --set min_data_quality_for_approval=0.25 --external        # DRY-RUN a candidate change: every flip, every stakeholder, every golden
+littleboy tune --set min_data_quality_for_approval=0.25 --external --save my_policy.json --name research_gate_025   # adopt as a named policy file
+littleboy evaluate examples/simple_case.json --policy my_policy.json      # use a named custom policy anywhere --policy is accepted
 littleboy build-case --minimal --from examples/voi_consent_pivotal.json --strategy lookahead
 littleboy templates                                                       # list scenario templates
 littleboy version
@@ -1120,23 +1152,22 @@ make consequential decisions about real people.
 
 ## Current development status
 
-**v0.21 — the dry-run tuner.** Implemented on top of v0.20. `tune_dry_run` /
-`candidate_profile` build a validated candidate policy (overrides validated and
-coerced through `PolicyProfile` itself; unknown names and out-of-range values
-rejected) and report its full before/after impact with **nothing silent**: every
-verdict flip with its direction and a transition summary; agreement with **every
-labeller and the consensus**, per split, before vs after, with Wilson intervals
-and deltas; net deltas per stakeholder (on the diagnosis's top agenda item —
-lowering the data gate to 0.25 — emil +0.075, hana/consensus +0.05, **fay
-−0.075**: the cost stated); and **which golden files would break** if adopted,
-each checked by recomputation over its underlying packaged corpus (verdict flips;
-detector-band changes for scoring; full audit-output comparison for the audit
-golden, which reads `coercion_moderate`) or honestly marked unchecked. Dryness is
-itself under test: `DEFAULT_PROFILES` and the verdicts under the built-ins are
-asserted unchanged after a run, and the report warns that an agreement gain is
-not by itself a justification. New CLI `tune` (`--set param=value` repeatable,
-`--base`, corpus flags, `--no-goldens`, text/JSON); a tuning-impact golden file; a
-310-test suite (all passing). Purely additive — the verdict itself is unchanged.
+**v0.22 — named custom policies as data.** Implemented on top of v0.21.
+`NamedPolicy` + `PolicyProvenance` (in `littleboy.rules.policy`) make a vetted
+candidate a first-class profile: a name, the base it derives from, the exact
+changes, a description — **clock-free**, so saved policies are deterministic and
+diffable. `save_named_policy` / `load_named_policy` write and re-validate
+human-diffable JSON (corrupt or out-of-range profiles rejected on load);
+`littleboy tune ... --save` writes the policy with the full tuning-impact report
+alongside. `resolve_policy_ref` lets every CLI `--policy` (and `tune --base`)
+accept a built-in mode name or a policy file; `EvaluationReport` gains a
+`policy_label` (empty for built-ins — old reports byte-identical — the custom
+name otherwise), the text rendering shows `[policy: name (custom, base
+standard)]`, and custom loads are announced on stderr so stdout JSON stays pure.
+Round-trip behaviour and the saved payload are golden-pinned, and
+`DEFAULT_PROFILES` is asserted untouched by save/load. New `tune --save/--name/
+--describe`; a named-policy golden file; a 323-test suite (all passing). Purely
+additive — the verdict under every built-in policy is unchanged.
 
 Earlier phases delivered the core models; coercion/data-quality/evidence scoring;
 consent/agency models; the tri-state Axiom 3 justification; feasibility-aware
@@ -1153,9 +1184,9 @@ agreement & policy recommendation; the v0.15 real-labels CSV import &
 single-split fitted-threshold recommender; the v0.16 cross-validated fitting &
 16-case independent panel; the v0.17 calibrated CV inference & 40-case external
 set; the v0.18 case-level disagreement explanations (trace diffs + minimal
-parameter accounts); the v0.19 fact accounts & unified classification; and the
+parameter accounts); the v0.19 fact accounts & unified classification; the
 v0.20 corpus-level diagnosis report (fractions, recurring accounts, tuning
-agenda). All v0.1–v0.20 inputs remain valid.
+agenda); and the v0.21 dry-run tuner. All v0.1–v0.21 inputs remain valid.
 
 **Deliberately not built:** any web UI, any LLM/API integration, any opaque bias
 detection, any prediction that looks certain, any claim to absolute truth, any
@@ -1169,10 +1200,11 @@ to interrogate, not more dogmatic**.
   path, agreement, reliability, recommendation, inference, explanations,
   diagnosis, and the tuner all run unchanged), and publish the resulting real
   agreement, gain inference, and diagnosis report.
-- A **named custom-policy file**: let a vetted candidate (a tuned `PolicyProfile`
-  as JSON) be saved, loaded by every CLI command via `--policy my_policy.json`,
-  and carried in reports as a first-class, named profile — adoption as data, with
-  the built-ins untouched and the tuner's impact report archived alongside.
+- Run the **calibration suite under a named policy**: let `calibrate`,
+  `recommend-policy`, and the reliability tables take `--policy my_policy.json`
+  so an adopted profile's miss/false-alarm rates and per-labeller reliability are
+  reported (and goldens optionally pinned) under its own name, not just the base
+  mode's.
 - Let `intake_hints` declare fully custom unknowns (probe fields, resolutions, costs,
   and probabilities) so domains beyond the built-in fields can drive the planner —
   which would also widen the fact-account vocabulary case by case.

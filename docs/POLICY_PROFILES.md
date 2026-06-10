@@ -78,3 +78,36 @@ You can also pass a fully custom `PolicyProfile` to `EthicalEvaluator(...)` if y
 need parameters between the built-in modes. The chosen mode is recorded on every
 report (`policy_mode`) and in the reasoning trace, so a verdict is never
 separable from the policy that produced it.
+
+## Named custom policies as data (v0.22)
+
+A vetted candidate (typically from the dry-run tuner) can become a **first-class,
+named profile without touching the built-ins** — adoption as data:
+
+- **`NamedPolicy`** bundles a `PolicyProfile` with a `name` and a
+  `PolicyProvenance` (the base it was derived from, the exact parameter changes
+  as `'before -> after'`, and a free-text description). Provenance is
+  deliberately **clock-free** — no timestamps — so saved policies are
+  deterministic and diffable.
+- **Save / load / validate**: `save_named_policy` writes human-diffable JSON;
+  `load_named_policy` re-validates everything through the same models as
+  everywhere else, so a corrupt or out-of-range profile is rejected *on load*,
+  not discovered mid-evaluation. `littleboy tune ... --save my_policy.json
+  --name research_gate_025 --describe "..."` writes the policy **plus the full
+  tuning-impact report alongside** (`my_policy.impact.json`) — the decision
+  record archived next to the decision.
+- **Use anywhere a mode name is accepted**: every CLI `--policy` (and `tune
+  --base`) resolves either a built-in mode name or a path to a named-policy
+  file (`littleboy evaluate case.json --policy my_policy.json`); in the
+  library, `resolve_policy_ref` does the same, and every engine already takes a
+  `PolicyProfile`.
+- **Never mistaken for a built-in**: every `EvaluationReport` carries a
+  `policy_label` — empty for built-ins, the custom name otherwise — and the
+  text rendering says it outright:
+  `VERDICT: ... [policy: research_gate_025 (custom, base standard)]`. CLI
+  commands that take a custom file announce it on stderr (stdout stays pure
+  JSON), and round-trip behaviour (save → load → identical verdicts) plus the
+  saved payload are pinned by tests and a golden file.
+
+The built-in profiles remain untouched and untouchable by all of this: a named
+policy is a file you chose to write, carrying its own history.
