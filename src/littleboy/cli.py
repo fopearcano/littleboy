@@ -45,6 +45,7 @@ from littleboy.calibration import (
     run_corpus,
     run_reliability,
     run_scoring_corpus,
+    tune_dry_run,
 )
 from littleboy.case_builder import (
     CaseBuilder,
@@ -1049,6 +1050,102 @@ def diagnose(
         for i, line in enumerate(diagnosis.tuning_agenda, 1):
             typer.echo(f"    {i}. {line}")
     for note in diagnosis.notes:
+        typer.echo(f"  - {note}")
+
+
+@app.command()
+def tune(
+    set_params: list[str] = typer.Option(
+        ...,
+        "--set",
+        help="A candidate change as parameter=value (repeatable).",
+    ),
+    base: str = typer.Option(
+        "standard", "--base", "-p", help=f"The base policy to modify: {_POLICY_CHOICES}."
+    ),
+    independent: bool = typer.Option(
+        False, "--independent", help="Use the packaged independent 16-case set."
+    ),
+    external: bool = typer.Option(
+        False, "--external", help="Use the packaged external 40-case x 5-labeller set."
+    ),
+    goldens: bool = typer.Option(
+        True, "--goldens/--no-goldens", help="Check which golden files would break."
+    ),
+    output_format: str = typer.Option(
+        "text", "--format", "-f", help="Output format: 'json' or 'text'."
+    ),
+) -> None:
+    """DRY-RUN a candidate policy change: every flip, every stakeholder, every golden."""
+    if output_format not in {"json", "text"}:
+        typer.echo(f"Unknown format '{output_format}'; use 'json' or 'text'.", err=True)
+        raise typer.Exit(code=2)
+    if independent and external:
+        typer.echo("Use at most one of --independent, --external.", err=True)
+        raise typer.Exit(code=2)
+    base_mode = _resolve_policy(base)
+
+    changes: dict[str, object] = {}
+    for item in set_params:
+        if "=" not in item:
+            typer.echo(f"Malformed --set '{item}'; expected parameter=value.", err=True)
+            raise typer.Exit(code=2)
+        key, _, value = item.partition("=")
+        changes[key.strip()] = value.strip()
+
+    if independent:
+        corpus = default_independent_outcome_corpus()
+    elif external:
+        corpus = default_external_outcome_corpus()
+    else:
+        corpus = default_labelled_outcome_corpus()
+
+    try:
+        impact = tune_dry_run(corpus, changes, base_policy=base_mode, check_goldens=goldens)
+    except (ValueError, ValidationError) as exc:
+        typer.echo(f"Invalid candidate change: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+
+    if output_format == "json":
+        typer.echo(json.dumps(impact.model_dump(mode="json"), indent=2, ensure_ascii=False))
+        return
+
+    typer.echo(
+        f"TUNE (dry run): '{impact.base_policy}' + {len(impact.changes)} change(s) "
+        f"on n={impact.n_cases}"
+    )
+    typer.echo("  changes:")
+    for name, delta in impact.changes.items():
+        typer.echo(f"    - {name}: {delta}")
+    typer.echo(f"  verdict flips: {impact.n_flips}/{impact.n_cases}")
+    for flip in impact.flips[:12]:
+        typer.echo(
+            f"    {flip.case_id} [{flip.split}]: {flip.before.value} -> {flip.after.value}"
+            f"  ({flip.direction})"
+        )
+    if impact.n_flips > 12:
+        typer.echo(f"    ... and {impact.n_flips - 12} more (see --format json)")
+    for transition, count in impact.flip_summary.items():
+        typer.echo(f"    summary: {transition} x{count}")
+    typer.echo("  stakeholder agreement (exact, before -> after):")
+    for si in impact.stakeholder_impacts:
+        marker = "  <- loses" if si.delta < 0 else ("  <- gains" if si.delta > 0 else "")
+        typer.echo(
+            f"    {si.target:10s} {si.split:7s} {si.before_accuracy:.2f} -> "
+            f"{si.after_accuracy:.2f} ({si.delta:+.2f})  "
+            f"CI after [{si.after_ci.low:.2f},{si.after_ci.high:.2f}]{marker}"
+        )
+    typer.echo("  net deltas: " + "  ".join(f"{t}: {d:+.3f}" for t, d in impact.net_deltas.items()))
+    if impact.golden_impacts:
+        typer.echo("  golden impact (if adopted into the base policy):")
+        for gi in impact.golden_impacts:
+            tag = (
+                "WOULD BREAK"
+                if gi.would_break
+                else ("unchecked  " if not gi.checked else "ok         ")
+            )
+            typer.echo(f"    {tag} {gi.golden}: {gi.reason}")
+    for note in impact.notes:
         typer.echo(f"  - {note}")
 
 

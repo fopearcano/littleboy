@@ -11,19 +11,21 @@ and returns a **transparent, explained verdict** with an honest account of its
 own uncertainty. It is a reasoning engine, not a user interface and not a
 language model.
 
-This is **v0.20**, which turns the per-case classifications into a **corpus-level
-diagnosis report**: `littleboy diagnose --against hana` decomposes the
-disagreement with a labeller into its kinds — threshold questions
-(policy-bridgeable), epistemic questions (fact-bridgeable), ambiguous (both), and
-genuine divergence (neither) — each fraction with a Wilson interval, ranks the
-**recurring bridging parameters and facts** (a parameter or fact counts once per
-disagreement it bridges), and emits a concrete **tuning agenda** ("the data gate
-bridges 4 of 25; consequence unknowns 4 more; 17 are genuine divergence, for
-human review") — so a reliability number becomes a work list, with every figure
-drillable back to its engine-verified per-case explanation. (v0.19 added fact
-accounts and the unified classification; v0.18 made disagreements inspectable
-case by case: trace diffs, threshold flips, and the engine-verified minimal
-parameter account; v0.17 gave the fitting gain a real p-value —
+This is **v0.21**, which closes the loop from agenda to **decision** with a
+**dry-run tuner**: `littleboy tune --set min_data_quality_for_approval=0.25`
+builds a validated candidate profile (never touching the built-ins — dryness is
+under test) and reports the full before/after impact with nothing silent — every
+verdict flip with its direction, agreement with **every** labeller per split
+(Wilson intervals and deltas, so the cost to one stakeholder of pleasing another
+is on the table: the data-gate change gains emil +0.075 and **costs fay
+−0.075**), and **which golden files would break** if adopted, each checked by
+recomputation over its underlying packaged corpus. The report itself warns that
+an agreement gain is not a justification. (v0.20 turned the per-case
+classifications into a corpus-level diagnosis with fractions, recurring accounts,
+and a tuning agenda; v0.19 added fact accounts and the unified classification;
+v0.18 made disagreements inspectable case by case: trace diffs, threshold flips,
+and the engine-verified minimal parameter account; v0.17 gave the fitting gain a
+real p-value —
 Nadeau–Bengio corrected t over repeated stratified CV + an exact sign test — and a
 40-case × 5-labeller external set; v0.16 added k-fold cross-validated fitting and
 a 16-case independent panel; v0.15 imported real labels from CSV and added the
@@ -700,6 +702,40 @@ See [`docs/CALIBRATION.md`](docs/CALIBRATION.md).
 Deterministic, typed, evaluation-only, additive — the verdict itself is unchanged.
 See [`docs/CALIBRATION.md`](docs/CALIBRATION.md).
 
+## LittleBoy v0.21: The dry-run tuner
+
+> The diagnosis ends in an agenda. Before acting on an item, see **everything**
+> it would change — every flipped verdict, every stakeholder's gain or loss,
+> every golden file — with the built-in profiles untouched.
+
+- **`tune_dry_run` / `candidate_profile`**: parameter overrides are validated and
+  coerced through `PolicyProfile` itself (unknown names raise with the valid list;
+  out-of-range values are rejected as anywhere else), producing a candidate that
+  is evaluated, never installed. The report lists **every verdict flip** with its
+  direction (`gains a verdict` / `declines to insufficient data` / `more`/`less
+  permissive`) and a transition summary; **agreement with every labeller and the
+  consensus**, per split, before vs after, with Wilson intervals and deltas; and
+  net deltas per stakeholder. On the diagnosis's top agenda item
+  (`min_data_quality_for_approval: 0.35 -> 0.25`, external set): 3 cases gain
+  verdicts, emil +0.075 / hana +0.05 / consensus +0.05 — and **fay −0.075**, the
+  epistemically-demanding labeller who endorsed the engine's refusals. The cost
+  ledger is complete, and the report itself notes that an agreement gain is not a
+  justification: a gate that declines to judge on poor data may be doing its
+  epistemic job.
+- **Golden impact, checked by recomputation**: every golden-pinned artefact is
+  tested against the candidate over its underlying packaged corpus — verdict
+  flips for outcome-backed goldens, verdict-or-detector-band changes for the
+  scoring goldens, and a full audit-output comparison for the audit golden (the
+  audit reads `coercion_moderate`, so coercion changes flag it; data-gate changes
+  do not) — or honestly marked `unchecked` where a golden depends on
+  non-packaged data. Dryness is itself under test: `DEFAULT_PROFILES` and every
+  verdict under the built-ins are asserted unchanged after a run. CLI:
+  `littleboy tune --set param=value [--set ...] [--base strict]
+  [--independent|--external] [--no-goldens] [--format json]`.
+
+Deterministic, typed, evaluation-only, additive — the verdict itself is unchanged.
+See [`docs/CALIBRATION.md`](docs/CALIBRATION.md).
+
 ## How evidence is represented
 
 An `EvidenceSet` holds `EvidenceItem`s, each a `claim` plus its `source_type`
@@ -825,6 +861,7 @@ src/littleboy/
     stats.py        # stdlib-only Student-t CDF, corrected-t machinery, exact sign test
     explain.py      # disagreement explanations: trace diffs, parameter + fact accounts, classification
     diagnosis.py    # corpus-level diagnosis: classification fractions, recurring accounts, tuning agenda
+    tuner.py        # dry-run tuner: candidate profile, every flip/stakeholder delta, golden impact
     audit_corpus.json     # the packaged, self-contained audit calibration corpus
     scoring_corpus.json   # the packaged scoring-layer calibration corpus
     outcome_corpus.json   # the packaged held-out, human-labelled outcome corpus
@@ -833,7 +870,7 @@ src/littleboy/
   reasoning/
     report.py       # JSON / text rendering
     experiment.py   # EthicalExperiment runner (falsificatory + heuristic)
-  cli.py            # evaluate / experiment / questions / build-case / templates / analyze-language / compare / temporal / audit / deliberate / calibrate / recommend-policy / explain-disagreement / diagnose
+  cli.py            # evaluate / experiment / questions / build-case / templates / analyze-language / compare / temporal / audit / deliberate / calibrate / recommend-policy / explain-disagreement / diagnose / tune
 tests/              # pytest suite (incl. golden/ for calibration regression)
 examples/           # sample JSON cases (incl. partial_*, language_*, comparison_*, temporal_*, audit_*, voi_*)
 docs/               # ARCHITECTURE, ETHICAL_MODEL, RULE_ENGINE, POLICY_PROFILES,
@@ -858,7 +895,7 @@ pip install -e ".[dev]"     # pydantic, pytest, typer, ruff
 ## Running the tests
 
 ```bash
-pytest                      # 294 tests
+pytest                      # 310 tests
 ruff check src tests        # lint (optional)
 ```
 
@@ -902,6 +939,7 @@ littleboy explain-disagreement examples/policy_permissive_case.json --against pe
 littleboy explain-disagreement policy_strict_borderline --independent --against cleo       # a 'both' case: policy OR fact route
 littleboy explain-disagreement --all --external --against hana            # one line per disagreement + classification tally
 littleboy diagnose --external --against hana                              # corpus-level diagnosis: fractions, recurring accounts, agenda
+littleboy tune --set min_data_quality_for_approval=0.25 --external        # DRY-RUN a candidate change: every flip, every stakeholder, every golden
 littleboy build-case --minimal --from examples/voi_consent_pivotal.json --strategy lookahead
 littleboy templates                                                       # list scenario templates
 littleboy version
@@ -1082,23 +1120,23 @@ make consequential decisions about real people.
 
 ## Current development status
 
-**v0.20 — the corpus-level diagnosis report.** Implemented on top of v0.19.
-`diagnose_disagreements` aggregates the engine-verified per-case explanations
-into one auditable report per (labeller × policy): agreement with a Wilson
-interval against the inter-labeller ceiling; the disagreement decomposed into
-`policy-bridgeable` / `fact-bridgeable` / `both` / `neither` fractions (each with
-its interval, summing to the disagreement count); the **recurring bridging
-parameters and facts** ranked by how many disagreements each would align (counted
-once per case, with the case ids); a human-readable **tuning agenda** ending in a
-review line for the genuine-divergence cases; and the per-case classification
-index so every number drills back down. Consistency is pinned by tests: the
-diagnosis agreement equals the reliability table's exact accuracy, and the
-fractions equal the per-case classification tally. On the external set vs `hana`:
-agreement 0.38, divergence 68% genuine (CI [0.48, 0.83]), the data gate bridging
-4/25 and consequence unknowns 4/25 — a reliability number turned into a work
-list. New CLI `diagnose` (`--against`, `--split`, corpus flags, text/JSON); a
-diagnosis golden file; a 294-test suite (all passing). Purely additive — the
-verdict itself is unchanged.
+**v0.21 — the dry-run tuner.** Implemented on top of v0.20. `tune_dry_run` /
+`candidate_profile` build a validated candidate policy (overrides validated and
+coerced through `PolicyProfile` itself; unknown names and out-of-range values
+rejected) and report its full before/after impact with **nothing silent**: every
+verdict flip with its direction and a transition summary; agreement with **every
+labeller and the consensus**, per split, before vs after, with Wilson intervals
+and deltas; net deltas per stakeholder (on the diagnosis's top agenda item —
+lowering the data gate to 0.25 — emil +0.075, hana/consensus +0.05, **fay
+−0.075**: the cost stated); and **which golden files would break** if adopted,
+each checked by recomputation over its underlying packaged corpus (verdict flips;
+detector-band changes for scoring; full audit-output comparison for the audit
+golden, which reads `coercion_moderate`) or honestly marked unchecked. Dryness is
+itself under test: `DEFAULT_PROFILES` and the verdicts under the built-ins are
+asserted unchanged after a run, and the report warns that an agreement gain is
+not by itself a justification. New CLI `tune` (`--set param=value` repeatable,
+`--base`, corpus flags, `--no-goldens`, text/JSON); a tuning-impact golden file; a
+310-test suite (all passing). Purely additive — the verdict itself is unchanged.
 
 Earlier phases delivered the core models; coercion/data-quality/evidence scoring;
 consent/agency models; the tri-state Axiom 3 justification; feasibility-aware
@@ -1115,8 +1153,9 @@ agreement & policy recommendation; the v0.15 real-labels CSV import &
 single-split fitted-threshold recommender; the v0.16 cross-validated fitting &
 16-case independent panel; the v0.17 calibrated CV inference & 40-case external
 set; the v0.18 case-level disagreement explanations (trace diffs + minimal
-parameter accounts); and the v0.19 fact accounts & unified classification. All
-v0.1–v0.19 inputs remain valid.
+parameter accounts); the v0.19 fact accounts & unified classification; and the
+v0.20 corpus-level diagnosis report (fractions, recurring accounts, tuning
+agenda). All v0.1–v0.20 inputs remain valid.
 
 **Deliberately not built:** any web UI, any LLM/API integration, any opaque bias
 detection, any prediction that looks certain, any claim to absolute truth, any
@@ -1127,14 +1166,13 @@ to interrogate, not more dogmatic**.
 
 - Collect labels from **people genuinely unconnected to the project** for the
   external case bank (each case's description already states its facts; the CSV
-  path, agreement, reliability, recommendation, inference, explanations, and the
-  diagnosis all run unchanged), and publish the resulting real agreement, gain
-  inference, and diagnosis report.
-- Close the loop from agenda to action: a **dry-run tuner** that takes one agenda
-  item (a parameter change or a rule adjustment), applies it as a candidate
-  profile, and reports the full before/after impact — reliability on every
-  labeller, the dev/holdout splits, and the golden diffs it would cause — so a
-  tuning decision is made with its costs visible, never silently.
+  path, agreement, reliability, recommendation, inference, explanations,
+  diagnosis, and the tuner all run unchanged), and publish the resulting real
+  agreement, gain inference, and diagnosis report.
+- A **named custom-policy file**: let a vetted candidate (a tuned `PolicyProfile`
+  as JSON) be saved, loaded by every CLI command via `--policy my_policy.json`,
+  and carried in reports as a first-class, named profile — adoption as data, with
+  the built-ins untouched and the tuner's impact report archived alongside.
 - Let `intake_hints` declare fully custom unknowns (probe fields, resolutions, costs,
   and probabilities) so domains beyond the built-in fields can drive the planner —
   which would also widen the fact-account vocabulary case by case.

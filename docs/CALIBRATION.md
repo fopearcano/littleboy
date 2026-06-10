@@ -540,6 +540,54 @@ littleboy diagnose --external                             # vs the panel consens
 littleboy diagnose --external --against hana --split holdout --format json
 ```
 
+### The dry-run tuner (v0.21)
+
+The diagnosis ends in a tuning agenda; `tune_dry_run` closes the loop from agenda
+to **decision** — without ever touching the built-in profiles. Given a base policy
+and parameter overrides (validated and coerced through `PolicyProfile` itself, so
+garbage is rejected exactly as it would be anywhere else), it reports the full
+before/after impact with **nothing silent**:
+
+- **every verdict flip**, with its direction (`gains a verdict`, `declines to
+  insufficient data`, `more`/`less permissive`) and a transition summary;
+- **agreement with every labeller and the consensus**, per split, before vs after,
+  each with Wilson intervals and deltas — so the cost to one stakeholder of
+  pleasing another is on the table;
+- **which golden files would break** if the change were adopted, each checked by
+  *recomputation* over its underlying packaged corpus (verdict flips for the
+  outcome-backed goldens; verdict-or-detector-band changes for the scoring
+  goldens; full audit-output comparison for the audit golden, which reads
+  `coercion_moderate`) — or honestly marked `unchecked` where the golden depends
+  on non-packaged data.
+
+The flagship example — the diagnosis's top agenda item,
+`min_data_quality_for_approval: 0.35 -> 0.25` on the external set:
+
+```text
+TUNE (dry run): 'standard' + 1 change(s) on n=40
+  verdict flips: 3/40   (all: INSUFFICIENT_DATA -> NOT_ACCEPTABLE, "gains a verdict")
+  stakeholder agreement (exact, before -> after):
+    emil  holdout  0.35 -> 0.45 (+0.10)   <- gains
+    fay   holdout  0.50 -> 0.40 (-0.10)   <- loses
+  net deltas: consensus +0.050  emil +0.075  fay -0.075  hana +0.050 ...
+  golden impact: WOULD BREAK cv_gain_inference, disagreement_diagnosis, scoring_generated
+```
+
+The decision picture is complete: the change pleases emil, hana and the consensus,
+**costs fay** (the epistemically-demanding labeller who endorsed the engine's
+refusals) exactly what it gains emil, and would require regenerating three named
+golden files deliberately. The report says so itself: *an improvement in agreement
+is not by itself a justification — a gate that declines to judge on poor data may
+be doing its epistemic job.* Dryness is under test: `DEFAULT_PROFILES` and every
+verdict under the built-ins are asserted unchanged after a run. Pinned by
+`tests/golden/tuning_impact.golden.json`.
+
+```bash
+littleboy tune --set min_data_quality_for_approval=0.25 --external      # the full impact
+littleboy tune --set coercion_moderate=0.2 --base strict --independent  # any base, any corpus
+littleboy tune --set min_confidence=0.2 --external --no-goldens --format json
+```
+
 ## Limitations
 
 - The **audit corpus** is small and hand-labelled: its rates are calibration
@@ -593,6 +641,14 @@ littleboy diagnose --external --against hana --split holdout --format json
   labeller by loosening the data gate may be exactly the wrong move if the gate
   is doing its epistemic job. The numbers say where alignment is cheap, not
   where it is right.
+- The **dry-run tuner** (v0.21) measures impact on the corpora it is given and
+  on the packaged golden corpora — not on the world. Its golden checks are by
+  recomputation but at the granularity stated in each reason (verdict flips,
+  detector bands, audit dumps); fitting goldens derive candidate grids from the
+  base profile, so a base change can affect them even without verdict flips
+  (the report says so, and defers to pytest for certainty). And the same caveat
+  as the agenda, doubled: the tuner shows the complete cost ledger of a change;
+  it does not — and cannot — say whether the change is *right*.
 - Golden-file pinning catches drift but does not *validate* correctness — a wrong
   expectation, once frozen, stays wrong until a human revisits it.
 - The scoring-layer detectors are deliberately coarse (a coercion band, the data

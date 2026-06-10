@@ -1,0 +1,368 @@
+{
+  "base_policy": "standard",
+  "changes": {
+    "min_data_quality_for_approval": "0.35 -> 0.25"
+  },
+  "corpus_title": "External hand-authored outcome set (v0.17, 40 cases x 5 labellers)",
+  "n_cases": 40,
+  "n_flips": 3,
+  "flips": [
+    {
+      "case_id": "ext-0004",
+      "split": "dev",
+      "before": "INSUFFICIENT_DATA",
+      "after": "NOT_ACCEPTABLE",
+      "direction": "gains a verdict"
+    },
+    {
+      "case_id": "ext-0007",
+      "split": "holdout",
+      "before": "INSUFFICIENT_DATA",
+      "after": "NOT_ACCEPTABLE",
+      "direction": "gains a verdict"
+    },
+    {
+      "case_id": "ext-0019",
+      "split": "holdout",
+      "before": "INSUFFICIENT_DATA",
+      "after": "NOT_ACCEPTABLE",
+      "direction": "gains a verdict"
+    }
+  ],
+  "flip_summary": {
+    "INSUFFICIENT_DATA -> NOT_ACCEPTABLE": 3
+  },
+  "stakeholder_impacts": [
+    {
+      "target": "consensus",
+      "split": "dev",
+      "n": 20,
+      "before_correct": 9,
+      "after_correct": 10,
+      "before_accuracy": 0.45,
+      "before_ci": {
+        "low": 0.2582,
+        "high": 0.6579
+      },
+      "after_accuracy": 0.5,
+      "after_ci": {
+        "low": 0.2993,
+        "high": 0.7007
+      },
+      "delta": 0.05,
+      "before_disposition_accuracy": 0.5,
+      "after_disposition_accuracy": 0.55,
+      "disposition_delta": 0.05
+    },
+    {
+      "target": "consensus",
+      "split": "holdout",
+      "n": 20,
+      "before_correct": 10,
+      "after_correct": 11,
+      "before_accuracy": 0.5,
+      "before_ci": {
+        "low": 0.2993,
+        "high": 0.7007
+      },
+      "after_accuracy": 0.55,
+      "after_ci": {
+        "low": 0.3421,
+        "high": 0.7418
+      },
+      "delta": 0.05,
+      "before_disposition_accuracy": 0.7,
+      "after_disposition_accuracy": 0.8,
+      "disposition_delta": 0.1
+    },
+    {
+      "target": "dora",
+      "split": "dev",
+      "n": 20,
+      "before_correct": 10,
+      "after_correct": 10,
+      "before_accuracy": 0.5,
+      "before_ci": {
+        "low": 0.2993,
+        "high": 0.7007
+      },
+      "after_accuracy": 0.5,
+      "after_ci": {
+        "low": 0.2993,
+        "high": 0.7007
+      },
+      "delta": 0.0,
+      "before_disposition_accuracy": 0.55,
+      "after_disposition_accuracy": 0.6,
+      "disposition_delta": 0.05
+    },
+    {
+      "target": "dora",
+      "split": "holdout",
+      "n": 20,
+      "before_correct": 10,
+      "after_correct": 10,
+      "before_accuracy": 0.5,
+      "before_ci": {
+        "low": 0.2993,
+        "high": 0.7007
+      },
+      "after_accuracy": 0.5,
+      "after_ci": {
+        "low": 0.2993,
+        "high": 0.7007
+      },
+      "delta": 0.0,
+      "before_disposition_accuracy": 0.7,
+      "after_disposition_accuracy": 0.8,
+      "disposition_delta": 0.1
+    },
+    {
+      "target": "emil",
+      "split": "dev",
+      "n": 20,
+      "before_correct": 5,
+      "after_correct": 6,
+      "before_accuracy": 0.25,
+      "before_ci": {
+        "low": 0.1119,
+        "high": 0.4687
+      },
+      "after_accuracy": 0.3,
+      "after_ci": {
+        "low": 0.1455,
+        "high": 0.519
+      },
+      "delta": 0.05,
+      "before_disposition_accuracy": 0.3,
+      "after_disposition_accuracy": 0.35,
+      "disposition_delta": 0.05
+    },
+    {
+      "target": "emil",
+      "split": "holdout",
+      "n": 20,
+      "before_correct": 7,
+      "after_correct": 9,
+      "before_accuracy": 0.35,
+      "before_ci": {
+        "low": 0.1812,
+        "high": 0.5671
+      },
+      "after_accuracy": 0.45,
+      "after_ci": {
+        "low": 0.2582,
+        "high": 0.6579
+      },
+      "delta": 0.1,
+      "before_disposition_accuracy": 0.5,
+      "after_disposition_accuracy": 0.6,
+      "disposition_delta": 0.1
+    },
+    {
+      "target": "fay",
+      "split": "dev",
+      "n": 20,
+      "before_correct": 18,
+      "after_correct": 17,
+      "before_accuracy": 0.9,
+      "before_ci": {
+        "low": 0.699,
+        "high": 0.9721
+      },
+      "after_accuracy": 0.85,
+      "after_ci": {
+        "low": 0.6396,
+        "high": 0.9476
+      },
+      "delta": -0.05,
+      "before_disposition_accuracy": 0.9,
+      "after_disposition_accuracy": 0.85,
+      "disposition_delta": -0.05
+    },
+    {
+      "target": "fay",
+      "split": "holdout",
+      "n": 20,
+      "before_correct": 10,
+      "after_correct": 8,
+      "before_accuracy": 0.5,
+      "before_ci": {
+        "low": 0.2993,
+        "high": 0.7007
+      },
+      "after_accuracy": 0.4,
+      "after_ci": {
+        "low": 0.2188,
+        "high": 0.6134
+      },
+      "delta": -0.1,
+      "before_disposition_accuracy": 0.8,
+      "after_disposition_accuracy": 0.7,
+      "disposition_delta": -0.1
+    },
+    {
+      "target": "gus",
+      "split": "dev",
+      "n": 20,
+      "before_correct": 4,
+      "after_correct": 4,
+      "before_accuracy": 0.2,
+      "before_ci": {
+        "low": 0.0807,
+        "high": 0.416
+      },
+      "after_accuracy": 0.2,
+      "after_ci": {
+        "low": 0.0807,
+        "high": 0.416
+      },
+      "delta": 0.0,
+      "before_disposition_accuracy": 0.3,
+      "after_disposition_accuracy": 0.35,
+      "disposition_delta": 0.05
+    },
+    {
+      "target": "gus",
+      "split": "holdout",
+      "n": 20,
+      "before_correct": 2,
+      "after_correct": 2,
+      "before_accuracy": 0.1,
+      "before_ci": {
+        "low": 0.0279,
+        "high": 0.301
+      },
+      "after_accuracy": 0.1,
+      "after_ci": {
+        "low": 0.0279,
+        "high": 0.301
+      },
+      "delta": 0.0,
+      "before_disposition_accuracy": 0.45,
+      "after_disposition_accuracy": 0.5,
+      "disposition_delta": 0.05
+    },
+    {
+      "target": "hana",
+      "split": "dev",
+      "n": 20,
+      "before_correct": 6,
+      "after_correct": 7,
+      "before_accuracy": 0.3,
+      "before_ci": {
+        "low": 0.1455,
+        "high": 0.519
+      },
+      "after_accuracy": 0.35,
+      "after_ci": {
+        "low": 0.1812,
+        "high": 0.5671
+      },
+      "delta": 0.05,
+      "before_disposition_accuracy": 0.5,
+      "after_disposition_accuracy": 0.55,
+      "disposition_delta": 0.05
+    },
+    {
+      "target": "hana",
+      "split": "holdout",
+      "n": 20,
+      "before_correct": 9,
+      "after_correct": 10,
+      "before_accuracy": 0.45,
+      "before_ci": {
+        "low": 0.2582,
+        "high": 0.6579
+      },
+      "after_accuracy": 0.5,
+      "after_ci": {
+        "low": 0.2993,
+        "high": 0.7007
+      },
+      "delta": 0.05,
+      "before_disposition_accuracy": 0.7,
+      "after_disposition_accuracy": 0.8,
+      "disposition_delta": 0.1
+    }
+  ],
+  "net_deltas": {
+    "consensus": 0.05,
+    "dora": 0.0,
+    "emil": 0.075,
+    "fay": -0.075,
+    "gus": 0.0,
+    "hana": 0.05
+  },
+  "golden_impacts": [
+    {
+      "golden": "outcome_reliability.golden.json",
+      "checked": true,
+      "would_break": false,
+      "reason": "no verdict changes on its corpus"
+    },
+    {
+      "golden": "labelled_outcome_reliability.golden.json",
+      "checked": true,
+      "would_break": false,
+      "reason": "no verdict changes on its corpus"
+    },
+    {
+      "golden": "cv_gain_inference.golden.json",
+      "checked": true,
+      "would_break": true,
+      "reason": "3 verdict(s) change on its corpus under the modified 'standard'"
+    },
+    {
+      "golden": "disagreement_diagnosis.golden.json",
+      "checked": true,
+      "would_break": true,
+      "reason": "3 verdict(s) change on its corpus under the modified 'standard'"
+    },
+    {
+      "golden": "fitted_policy.golden.json",
+      "checked": true,
+      "would_break": false,
+      "reason": "no verdict changes on its corpus"
+    },
+    {
+      "golden": "cross_validated_fit.golden.json",
+      "checked": true,
+      "would_break": false,
+      "reason": "no verdict changes on its corpus"
+    },
+    {
+      "golden": "scoring_corpus.golden.json",
+      "checked": true,
+      "would_break": false,
+      "reason": "no verdict or detector-band changes"
+    },
+    {
+      "golden": "scoring_generated.golden.json",
+      "checked": true,
+      "would_break": true,
+      "reason": "1 case(s) change verdict or coercion-detector band"
+    },
+    {
+      "golden": "audit_corpus.golden.json",
+      "checked": true,
+      "would_break": false,
+      "reason": "no audit outputs change"
+    },
+    {
+      "golden": "disagreement_explanation.golden.json",
+      "checked": false,
+      "would_break": false,
+      "reason": "depends on a repository example case, not packaged data; run pytest to check"
+    }
+  ],
+  "notes": [
+    "DRY RUN: the built-in profiles are untouched; this report says what WOULD change",
+    "3 of 40 verdicts flip under the candidate",
+    "net agreement rises for: consensus, emil, hana",
+    "net agreement falls for: fay -- the cost of this change, stated",
+    "if adopted, golden files to regenerate deliberately: cv_gain_inference.golden.json, disagreement_diagnosis.golden.json, scoring_generated.golden.json",
+    "fitting goldens derive candidate grids from the base profile; a base change can affect them even without verdict flips -- run pytest to be certain",
+    "an improvement in agreement is not by itself a justification: a gate that declines to judge on poor data may be doing its epistemic job (see docs/CALIBRATION.md)"
+  ]
+}

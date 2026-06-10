@@ -40,6 +40,8 @@ from littleboy.calibration import (
     ScoringCalibrationReport,
     ScoringCorpus,
     ThresholdSet,
+    TuningImpact,
+    candidate_profile,
     cross_validate_threshold_policy,
     cv_gain_inference,
     default_corpus,
@@ -66,6 +68,7 @@ from littleboy.calibration import (
     run_corpus,
     run_reliability,
     run_scoring_corpus,
+    tune_dry_run,
 )
 from littleboy.case_builder import (
     CaseBuilder,
@@ -192,7 +195,7 @@ from littleboy.temporal import (
     score_reversibility,
 )
 
-__version__ = "0.20.0"
+__version__ = "0.21.0"
 
 __all__ = [
     "AuditCorpus",
@@ -218,6 +221,8 @@ __all__ = [
     "ScoringCalibrationReport",
     "ScoringCorpus",
     "ThresholdSet",
+    "TuningImpact",
+    "candidate_profile",
     "cheapest_flip_set",
     "comparison_value_of_information",
     "cross_validate_threshold_policy",
@@ -251,6 +256,7 @@ __all__ = [
     "run_minimal_intake",
     "run_reliability",
     "run_scoring_corpus",
+    "tune_dry_run",
     "value_of_information",
     "BUILTIN_RULES",
     "ActionCase",

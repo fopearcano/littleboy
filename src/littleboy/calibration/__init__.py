@@ -55,6 +55,7 @@ from littleboy.calibration.models import (
     CalibrationOutcome,
     CalibrationReport,
     CaseDigest,
+    CaseFlip,
     ConfidenceInterval,
     CorpusEntry,
     CrossValidatedFit,
@@ -64,6 +65,7 @@ from littleboy.calibration.models import (
     DisagreementExplanation,
     FittedPolicy,
     FoldResult,
+    GoldenImpact,
     InterRaterAgreement,
     LabelerVerdict,
     LayerExpectation,
@@ -79,9 +81,11 @@ from littleboy.calibration.models import (
     ScoringCorpus,
     ScoringCorpusEntry,
     SplitReliability,
+    StakeholderImpact,
     ThresholdFlip,
     ThresholdSet,
     TraceDelta,
+    TuningImpact,
 )
 from littleboy.calibration.reliability import (
     default_external_outcome_corpus,
@@ -102,12 +106,18 @@ from littleboy.calibration.scoring import (
     scoring_golden_payload,
     wilson_ci,
 )
+from littleboy.calibration.tuner import (
+    candidate_profile,
+    tune_dry_run,
+    tuning_golden_payload,
+)
 
 __all__ = [
     "AuditCorpus",
     "CalibrationOutcome",
     "CalibrationReport",
     "CaseDigest",
+    "CaseFlip",
     "ConfidenceInterval",
     "CorpusEntry",
     "CrossValidatedFit",
@@ -117,6 +127,7 @@ __all__ = [
     "DisagreementExplanation",
     "FittedPolicy",
     "FoldResult",
+    "GoldenImpact",
     "InterRaterAgreement",
     "LabelerVerdict",
     "LayerExpectation",
@@ -132,11 +143,14 @@ __all__ = [
     "ScoringCorpus",
     "ScoringCorpusEntry",
     "SplitReliability",
+    "StakeholderImpact",
     "ThresholdFlip",
     "ThresholdSet",
     "TraceDelta",
+    "TuningImpact",
     "aggregate",
     "apply_labels",
+    "candidate_profile",
     "consensus_verdict",
     "cross_validate_threshold_policy",
     "cross_validated_fit_golden_payload",
@@ -180,5 +194,7 @@ __all__ = [
     "run_scoring_corpus",
     "score_entry",
     "scoring_golden_payload",
+    "tune_dry_run",
+    "tuning_golden_payload",
     "wilson_ci",
 ]

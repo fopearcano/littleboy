@@ -601,3 +601,82 @@ class DisagreementDiagnosis(_CalBase):
     tuning_agenda: list[str] = Field(default_factory=list)
     agreement_ceiling: float | None = None
     notes: list[str] = Field(default_factory=list)
+
+
+# =============================================================================
+# Dry-run tuning (v0.21): the full before/after impact of a candidate change
+# =============================================================================
+
+
+class CaseFlip(_CalBase):
+    """One case whose verdict changes under the candidate profile."""
+
+    case_id: str
+    split: str = ""
+    before: Verdict
+    after: Verdict
+    direction: str = Field(
+        default="",
+        description=(
+            "'more permissive' | 'less permissive' | 'gains a verdict' (was insufficient) "
+            "| 'declines to insufficient data'."
+        ),
+    )
+
+
+class StakeholderImpact(_CalBase):
+    """Agreement with one labeller on one split, before vs after the candidate change."""
+
+    target: str
+    split: str
+    n: int = 0
+    before_correct: int = 0
+    after_correct: int = 0
+    before_accuracy: float = Field(default=0.0, ge=0.0, le=1.0)
+    before_ci: ConfidenceInterval = Field(default_factory=ConfidenceInterval)
+    after_accuracy: float = Field(default=0.0, ge=0.0, le=1.0)
+    after_ci: ConfidenceInterval = Field(default_factory=ConfidenceInterval)
+    delta: float = Field(default=0.0, ge=-1.0, le=1.0)
+    before_disposition_accuracy: float = Field(default=0.0, ge=0.0, le=1.0)
+    after_disposition_accuracy: float = Field(default=0.0, ge=0.0, le=1.0)
+    disposition_delta: float = Field(default=0.0, ge=-1.0, le=1.0)
+
+
+class GoldenImpact(_CalBase):
+    """Whether one golden-pinned artefact would change if the candidate were adopted."""
+
+    golden: str
+    checked: bool = True
+    would_break: bool = False
+    reason: str = ""
+
+
+class TuningImpact(_CalBase):
+    """The full before/after impact of a candidate parameter change. Strictly dry-run.
+
+    Nothing is silent: every flipped verdict is listed, agreement with every
+    labeller (and the consensus) is reported per split with intervals and deltas,
+    and the golden-pinned artefacts that would break if the change were adopted
+    into the base profile are named. The built-in profiles are never modified --
+    this report says what *would* change, so the decision is made with its costs
+    visible.
+    """
+
+    base_policy: str
+    changes: dict[str, str] = Field(
+        default_factory=dict, description="Every changed parameter, as 'before -> after'."
+    )
+    corpus_title: str = ""
+    n_cases: int = 0
+    n_flips: int = 0
+    flips: list[CaseFlip] = Field(default_factory=list)
+    flip_summary: dict[str, int] = Field(
+        default_factory=dict, description="'BEFORE -> AFTER' verdict transition -> count."
+    )
+    stakeholder_impacts: list[StakeholderImpact] = Field(default_factory=list)
+    net_deltas: dict[str, float] = Field(
+        default_factory=dict,
+        description="target -> exact-agreement delta over all considered cases.",
+    )
+    golden_impacts: list[GoldenImpact] = Field(default_factory=list)
+    notes: list[str] = Field(default_factory=list)
