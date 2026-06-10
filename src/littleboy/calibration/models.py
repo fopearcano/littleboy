@@ -391,3 +391,46 @@ class CrossValidatedFit(_CalBase):
     )
     agreement_ceiling: float | None = None
     notes: list[str] = Field(default_factory=list)
+
+
+class CVGainInference(_CalBase):
+    """Calibrated inference on the fitting gain: a real p-value, not a rule of thumb.
+
+    Over ``repeats`` repetitions of stratified ``k``-fold CV, the per-fold gains
+    (fitted minus nearest built-in, both scored on the fold's held-out part) are
+    tested with the **Nadeau-Bengio corrected resampled t-test**, whose variance
+    correction ``(1/m + 1/(k-1))`` accounts for the overlap between folds' training
+    sets -- repeating CV cannot manufacture confidence. The **exact sign test** over
+    paired out-of-fold predictions (first repetition) is the assumption-light
+    cross-check. ``fitting_helps`` is true only when the corrected p-value clears
+    ``alpha`` *and* the mean gain is positive.
+    """
+
+    target: str
+    metric: str = "disposition"
+    k: int = 0
+    repeats: int = 0
+    stratified: bool = True
+    n_cases: int = 0
+    n_fold_gains: int = 0
+    mean_gain: float = Field(default=0.0, ge=-1.0, le=1.0)
+    fold_gain_std: float = Field(default=0.0, ge=0.0, le=1.0)
+    corrected_se: float = Field(default=0.0, ge=0.0)
+    t_statistic: float = 0.0
+    df: int = 0
+    p_value: float = Field(default=1.0, ge=0.0, le=1.0)
+    alpha: float = Field(default=0.05, gt=0.0, lt=1.0)
+    ci_low: float = Field(default=0.0, ge=-1.0, le=1.0)
+    ci_high: float = Field(default=0.0, ge=-1.0, le=1.0)
+    ci_width: float = Field(default=0.0, ge=0.0, le=2.0)
+    sign_fitted_only: int = Field(
+        default=0, description="Out-of-fold cases only the fitted policy judged correctly."
+    )
+    sign_nearest_only: int = Field(
+        default=0, description="Out-of-fold cases only the nearest built-in judged correctly."
+    )
+    sign_test_p: float = Field(default=1.0, ge=0.0, le=1.0)
+    fitting_helps: bool = False
+    per_repetition_mean_gain: list[float] = Field(default_factory=list)
+    agreement_ceiling: float | None = None
+    notes: list[str] = Field(default_factory=list)

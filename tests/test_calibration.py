@@ -21,7 +21,10 @@ from littleboy.calibration import (
     consensus_verdict,
     cross_validate_threshold_policy,
     cross_validated_fit_golden_payload,
+    cv_gain_inference,
+    cv_gain_inference_golden_payload,
     default_corpus,
+    default_external_outcome_corpus,
     default_generated_scoring_corpus,
     default_independent_outcome_corpus,
     default_labelled_outcome_corpus,
@@ -43,6 +46,12 @@ from littleboy.calibration import (
     run_scoring_corpus,
     scoring_golden_payload,
     wilson_ci,
+)
+from littleboy.calibration.stats import (
+    sign_test_p,
+    student_t_cdf,
+    student_t_critical,
+    student_t_two_sided_p,
 )
 from littleboy.cli import app
 from littleboy.core.enums import Verdict
@@ -718,4 +727,156 @@ def test_cli_rejects_independent_and_labels_csv_together(tmp_path):
     result = runner.invoke(
         app, ["recommend-policy", "--independent", "--labels-csv", str(csv_path)]
     )
+    assert result.exit_code == 2
+
+
+# --- calibrated CV inference + the larger external labelled set (v0.17) ---
+
+
+INFERENCE_GOLDEN = Path(__file__).resolve().parent / "golden" / "cv_gain_inference.golden.json"
+
+
+def test_student_t_cdf_matches_closed_forms():
+    import math
+
+    # df=1 is the Cauchy distribution; df=2 has an algebraic CDF
+    assert abs(student_t_cdf(1.0, 1) - (0.5 + math.atan(1.0) / math.pi)) < 1e-12
+    assert abs(student_t_cdf(1.0, 2) - (0.5 + 1.0 / (2 * math.sqrt(3)))) < 1e-12
+    assert abs(student_t_cdf(-1.0, 2) - (0.5 - 1.0 / (2 * math.sqrt(3)))) < 1e-12
+    assert student_t_cdf(0.0, 7) == 0.5
+    # symmetry
+    assert abs(student_t_cdf(-2.3, 9) - (1.0 - student_t_cdf(2.3, 9))) < 1e-12
+
+
+def test_student_t_critical_inverts_the_cdf():
+    crit = student_t_critical(10, 0.05)
+    assert abs(crit - 2.2281) < 1e-3  # the classic two-sided 95% value for df=10
+    assert abs(student_t_two_sided_p(crit, 10) - 0.05) < 1e-6
+
+
+def test_sign_test_exact_values():
+    assert sign_test_p(8, 2) == 2 * 56 / 1024  # 0.109375, exactly
+    assert sign_test_p(10, 0) == 2 / 1024
+    assert sign_test_p(0, 0) == 1.0
+    assert sign_test_p(3, 3) == 1.0  # perfectly balanced disagreement
+
+
+def test_inference_is_deterministic():
+    corpus = generate_outcome_corpus(n=40, seed=0)
+    a = cv_gain_inference_golden_payload(
+        cv_gain_inference(corpus, "strict", k=4, repeats=3, **_FIT_GRID)
+    )
+    b = cv_gain_inference_golden_payload(
+        cv_gain_inference(corpus, "strict", k=4, repeats=3, **_FIT_GRID)
+    )
+    assert a == b
+
+
+def test_inference_finds_the_robust_gain_significant():
+    # the strict-stakeholder gain that v0.16 CV called robust now carries a real
+    # p-value: corrected t-test and exact sign test both clear alpha = 0.05.
+    inf = cv_gain_inference(
+        generate_outcome_corpus(n=160, seed=0), "strict", k=5, repeats=10, **_FIT_GRID
+    )
+    assert inf.fitting_helps is True
+    assert inf.p_value < 0.05
+    assert inf.sign_test_p < 0.05
+    assert inf.ci_low > 0.0  # the 95% interval excludes zero
+
+
+def test_inference_zero_variance_is_handled():
+    # a degenerate one-point grid equal to the standard thresholds: the fitted
+    # policy IS the nearest built-in, every fold gain is exactly zero
+    inf = cv_gain_inference(
+        generate_outcome_corpus(n=40, seed=0),
+        None,
+        k=4,
+        repeats=3,
+        moderate_grid=(0.30,),
+        max_grid=(0.60,),
+    )
+    assert inf.mean_gain == 0.0
+    assert inf.corrected_se == 0.0
+    assert inf.p_value == 1.0
+    assert inf.fitting_helps is False
+
+
+def test_inference_interval_tightens_with_n():
+    widths = {}
+    for n in (40, 160):
+        inf = cv_gain_inference(
+            generate_outcome_corpus(n=n, seed=0), "strict", k=5, repeats=10, **_FIT_GRID
+        )
+        widths[n] = inf.ci_width
+    assert widths[160] < widths[40]  # more cases -> a tighter interval on the gain
+
+
+def test_inference_repeats_cannot_manufacture_confidence():
+    # the Nadeau-Bengio correction floors the standard error at s * sqrt(1/(k-1));
+    # piling on repetitions shrinks only the 1/m term, never below the floor.
+    inf = cv_gain_inference(
+        generate_outcome_corpus(n=80, seed=0), "strict", k=5, repeats=20, **_FIT_GRID
+    )
+    floor = inf.fold_gain_std * (1.0 / (5 - 1)) ** 0.5
+    assert inf.corrected_se >= floor * 0.999
+
+
+def test_external_corpus_loads_40_cases_with_5_labelers():
+    ext = default_external_outcome_corpus()
+    assert len(ext.entries) == 40
+    assert {lv.labeler for e in ext.entries for lv in e.labels} == {
+        "dora",
+        "emil",
+        "fay",
+        "gus",
+        "hana",
+    }
+    assert all(len(e.labels) == 5 for e in ext.entries)
+    assert {e.split for e in ext.entries} == {"dev", "holdout"}
+
+
+def test_external_corpus_agreement_is_real_and_messy():
+    report = run_reliability(default_external_outcome_corpus())
+    irs = [s.inter_rater for s in report.splits if s.inter_rater is not None]
+    assert irs
+    for ir in irs:
+        assert ir.n_labelers == 5
+        assert 0.0 < ir.percent_agreement < 1.0
+        assert ir.fleiss_kappa < 0.7  # diverse cases, real disagreement
+
+
+def test_external_corpus_runs_through_the_existing_stack():
+    ext = default_external_outcome_corpus()
+    rec = recommend_policy_for_stakeholder(ext)
+    assert rec.recommended_policy in {"permissive", "standard", "strict", "precautionary"}
+    inf = cv_gain_inference(ext, None, k=5, repeats=3, **_FIT_GRID)
+    assert 0.0 <= inf.p_value <= 1.0
+    assert inf.agreement_ceiling is not None
+
+
+def test_cv_gain_inference_golden_regression():
+    payload = cv_gain_inference_golden_payload(
+        cv_gain_inference(default_external_outcome_corpus(), None, k=5, repeats=10)
+    )
+    if os.environ.get("LITTLEBOY_UPDATE_GOLDEN"):
+        INFERENCE_GOLDEN.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n")
+    expected = json.loads(INFERENCE_GOLDEN.read_text())
+    assert payload == expected, (
+        "CV gain inference drifted from the golden file; "
+        "re-run with LITTLEBOY_UPDATE_GOLDEN=1 if the change is intended"
+    )
+
+
+def test_cli_recommend_policy_inference_works():
+    result = runner.invoke(
+        app,
+        ["recommend-policy", "--external", "--inference", "--folds", "4", "--repeats", "3"],
+    )
+    assert result.exit_code == 0
+    assert "GAIN INFERENCE" in result.stdout
+    assert "p =" in result.stdout
+
+
+def test_cli_rejects_independent_and_external_together():
+    result = runner.invoke(app, ["recommend-policy", "--independent", "--external"])
     assert result.exit_code == 2

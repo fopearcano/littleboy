@@ -334,6 +334,62 @@ littleboy recommend-policy --independent                         # against the i
 littleboy recommend-policy --independent --cv                    # both together
 ```
 
+### Calibrated inference + a larger external set (v0.17)
+
+The v0.16 `fitting_helps` flag was a rule of thumb (mean gain minus one standard
+deviation). v0.17 replaces the heuristic with **real statistical inference**, and
+grows the external set so the inference has something to bite on. Everything is
+stdlib-only and exact (`calibration/stats.py` implements the Student-t CDF from the
+regularised incomplete beta by continued fraction, tested against closed forms).
+
+**The corrected resampled t-test.** CV fold gains are *not* independent — every
+fold shares most of its training data with every other — so a naive t-test over
+fold gains is overconfident. `cv_gain_inference` runs **repeated, stratified
+k-fold CV** (folds balanced by disposition class, a different deterministic
+partition per repetition) and applies the **Nadeau–Bengio correction**: the
+variance is `s² · (1/m + 1/(k−1))`, whose `1/(k−1)` train/test-overlap term means
+**repeating CV cannot manufacture confidence** (the standard error is floored at
+`s/√(k−1)`, a property under test). The result is a mean gain over the nearest
+built-in with a **95% confidence interval and a real p-value**. The
+assumption-light cross-check is an **exact sign test** over paired out-of-fold
+predictions: among cases where exactly one side was right, the p-value is an exact
+binomial tail. `fitting_helps` is now `p < alpha` *and* a positive mean.
+
+On the synthetic 160-case panel, the `strict`-stakeholder gain that v0.16 could
+only call "robust" now carries numbers: **mean +0.069, 95% CI [+0.029, +0.108],
+corrected t = 3.49 (df = 49), p = 0.0010**, with the sign test agreeing
+(fitted-only correct 11, nearest-only 0, p = 0.0010). And the interval **tightens
+as n grows**, turning non-significance into significance honestly:
+
+| n (cases) | mean gain | 95% CI | width | p |
+|-----------|-----------|--------|-------|------|
+| 40 | +0.050 | [−0.015, +0.115] | 0.129 | 0.126 |
+| 80 | +0.050 | [+0.004, +0.096] | 0.091 | 0.033 |
+| 160 | +0.069 | [+0.029, +0.108] | 0.079 | 0.001 |
+
+**A larger external set: 40 diverse cases × 5 labellers.** The 16-case v0.16 set
+was too small for inference. `external_case_bank` deterministically generates **40
+cases that vary every axis a human judge weighs** (severity, data adequacy,
+consent, reversibility, evidence presence — so "insufficient data" is a live
+option), each carrying its salient facts in its description for auditability. The
+labels in `external_labels.csv` were **hand-authored per case against those facts**
+by five labellers with different temperaments (mainstream / severity-driven /
+epistemically-demanding / lenient-under-consent / consent-protective) — written
+without consulting the engine's output and not computed by any rule in this
+codebase. Their agreement is genuinely messy (dev percent agreement ~0.56, Fleiss
+kappa ~0.28; holdout ~0.73, kappa ~0.53), and policy reliabilities are far lower
+than on the easy fully-specified panel (holdout disposition 0.40–0.85, `permissive`
+leading). On this set the inference reports **mean gain −0.020, p = 0.41** —
+fitting does **not** demonstrably beat the nearest built-in here, and now that's a
+calibrated statement, not a hunch. Pinned by
+`tests/golden/cv_gain_inference.golden.json`.
+
+```bash
+littleboy recommend-policy --stakeholder strict --inference      # p-value on the fitting gain
+littleboy recommend-policy --external                            # the 40-case x 5-labeller set
+littleboy recommend-policy --external --inference --repeats 10   # both together
+```
+
 ## Limitations
 
 - The **audit corpus** is small and hand-labelled: its rates are calibration
@@ -359,16 +415,18 @@ littleboy recommend-policy --independent --cv                    # both together
 - The **fitted-threshold policy** fits the two coercion thresholds (and, optionally,
   the data-quality gate and irreversibility floor) over a fixed grid, holding every
   other parameter at the base profile's value; it is not a general optimiser.
-  **Cross-validation** (v0.16) reports the fitting procedure's gain as a mean ±
-  spread rather than one holdout point, which is more honest — but it is still a
-  grid search over a synthetic or tiny corpus, and "fitting helps" remains a claim
-  bounded by the inter-labeller ceiling, not a licence to chase the labels.
-- The **independent labelled set** (v0.16) is the most honest data here, imported
-  through the same CSV path real labels would use — but it is still only 16 cases
-  and its labels, while authored *independently of the engine's output*, were
-  written by the maintainers, not crowd-sourced from the public. Genuine external
-  validity needs many more cases labelled by genuinely unrelated people; the
-  machinery is in place, the data is not yet.
+  **Calibrated inference** (v0.17) gives the fitting gain a corrected-t p-value and
+  an exact sign test instead of a rule of thumb — but the Nadeau–Bengio correction
+  is itself an approximation (the exact CV variance is unidentifiable), the sign
+  test conditions on disagreements, and a significant gain is still bounded by the
+  inter-labeller ceiling, not a licence to chase the labels.
+- The **external labelled set** (v0.17: 40 diverse cases × 5 labellers, alongside
+  the 16-case v0.16 set) is the most honest data here, imported through the same
+  CSV path real labels would use — but its labels, while hand-authored per case
+  *without consulting the engine's output*, were still written by the maintainers,
+  not collected from genuinely unrelated people. Genuine external validity needs
+  exactly that collection step; the machinery (CSV import, inter-rater agreement,
+  reliability, recommendation, fitting, inference) is all in place, waiting for it.
 - Golden-file pinning catches drift but does not *validate* correctness — a wrong
   expectation, once frozen, stays wrong until a human revisits it.
 - The scoring-layer detectors are deliberately coarse (a coercion band, the data

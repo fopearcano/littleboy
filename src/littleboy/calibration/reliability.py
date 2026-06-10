@@ -36,6 +36,7 @@ from littleboy.rules.policy import PolicyProfile
 
 _OUTCOME_RESOURCE = "outcome_corpus.json"
 _INDEPENDENT_RESOURCE = "independent_labels.csv"
+_EXTERNAL_RESOURCE = "external_labels.csv"
 _SPLITS = ("dev", "holdout")
 _DISPOSITION_CLASSES = ("permissible", "impermissible", "insufficient")
 
@@ -90,6 +91,33 @@ def default_independent_outcome_corpus() -> OutcomeCorpus:
         labels_by_case,
         split_by_case,
         title="Independent hand-authored multi-labeller outcome set (v0.16)",
+    )
+
+
+def default_external_outcome_corpus() -> OutcomeCorpus:
+    """The packaged external set: 40 diverse cases x 5 hand-authored labellers (v0.17).
+
+    The case structures come from the deterministic ``external_case_bank``; the
+    labels live in ``external_labels.csv`` and were hand-authored per case against
+    the case facts -- five labellers with different temperaments, written without
+    consulting the engine's output and not computed by any rule in this codebase.
+    Imported via the v0.15 CSV path; splits alternate dev/holdout, holdout never
+    inspected during tuning. Still maintainer-authored stand-ins for genuinely
+    external labels (the docs say so plainly).
+    """
+    from littleboy.calibration.generator import external_case_bank
+
+    text = (
+        resources.files("littleboy.calibration")
+        .joinpath(_EXTERNAL_RESOURCE)
+        .read_text(encoding="utf-8")
+    )
+    labels_by_case, split_by_case = parse_labels_csv(text)
+    return apply_labels(
+        external_case_bank(),
+        labels_by_case,
+        split_by_case,
+        title="External hand-authored outcome set (v0.17, 40 cases x 5 labellers)",
     )
 
 

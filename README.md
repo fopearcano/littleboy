@@ -11,25 +11,28 @@ and returns a **transparent, explained verdict** with an honest account of its
 own uncertainty. It is a reasoning engine, not a user interface and not a
 language model.
 
-This is **v0.16**, which makes the fitted-policy claim **honest with a variance**
-and ships a genuinely independent labelled set to test it: **k-fold
-cross-validation** reports a fitted policy's gain over the nearest built-in as a
-**mean ± spread across folds** (each fold fit on its training part, scored on its
-held-out part) rather than one lucky holdout, the fitter can optionally tune the
-data-quality gate and irreversibility floor, and a packaged **independent
-three-person panel** — hand-authored without consulting the engine, imported via the
-v0.15 CSV path — lets the whole reliability/recommendation/fitting stack run against
-real, messier human disagreement (publishing its honestly lower inter-rater
-agreement). (v0.15 imported real labels from CSV and added the single-split
-fitted-threshold recommender; v0.14 grew the held-out set to a 160-case panel and
-added inter-labeller agreement + a policy-recommendation layer; v0.13 added
-external-validity calibration and globally-cost-optimal probabilistic planning;
-v0.12 let domains drive the planner and calibrated at scale with independent labels;
-v0.11 made minimal intake cost-aware and interactive; v0.10 added multi-fact value of
-information and the minimal-sufficient-case planner; v0.9 the deliberation &
-value-of-information layer; v0.8 adversarial audit & bias testing; v0.7 temporal &
-consequence modeling; v0.6 the comparison engine; v0.5 the language module; v0.4
-the scenario builder; v0.3 the rule engine and policy layer.) See
+This is **v0.17**, which gives the fitting gain a **real p-value** and a bigger
+external set to earn it on: `cv_gain_inference` runs **repeated, stratified k-fold
+CV** and applies the **Nadeau–Bengio corrected resampled t-test** (whose variance
+correction means repeating CV cannot manufacture confidence), cross-checked by an
+**exact sign test** on paired out-of-fold predictions — all stdlib-only, with the
+Student-t CDF implemented from the incomplete beta and tested against closed
+forms. A new packaged **external set of 40 diverse cases × 5 hand-authored
+labellers** (varying severity, data adequacy, consent, reversibility, evidence)
+exercises the whole stack on genuinely messy disagreement, and the gain interval
+demonstrably **tightens as n grows** (width 0.129 → 0.079 from n=40 → 160, with
+significance emerging honestly). (v0.16 added k-fold cross-validated fitting and a
+16-case independent panel; v0.15 imported real labels from CSV and added the
+single-split fitted-threshold recommender; v0.14 grew the held-out set to a
+160-case panel and added inter-labeller agreement + a policy-recommendation layer;
+v0.13 added external-validity calibration and globally-cost-optimal probabilistic
+planning; v0.12 let domains drive the planner and calibrated at scale with
+independent labels; v0.11 made minimal intake cost-aware and interactive; v0.10
+added multi-fact value of information and the minimal-sufficient-case planner;
+v0.9 the deliberation & value-of-information layer; v0.8 adversarial audit & bias
+testing; v0.7 temporal & consequence modeling; v0.6 the comparison engine; v0.5
+the language module; v0.4 the scenario builder; v0.3 the rule engine and policy
+layer.) See
 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md),
 [`docs/ETHICAL_MODEL.md`](docs/ETHICAL_MODEL.md),
 [`docs/RULE_ENGINE.md`](docs/RULE_ENGINE.md),
@@ -565,6 +568,39 @@ Deterministic, typed, stdlib-only, additive — the verdict itself is unchanged.
 Deterministic, typed, stdlib-only, additive — the verdict itself is unchanged. See
 [`docs/CALIBRATION.md`](docs/CALIBRATION.md).
 
+## LittleBoy v0.17: Calibrated inference & a larger external set
+
+> "Fitting helps" should be a statistical claim, not a hunch — a p-value from a
+> test that knows CV folds overlap, on a labelled set diverse enough to matter.
+
+- **Calibrated CV inference** (`cv_gain_inference`): repeated, **stratified**
+  k-fold CV (folds balanced by disposition; a different deterministic partition per
+  repetition), with the gain over the nearest built-in tested by the
+  **Nadeau–Bengio corrected resampled t-test** — its `s²·(1/m + 1/(k−1))` variance
+  correction accounts for overlapping training sets, so the standard error is
+  floored at `s/√(k−1)` and **repeating CV cannot manufacture confidence** (a
+  property under test). Cross-checked by an **exact sign test** over paired
+  out-of-fold predictions. All stdlib: `calibration/stats.py` implements the
+  Student-t CDF via the regularised incomplete beta (continued fraction), tested
+  against closed forms (Cauchy, df=2, symmetry). On the synthetic panel the
+  `strict` gain v0.16 called "robust" now reads **+0.069, 95% CI [+0.029, +0.108],
+  p = 0.0010** (sign test 11 vs 0, p = 0.0010), and the interval **tightens with
+  n**: width 0.129 (n=40, p=0.13) → 0.091 (n=80, p=0.03) → 0.079 (n=160, p=0.001).
+- **A larger external labelled set** (`default_external_outcome_corpus`):
+  `external_case_bank` deterministically generates **40 diverse cases** (severity,
+  data adequacy, consent, reversibility, and evidence all vary, so "insufficient
+  data" is a live option; each case's description states its facts for
+  auditability), and `external_labels.csv` carries **5 hand-authored labellers'**
+  verdicts per case — written against the case facts, without consulting the
+  engine's output, by five different temperaments. Agreement is genuinely messy
+  (dev kappa ~0.28), policy reliabilities drop to realistic levels (holdout
+  disposition 0.40–0.85), and the inference honestly reports that fitting does
+  **not** demonstrably help here (mean −0.020, p = 0.41). CLI:
+  `littleboy recommend-policy --external --inference`.
+
+Deterministic, typed, stdlib-only, additive — the verdict itself is unchanged. See
+[`docs/CALIBRATION.md`](docs/CALIBRATION.md).
+
 ## How evidence is represented
 
 An `EvidenceSet` holds `EvidenceItem`s, each a `claim` plus its `source_type`
@@ -686,11 +722,13 @@ src/littleboy/
     generator.py    # deterministic corpus generators: scoring (latent labels) + multi-labeller outcomes
     reliability.py  # external-validity reliability, inter-labeller agreement, per-stakeholder policy recommendation
     labels.py       # import real independent labels from CSV; transparent consensus; round-trip
-    fitting.py      # fit a threshold policy (single split + k-fold CV), shown vs the nearest built-in
+    fitting.py      # fit a threshold policy (single split, k-fold CV, calibrated gain inference)
+    stats.py        # stdlib-only Student-t CDF, corrected-t machinery, exact sign test
     audit_corpus.json     # the packaged, self-contained audit calibration corpus
     scoring_corpus.json   # the packaged scoring-layer calibration corpus
     outcome_corpus.json   # the packaged held-out, human-labelled outcome corpus
     independent_labels.csv# an independent three-person panel's verdicts for the outcome cases
+    external_labels.csv   # five hand-authored labellers' verdicts for the 40-case external bank
   reasoning/
     report.py       # JSON / text rendering
     experiment.py   # EthicalExperiment runner (falsificatory + heuristic)
@@ -719,7 +757,7 @@ pip install -e ".[dev]"     # pydantic, pytest, typer, ruff
 ## Running the tests
 
 ```bash
-pytest                      # 241 tests
+pytest                      # 255 tests
 ruff check src tests        # lint (optional)
 ```
 
@@ -754,8 +792,10 @@ littleboy recommend-policy --stakeholder strict                           # best
 littleboy recommend-policy --stakeholder lenient --metric exact --format text
 littleboy recommend-policy --stakeholder strict --fit                     # also fit custom thresholds (dev) vs nearest built-in (holdout)
 littleboy recommend-policy --stakeholder strict --cv --folds 5            # k-fold CV: gain over nearest built-in, mean +/- spread
+littleboy recommend-policy --stakeholder strict --inference               # calibrated p-value on the fitting gain (corrected t + sign test)
 littleboy recommend-policy --labels-csv my_labels.csv                     # use real labels (case_id,labeler,verdict[,split])
 littleboy recommend-policy --independent                                  # against the packaged independent three-person panel
+littleboy recommend-policy --external --inference                         # the 40-case x 5-labeller external set + inference
 littleboy build-case --minimal --from examples/voi_consent_pivotal.json --strategy lookahead
 littleboy templates                                                       # list scenario templates
 littleboy version
@@ -936,20 +976,25 @@ make consequential decisions about real people.
 
 ## Current development status
 
-**v0.16 — cross-validated fitting & a packaged independent set.** Implemented on top
-of v0.15. `cross_validate_threshold_policy` replaces the single dev/holdout split
-with **k-fold CV**: cases are pooled into `k` deterministic folds, each fold fits
-thresholds on its training part and scores them (and the nearest built-in) on its
-held-out part, and the gain is reported as `mean_gain ± gain_std` with min/max, a
-`fitting_helps` flag (mean positive one σ down) and `threshold_stability`; a
-once-computed verdict matrix keeps CV cheap regardless of `k`, and the fitter can now
-also tune the data-quality gate and irreversibility floor. A packaged
-`default_independent_outcome_corpus` relabels the 16 v0.13 cases with an independent
-three-person panel (`independent_labels.csv`, hand-authored without consulting the
-engine), imported via the v0.15 CSV path with honestly lower agreement (dev kappa
-~0.15) and run through the whole stack unchanged. New `recommend-policy --cv`,
-`--folds`, and `--independent`; a cross-validated-fit golden file; a 241-test suite
-(all passing). Purely additive — the verdict itself is unchanged.
+**v0.17 — calibrated inference & a larger external set.** Implemented on top of
+v0.16. `cv_gain_inference` runs **repeated, stratified k-fold CV** (disposition-
+balanced folds, a different deterministic partition per repetition) and tests the
+fitting gain with the **Nadeau–Bengio corrected resampled t-test** — the
+`s²·(1/m + 1/(k−1))` variance correction floors the standard error so repeating CV
+cannot manufacture confidence — plus an **exact sign test** on paired out-of-fold
+predictions; `fitting_helps` now requires `p < alpha` and a positive mean. The
+machinery is stdlib-only (`calibration/stats.py`: Student-t CDF via the regularised
+incomplete beta, tested against closed forms). On the synthetic panel the `strict`
+gain reads +0.069, 95% CI [+0.029, +0.108], p = 0.0010 (sign test 11 vs 0), and the
+interval tightens with n (0.129 → 0.079 from n=40 → 160). A packaged
+`default_external_outcome_corpus` adds **40 diverse generated cases**
+(`external_case_bank`: severity, data adequacy, consent, reversibility, evidence
+all vary) **× 5 hand-authored labellers** (`external_labels.csv`, written against
+the case facts without consulting the engine), with genuinely messy agreement (dev
+kappa ~0.28) — on which the inference honestly finds fitting does *not* demonstrably
+help (p = 0.41). New `recommend-policy --inference`, `--repeats`, `--external`; a
+CV-gain-inference golden file; a 255-test suite (all passing). Purely additive —
+the verdict itself is unchanged.
 
 Earlier phases delivered the core models; coercion/data-quality/evidence scoring;
 consent/agency models; the tri-state Axiom 3 justification; feasibility-aware
@@ -962,8 +1007,9 @@ value-of-information layer; the v0.10 multi-fact VoI & minimal-case planner; the
 v0.11 cost-aware interactive intake; the v0.12 domain-driven intake &
 independently-labelled calibration; the v0.13 external-validity reliability &
 probabilistic planning; the v0.14 panel labelling at scale, inter-labeller
-agreement & policy recommendation; and the v0.15 real-labels CSV import &
-single-split fitted-threshold recommender. All v0.1–v0.15 inputs remain valid.
+agreement & policy recommendation; the v0.15 real-labels CSV import &
+single-split fitted-threshold recommender; and the v0.16 cross-validated fitting &
+16-case independent panel. All v0.1–v0.16 inputs remain valid.
 
 **Deliberately not built:** any web UI, any LLM/API integration, any opaque bias
 detection, any prediction that looks certain, any claim to absolute truth, any
@@ -972,15 +1018,16 @@ to interrogate, not more dogmatic**.
 
 ### Recommended next steps
 
-- Collect and ship a **larger, genuinely external** labelled set — many cases from
-  people unconnected to the project — via the CSV path that is already in place, and
-  publish its real agreement and the reliability / cross-validated gain it implies,
-  holdout never inspected.
-- Report the cross-validated gain with a **proper confidence interval** (e.g.
-  repeated/stratified CV or a paired test across folds), so "fitting helps" carries
-  a calibrated p-value rather than a mean-minus-one-σ rule of thumb.
+- Collect labels from **people genuinely unconnected to the project** for the
+  external case bank (each case's description already states its facts; the CSV
+  path, agreement, reliability, recommendation, and inference all run unchanged),
+  and publish the resulting real agreement and gain inference.
 - Let `intake_hints` declare fully custom unknowns (probe fields, resolutions, costs,
   and probabilities) so domains beyond the built-in fields can drive the planner.
+- A **case-level explanation diff**: for any disagreement between the engine and a
+  labeller (or between two policies), render the minimal trace difference — which
+  rule, threshold, or missing fact accounts for the divergent verdict — so
+  reliability tables become inspectable case by case.
 - **Optional** LLM-assisted indicator extraction (language, consequence, audit)
   behind an explicit flag, with the model's suggestions shown, attributed, and
   editable — the deterministic core staying authoritative and the audit trail

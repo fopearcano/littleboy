@@ -17,11 +17,14 @@ the *real* engine, so nothing about the verdict logic is duplicated or changed.
 
 from __future__ import annotations
 
+import math
+import random
 import statistics
 from collections import Counter
 
 from littleboy.calibration.models import (
     CrossValidatedFit,
+    CVGainInference,
     FittedPolicy,
     FoldResult,
     OutcomeCorpus,
@@ -32,6 +35,11 @@ from littleboy.calibration.reliability import (
     _policy_reliability,
     disposition,
     inter_rater_agreement,
+)
+from littleboy.calibration.stats import (
+    sign_test_p,
+    student_t_critical,
+    student_t_two_sided_p,
 )
 from littleboy.core.enums import PolicyMode
 from littleboy.core.evaluator import EthicalEvaluator
@@ -423,3 +431,190 @@ def cross_validate_threshold_policy(
 def cross_validated_fit_golden_payload(cv: CrossValidatedFit) -> dict:
     """The stable digest of a cross-validated fit, for golden-file regression."""
     return cv.model_dump(mode="json")
+
+
+# =============================================================================
+# Calibrated inference (v0.17): a real p-value on the fitting gain
+# =============================================================================
+
+
+def _stratified_folds(classes: list[str], k: int, repetition: int, seed: int) -> list[int]:
+    """A deterministic stratified fold assignment (fold index per case).
+
+    Cases are grouped by class, each group is shuffled with a seed derived from
+    ``(seed, repetition)``, and members are dealt round-robin into folds -- so every
+    fold gets a near-equal share of every class, every case is in exactly one test
+    fold, and different repetitions give different (but reproducible) partitions.
+    """
+    rng = random.Random(f"littleboy-cv-{seed}-{repetition}")
+    by_class: dict[str, list[int]] = {}
+    for i, cls in enumerate(classes):
+        by_class.setdefault(cls, []).append(i)
+    fold_of = [0] * len(classes)
+    offset = 0  # carry the deal across classes so fold sizes stay balanced
+    for cls in sorted(by_class):
+        idxs = by_class[cls][:]
+        rng.shuffle(idxs)
+        for j, i in enumerate(idxs):
+            fold_of[i] = (j + offset) % k
+        offset = (offset + len(idxs)) % k
+    return fold_of
+
+
+def cv_gain_inference(
+    corpus: OutcomeCorpus,
+    labeler: str | None = None,
+    *,
+    k: int = 5,
+    repeats: int = 10,
+    metric: str = "disposition",
+    base_mode: str = "standard",
+    moderate_grid: tuple[float, ...] = DEFAULT_MODERATE_GRID,
+    max_grid: tuple[float, ...] = DEFAULT_MAX_GRID,
+    data_gate_grid: tuple[float | None, ...] = (None,),
+    reversibility_grid: tuple[float | None, ...] = (None,),
+    alpha: float = 0.05,
+    seed: int = 0,
+) -> CVGainInference:
+    """Calibrated inference on the fitting gain over repeated stratified k-fold CV.
+
+    Primary test: the **Nadeau-Bengio corrected resampled t-test** over all
+    ``repeats * k`` fold gains, with variance ``s^2 * (1/m + 1/(k-1))`` -- the
+    ``1/(k-1)`` term is the train/test overlap correction that stops repeated CV
+    from manufacturing confidence. Secondary check: the **exact sign test** over
+    paired out-of-fold predictions from the first repetition. ``fitting_helps``
+    requires the corrected p-value below ``alpha`` *and* a positive mean gain.
+    """
+    if k < 2:
+        raise ValueError("k-fold CV needs k >= 2")
+    if repeats < 1:
+        raise ValueError("need at least one repetition")
+    label_of = _label_for(labeler)
+    target = labeler or "consensus"
+    cases = list(corpus.entries)
+    n = len(cases)
+    if n < k:
+        raise ValueError(f"need at least k={k} cases to cross-validate; got {n}")
+
+    candidates = _candidate_thresholds(
+        base_mode, moderate_grid, max_grid, data_gate_grid, reversibility_grid
+    )
+    cand_match = _match_matrix(
+        cases, [_profile_from_thresholds(ts) for ts in candidates], label_of, metric
+    )
+    builtin_modes = list(PolicyMode)
+    builtin_match = _match_matrix(
+        cases, [DEFAULT_PROFILES[m] for m in builtin_modes], label_of, metric
+    )
+    # stratify on the coarse disposition of the target label (balanced fold class mix)
+    strata = [disposition(label_of(c)) for c in cases]
+
+    fold_gains: list[float] = []
+    per_rep_means: list[float] = []
+    fitted_oof = [False] * n  # out-of-fold predictions, first repetition (paired sign test)
+    nearest_oof = [False] * n
+    for r in range(repeats):
+        fold_of = _stratified_folds(strata, k, r, seed)
+        rep_gains: list[float] = []
+        for f in range(k):
+            test_idxs = [i for i in range(n) if fold_of[i] == f]
+            train_idxs = [i for i in range(n) if fold_of[i] != f]
+            if not test_idxs or not train_idxs:
+                continue
+            best_j, best_key = 0, None
+            for j, ts in enumerate(candidates):
+                key = _order_key(ts, _accuracy_over(cand_match, train_idxs, j))
+                if best_key is None or key < best_key:
+                    best_key, best_j = key, j
+            nearest_col = builtin_modes.index(_nearest_builtin(candidates[best_j]))
+            gain = _accuracy_over(cand_match, test_idxs, best_j) - _accuracy_over(
+                builtin_match, test_idxs, nearest_col
+            )
+            fold_gains.append(gain)
+            rep_gains.append(gain)
+            if r == 0:
+                for i in test_idxs:
+                    fitted_oof[i] = cand_match[i][best_j]
+                    nearest_oof[i] = builtin_match[i][nearest_col]
+        per_rep_means.append(round(statistics.fmean(rep_gains), 4))
+
+    m = len(fold_gains)
+    mean_gain = statistics.fmean(fold_gains)
+    fold_std = statistics.stdev(fold_gains) if m > 1 else 0.0
+    # Nadeau-Bengio: corrected variance = s^2 * (1/m + n_test/n_train); for k-fold
+    # the test/train size ratio is 1/(k-1).
+    corrected_se = math.sqrt(fold_std**2 * (1.0 / m + 1.0 / (k - 1))) if m > 1 else 0.0
+    df = m - 1
+    if corrected_se == 0.0:
+        # zero variance across all folds: the gain is exactly mean_gain every time
+        t_stat = 0.0
+        p_value = 1.0 if mean_gain == 0.0 else 0.0
+        ci_low = ci_high = mean_gain
+    else:
+        t_stat = mean_gain / corrected_se
+        p_value = student_t_two_sided_p(t_stat, df)
+        crit = student_t_critical(df, alpha)
+        ci_low = max(-1.0, mean_gain - crit * corrected_se)
+        ci_high = min(1.0, mean_gain + crit * corrected_se)
+
+    b = sum(1 for i in range(n) if fitted_oof[i] and not nearest_oof[i])
+    c = sum(1 for i in range(n) if nearest_oof[i] and not fitted_oof[i])
+    sign_p = sign_test_p(b, c)
+
+    ir = inter_rater_agreement(cases)
+    ceiling = ir.percent_agreement if ir is not None else None
+    helps = p_value < alpha and mean_gain > 0.0
+
+    notes = [
+        f"{repeats}x stratified {k}-fold CV of fitting to '{target}' by {metric} agreement; "
+        f"{m} paired fold gains vs the nearest built-in",
+        "Nadeau-Bengio corrected t-test: the (1/m + 1/(k-1)) variance correction accounts for "
+        "overlapping training sets, so repeating CV cannot manufacture confidence",
+        (
+            f"fitting helps: mean gain {mean_gain:+.3f}, 95% CI [{ci_low:+.3f}, {ci_high:+.3f}], "
+            f"p = {p_value:.4f} < alpha = {alpha}"
+            if helps
+            else f"fitting does NOT demonstrably help: mean gain {mean_gain:+.3f}, "
+            f"95% CI [{ci_low:+.3f}, {ci_high:+.3f}], p = {p_value:.4f} >= alpha = {alpha} "
+            "-- prefer the simpler built-in"
+        ),
+        f"exact sign test on out-of-fold pairs: fitted-only correct {b}, nearest-only correct "
+        f"{c}, p = {sign_p:.4f}",
+    ]
+    if ceiling is not None:
+        notes.append(
+            f"inter-labeller agreement over all cases is {ceiling:.2f}; the ceiling for matching "
+            "the consensus"
+        )
+
+    return CVGainInference(
+        target=target,
+        metric=metric,
+        k=k,
+        repeats=repeats,
+        stratified=True,
+        n_cases=n,
+        n_fold_gains=m,
+        mean_gain=round(mean_gain, 4),
+        fold_gain_std=round(fold_std, 4),
+        corrected_se=round(corrected_se, 4),
+        t_statistic=round(t_stat, 4),
+        df=df,
+        p_value=round(p_value, 6),
+        alpha=alpha,
+        ci_low=round(ci_low, 4),
+        ci_high=round(ci_high, 4),
+        ci_width=round(ci_high - ci_low, 4),
+        sign_fitted_only=b,
+        sign_nearest_only=c,
+        sign_test_p=round(sign_p, 6),
+        fitting_helps=helps,
+        per_repetition_mean_gain=per_rep_means,
+        agreement_ceiling=ceiling,
+        notes=notes,
+    )
+
+
+def cv_gain_inference_golden_payload(inference: CVGainInference) -> dict:
+    """The stable digest of a CV gain inference, for golden-file regression."""
+    return inference.model_dump(mode="json")

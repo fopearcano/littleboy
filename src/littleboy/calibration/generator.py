@@ -248,3 +248,97 @@ def generate_outcome_corpus(
 def default_labelled_outcome_corpus() -> OutcomeCorpus:
     """The standard large multi-labeller outcome corpus used for reliability at scale."""
     return generate_outcome_corpus(n=DEFAULT_OUTCOME_N, seed=DEFAULT_SEED)
+
+
+# =============================================================================
+# External case bank (v0.17): diverse cases for hand-authored external labels
+# =============================================================================
+
+EXTERNAL_BANK_N = 40
+EXTERNAL_BANK_SEED = 7
+
+
+def external_case_bank(
+    *, n: int = EXTERNAL_BANK_N, seed: int = EXTERNAL_BANK_SEED
+) -> OutcomeCorpus:
+    """A deterministic bank of *diverse* cases, shipped without labels.
+
+    Unlike the fully-specified panel corpus, these cases vary every axis a human
+    judge would weigh -- coercion severity, data adequacy, consent, reversibility,
+    presence of evidence -- so independent labellers have real decisions to make
+    (including "insufficient data"). The bank carries placeholder verdicts only;
+    the packaged hand-authored labels in ``external_labels.csv`` are overlaid via
+    the v0.15 CSV path (``default_external_outcome_corpus``). Each case's
+    description states its salient facts, so the labels stay auditable.
+    """
+    rng = random.Random(seed)
+    entries: list[OutcomeEntry] = []
+    for i in range(n):
+        s = round(rng.random(), 3)
+        d = round(0.25 + 0.75 * rng.random(), 3)
+        reversibility = round(0.2 + 0.8 * rng.random(), 3)
+        dominant = rng.choice(_CHANNELS)
+        consent = rng.choice(
+            (ConsentStatus.GIVEN,) * 5
+            + (ConsentStatus.REFUSED,) * 2
+            + (ConsentStatus.UNKNOWN,) * 2
+            + (ConsentStatus.NOT_APPLICABLE,)
+        )
+        evidence = None
+        if d >= 0.55:
+            strength = round(0.6 + 0.4 * (d - 0.55) / 0.45, 3)
+            evidence = EvidenceSet(
+                items=[
+                    EvidenceItem(
+                        claim="account of the action and its circumstances",
+                        source_type=SourceType.EXPERT_REPORT,
+                        reliability=strength,
+                        specificity=strength,
+                        recency=strength,
+                        corroboration=strength,
+                    )
+                ]
+            )
+        entries.append(
+            OutcomeEntry(
+                id=f"ext-{i:04d}",
+                description=(
+                    f"severity={s:.2f} via {dominant}; consent={consent.value}; "
+                    f"data_quality={d:.2f}; reversibility={reversibility:.2f}; "
+                    f"evidence={'yes' if evidence else 'none'}"
+                ),
+                case=ActionCase(
+                    title=f"external case {i}",
+                    acting_agent=MoralAgent(name="Actor", agent_type=AgentType.TYPE_II),
+                    affected_agents=[MoralAgent(name="Affected", agent_type=AgentType.TYPE_II)],
+                    coercion_profile=CoercionProfile(
+                        **{dominant: s}, severity=s, reversibility=reversibility
+                    ),
+                    data_quality=DataQualityProfile(
+                        completeness=d,
+                        source_reliability=d,
+                        specificity=d,
+                        recency=d,
+                        corroboration=round(max(0.0, d - 0.1), 3),
+                        ambiguity=round(1.0 - d, 3),
+                    ),
+                    evidence=evidence,
+                    consent=consent,
+                    available_alternatives=[],
+                    responds_to_existing_coercion=False,
+                ),
+                split="dev" if i % 2 == 0 else "holdout",
+                # placeholder only: the real consensus is recomputed when the
+                # hand-authored labels are overlaid via apply_labels
+                human_verdict=Verdict.INSUFFICIENT_DATA,
+                labeler="unlabelled",
+            )
+        )
+    return OutcomeCorpus(
+        title=f"External case bank (n={n}, seed={seed}, unlabelled)",
+        description=(
+            "Deterministic, diverse cases awaiting externally-authored labels. "
+            "Placeholder verdicts only; do not use without overlaying labels."
+        ),
+        entries=entries,
+    )

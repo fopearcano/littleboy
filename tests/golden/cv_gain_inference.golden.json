@@ -1,0 +1,43 @@
+{
+  "target": "consensus",
+  "metric": "disposition",
+  "k": 5,
+  "repeats": 10,
+  "stratified": true,
+  "n_cases": 40,
+  "n_fold_gains": 50,
+  "mean_gain": -0.02,
+  "fold_gain_std": 0.0463,
+  "corrected_se": 0.0241,
+  "t_statistic": -0.8315,
+  "df": 49,
+  "p_value": 0.409737,
+  "alpha": 0.05,
+  "ci_low": -0.0683,
+  "ci_high": 0.0283,
+  "ci_width": 0.0967,
+  "sign_fitted_only": 0,
+  "sign_nearest_only": 1,
+  "sign_test_p": 1.0,
+  "fitting_helps": false,
+  "per_repetition_mean_gain": [
+    -0.025,
+    0.0,
+    -0.025,
+    -0.025,
+    0.0,
+    -0.025,
+    -0.025,
+    -0.025,
+    -0.025,
+    -0.025
+  ],
+  "agreement_ceiling": 0.64,
+  "notes": [
+    "10x stratified 5-fold CV of fitting to 'consensus' by disposition agreement; 50 paired fold gains vs the nearest built-in",
+    "Nadeau-Bengio corrected t-test: the (1/m + 1/(k-1)) variance correction accounts for overlapping training sets, so repeating CV cannot manufacture confidence",
+    "fitting does NOT demonstrably help: mean gain -0.020, 95% CI [-0.068, +0.028], p = 0.4097 >= alpha = 0.05 -- prefer the simpler built-in",
+    "exact sign test on out-of-fold pairs: fitted-only correct 0, nearest-only correct 1, p = 1.0000",
+    "inter-labeller agreement over all cases is 0.64; the ceiling for matching the consensus"
+  ]
+}

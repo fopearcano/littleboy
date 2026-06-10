@@ -25,7 +25,9 @@ from littleboy import __version__
 from littleboy.audit.report import render_audit_json, render_audit_text
 from littleboy.calibration import (
     cross_validate_threshold_policy,
+    cv_gain_inference,
     default_corpus,
+    default_external_outcome_corpus,
     default_independent_outcome_corpus,
     default_labelled_outcome_corpus,
     default_outcome_corpus,
@@ -628,11 +630,24 @@ def recommend_policy_cmd(
         "--cv",
         help="Also k-fold cross-validate the fit: gain over the nearest built-in, mean +/- spread.",
     ),
-    folds: int = typer.Option(5, "--folds", help="Number of CV folds (with --cv)."),
+    inference: bool = typer.Option(
+        False,
+        "--inference",
+        help="Calibrated inference on the fitting gain: corrected t-test + exact sign test.",
+    ),
+    folds: int = typer.Option(5, "--folds", help="Number of CV folds (with --cv / --inference)."),
+    repeats: int = typer.Option(
+        10, "--repeats", help="Number of CV repetitions (with --inference)."
+    ),
     independent: bool = typer.Option(
         False,
         "--independent",
         help="Use the packaged independent hand-authored multi-labeller set instead of the panel.",
+    ),
+    external: bool = typer.Option(
+        False,
+        "--external",
+        help="Use the packaged external set (40 diverse cases x 5 hand-authored labellers).",
     ),
     labels_csv: Path | None = typer.Option(
         None,
@@ -653,12 +668,14 @@ def recommend_policy_cmd(
     if metric not in {"disposition", "exact"}:
         typer.echo(f"Unknown metric '{metric}'; use 'disposition' or 'exact'.", err=True)
         raise typer.Exit(code=2)
-    if independent and labels_csv is not None:
-        typer.echo("Use either --independent or --labels-csv, not both.", err=True)
+    if sum((independent, external, labels_csv is not None)) > 1:
+        typer.echo("Use at most one of --independent, --external, --labels-csv.", err=True)
         raise typer.Exit(code=2)
 
     if independent:
         corpus = default_independent_outcome_corpus()
+    elif external:
+        corpus = default_external_outcome_corpus()
     else:
         base = default_labelled_outcome_corpus()
         try:
@@ -672,6 +689,11 @@ def recommend_policy_cmd(
     cv_fit = (
         cross_validate_threshold_policy(corpus, stakeholder, k=folds, metric=metric) if cv else None
     )
+    gain_inf = (
+        cv_gain_inference(corpus, stakeholder, k=folds, repeats=repeats, metric=metric)
+        if inference
+        else None
+    )
 
     if output_format == "json":
         payload: dict = {"recommendation": rec.model_dump(mode="json")}
@@ -679,6 +701,8 @@ def recommend_policy_cmd(
             payload["fitted"] = fitted.model_dump(mode="json")
         if cv_fit is not None:
             payload["cross_validated"] = cv_fit.model_dump(mode="json")
+        if gain_inf is not None:
+            payload["gain_inference"] = gain_inf.model_dump(mode="json")
         typer.echo(json.dumps(payload, indent=2, ensure_ascii=False))
         return
 
@@ -744,6 +768,28 @@ def recommend_policy_cmd(
                 f"(stable across {cv_fit.threshold_stability:.0%} of folds)"
             )
         for note in cv_fit.notes:
+            typer.echo(f"  - {note}")
+
+    if gain_inf is not None:
+        g = gain_inf
+        typer.echo("")
+        typer.echo(
+            f"GAIN INFERENCE for '{g.target}' "
+            f"({g.repeats}x stratified {g.k}-fold CV, n={g.n_cases}):"
+        )
+        typer.echo(
+            f"  mean gain over nearest built-in: {g.mean_gain:+.3f}  "
+            f"95% CI [{g.ci_low:+.3f}, {g.ci_high:+.3f}]"
+        )
+        typer.echo(
+            f"  Nadeau-Bengio corrected t = {g.t_statistic:.2f} (df={g.df}), p = {g.p_value:.4f}"
+        )
+        typer.echo(
+            f"  exact sign test (out-of-fold pairs): fitted-only correct {g.sign_fitted_only}, "
+            f"nearest-only correct {g.sign_nearest_only}, p = {g.sign_test_p:.4f}"
+        )
+        typer.echo(f"  fitting helps: {g.fitting_helps}  (alpha = {g.alpha})")
+        for note in g.notes:
             typer.echo(f"  - {note}")
 
 
