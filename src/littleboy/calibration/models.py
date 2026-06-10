@@ -543,3 +543,61 @@ class DisagreementExplanation(_CalBase):
     trace_deltas: list[TraceDelta] = Field(default_factory=list)
     threshold_flips: list[ThresholdFlip] = Field(default_factory=list)
     notes: list[str] = Field(default_factory=list)
+
+
+# =============================================================================
+# Corpus-level diagnosis (v0.20): where the disagreement comes from, ranked
+# =============================================================================
+
+
+class DiagnosisFraction(_CalBase):
+    """One classification's share of the disagreements, with a Wilson interval."""
+
+    classification: str
+    count: int = 0
+    fraction: float = Field(default=0.0, ge=0.0, le=1.0)
+    fraction_ci: ConfidenceInterval = Field(default_factory=ConfidenceInterval)
+
+
+class RecurringAccount(_CalBase):
+    """One bridging parameter or fact, with how often (and where) it recurs.
+
+    A parameter/fact counts once per disagreement in which it appears in *any*
+    minimal account, so ``count`` reads as "this single change would align that
+    many of the disagreements".
+    """
+
+    account: str
+    kind: str = Field(description="'parameter' or 'fact'.")
+    count: int = 0
+    cases: list[str] = Field(default_factory=list)
+
+
+class DisagreementDiagnosis(_CalBase):
+    """A corpus-level diagnosis of one (labeller x policy) disagreement pattern.
+
+    Aggregates the per-case ``DisagreementExplanation`` classifications into
+    fractions (threshold vs epistemic vs ambiguous vs genuine divergence), ranks
+    the recurring bridging parameters and facts, and turns them into a concrete
+    ``tuning_agenda`` -- so a reliability table's disagreement count becomes a
+    work list rather than a verdict on its own.
+    """
+
+    target: str
+    policy: str
+    split: str | None = None
+    corpus_title: str = ""
+    n_cases: int = 0
+    n_agree: int = 0
+    n_disagree: int = 0
+    agreement: float = Field(default=0.0, ge=0.0, le=1.0)
+    agreement_ci: ConfidenceInterval = Field(default_factory=ConfidenceInterval)
+    fractions: list[DiagnosisFraction] = Field(default_factory=list)
+    recurring_parameters: list[RecurringAccount] = Field(default_factory=list)
+    recurring_facts: list[RecurringAccount] = Field(default_factory=list)
+    case_classifications: dict[str, str] = Field(
+        default_factory=dict, description="case id -> classification, in corpus order."
+    )
+    tuning_agenda: list[str] = Field(default_factory=list)
+    agreement_ceiling: float | None = None
+    notes: list[str] = Field(default_factory=list)

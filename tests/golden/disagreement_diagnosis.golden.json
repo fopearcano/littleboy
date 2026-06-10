@@ -1,0 +1,131 @@
+{
+  "target": "consensus",
+  "policy": "standard",
+  "split": null,
+  "corpus_title": "External hand-authored outcome set (v0.17, 40 cases x 5 labellers)",
+  "n_cases": 40,
+  "n_agree": 19,
+  "n_disagree": 21,
+  "agreement": 0.475,
+  "agreement_ci": {
+    "low": 0.3294,
+    "high": 0.625
+  },
+  "fractions": [
+    {
+      "classification": "policy-bridgeable",
+      "count": 3,
+      "fraction": 0.1429,
+      "fraction_ci": {
+        "low": 0.0498,
+        "high": 0.3464
+      }
+    },
+    {
+      "classification": "fact-bridgeable",
+      "count": 1,
+      "fraction": 0.0476,
+      "fraction_ci": {
+        "low": 0.0085,
+        "high": 0.2267
+      }
+    },
+    {
+      "classification": "both",
+      "count": 0,
+      "fraction": 0.0,
+      "fraction_ci": {
+        "low": 0.0,
+        "high": 0.1546
+      }
+    },
+    {
+      "classification": "neither",
+      "count": 17,
+      "fraction": 0.8095,
+      "fraction_ci": {
+        "low": 0.6,
+        "high": 0.9233
+      }
+    }
+  ],
+  "recurring_parameters": [
+    {
+      "account": "min_data_quality_for_approval",
+      "kind": "parameter",
+      "count": 4,
+      "cases": [
+        "ext-0007",
+        "ext-0014",
+        "ext-0019",
+        "ext-0027"
+      ]
+    },
+    {
+      "account": "min_confidence",
+      "kind": "parameter",
+      "count": 2,
+      "cases": [
+        "ext-0014",
+        "ext-0027"
+      ]
+    },
+    {
+      "account": "max_coercion_for_acceptable",
+      "kind": "parameter",
+      "count": 1,
+      "cases": [
+        "ext-0034"
+      ]
+    }
+  ],
+  "recurring_facts": [
+    {
+      "account": "consent = REFUSED",
+      "kind": "fact",
+      "count": 1,
+      "cases": [
+        "ext-0034"
+      ]
+    }
+  ],
+  "case_classifications": {
+    "ext-0001": "neither",
+    "ext-0002": "neither",
+    "ext-0003": "neither",
+    "ext-0004": "neither",
+    "ext-0005": "neither",
+    "ext-0007": "policy-bridgeable",
+    "ext-0010": "neither",
+    "ext-0012": "neither",
+    "ext-0013": "neither",
+    "ext-0014": "policy-bridgeable",
+    "ext-0016": "neither",
+    "ext-0019": "neither",
+    "ext-0020": "neither",
+    "ext-0021": "neither",
+    "ext-0022": "neither",
+    "ext-0023": "neither",
+    "ext-0024": "neither",
+    "ext-0025": "neither",
+    "ext-0027": "policy-bridgeable",
+    "ext-0034": "fact-bridgeable",
+    "ext-0038": "neither"
+  },
+  "tuning_agenda": [
+    "policy: 'min_data_quality_for_approval' bridges 4/21 disagreement(s) (ext-0007, ext-0014, ext-0019, ext-0027)",
+    "policy: 'min_confidence' bridges 2/21 disagreement(s) (ext-0014, ext-0027)",
+    "policy: 'max_coercion_for_acceptable' bridges 1/21 disagreement(s) (ext-0034)",
+    "facts: establishing 'consent = REFUSED' aligns 1/21 disagreement(s) (ext-0034)",
+    "review: 17/21 disagreement(s) are genuine divergence (ext-0001, ext-0002, ext-0003, ext-0004, ...) -- candidates for human review; no modelled policy or fact change reaches the label"
+  ],
+  "agreement_ceiling": 0.64,
+  "notes": [
+    "the diagnosis aggregates engine-verified per-case explanations; the per-case classification index is included so every number can be drilled back down",
+    "fractions are over the disagreements (not all cases) and carry Wilson 95% intervals",
+    "policy-bridgeable: a threshold question: a built-in policy reproduces the label",
+    "fact-bridgeable: an epistemic question: resolving the case's unknowns reaches the label",
+    "neither: genuine divergence: no modelled policy or fact change reaches the label",
+    "inter-labeller agreement over the considered cases is 0.64; agreement with one labeller cannot be expected to exceed it without over-fitting"
+  ]
+}

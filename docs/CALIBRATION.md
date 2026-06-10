@@ -495,6 +495,51 @@ littleboy explain-disagreement ext-0034 --external --against consensus          
 littleboy explain-disagreement --all --external --against hana                         # tally at the end
 ```
 
+### The corpus-level diagnosis report (v0.20)
+
+The per-case explanations answer "why this case?"; `diagnose_disagreements`
+answers **"where does the disagreement with this labeller come from, overall?"**
+— one auditable report per (labeller × policy), a deterministic aggregation of
+the engine-verified per-case explanations (nothing new is inferred, and the
+per-case classification index is included so every number drills back down).
+
+The report decomposes the disagreement into its **kinds**, each fraction with a
+Wilson interval: threshold questions (`policy-bridgeable`), epistemic questions
+(`fact-bridgeable`), ambiguous (`both`), and genuine divergence (`neither`). It
+then ranks the **recurring bridging parameters and facts** — a parameter or fact
+counts once per disagreement it bridges — and turns them into a concrete
+**tuning agenda**:
+
+```text
+DIAGNOSIS: engine[standard] vs hana (n=40)
+  agreement: 15/40 = 0.38  CI[0.24,0.53]   (inter-labeller ceiling: 0.64)
+  disagreement breakdown (n=25):
+    policy-bridgeable    3/25 = 0.12  CI[0.04,0.30]
+    fact-bridgeable      5/25 = 0.20  CI[0.09,0.39]
+    both                 0/25 = 0.00  CI[0.00,0.13]
+    neither             17/25 = 0.68  CI[0.48,0.83]
+  tuning agenda:
+    1. policy: 'min_data_quality_for_approval' bridges 4/25 disagreement(s) (ext-0007, ...)
+    2. policy: 'min_confidence' bridges 2/25 disagreement(s) (ext-0014, ext-0027)
+    4. facts: establishing 'long-term consequences are worse than described' aligns 4/25 ...
+    6. review: 17/25 disagreement(s) are genuine divergence (...) -- candidates for human review
+```
+
+The reading is direct: hana's divergence from the engine is **mostly genuine**
+(0.68 of it, CI [0.48, 0.83] — largely the panel condemning on data the engine
+refuses to judge), a quarter is **the data gate and consequence unknowns** (one
+parameter bridges 4 cases; one fact 4 more), and almost none is the coercion
+thresholds. A reliability number became a work list. The diagnosis agreement is
+the *same measurement* as the reliability table's exact accuracy (a test pins
+them equal), and the whole report is golden-pinned
+(`tests/golden/disagreement_diagnosis.golden.json`).
+
+```bash
+littleboy diagnose --external --against hana              # the full report
+littleboy diagnose --external                             # vs the panel consensus
+littleboy diagnose --external --against hana --split holdout --format json
+```
+
 ## Limitations
 
 - The **audit corpus** is small and hand-labelled: its rates are calibration
@@ -541,6 +586,13 @@ littleboy explain-disagreement --all --external --against hana                  
   parameterisation, and the fact account is relative to the probe vocabulary —
   a divergence could rest on a consideration neither captures. Both searches are
   also size-capped, so "no account" means "no small account".
+- The **diagnosis report** (v0.20) inherits all of the above: its fractions and
+  agenda are only as good as the per-case classifications beneath them, the
+  Wilson intervals are wide on small disagreement counts (the report shows
+  them), and a "tuning agenda" is an *agenda*, not a recommendation — bridging a
+  labeller by loosening the data gate may be exactly the wrong move if the gate
+  is doing its epistemic job. The numbers say where alignment is cheap, not
+  where it is right.
 - Golden-file pinning catches drift but does not *validate* correctness — a wrong
   expectation, once frozen, stays wrong until a human revisits it.
 - The scoring-layer detectors are deliberately coarse (a coercion band, the data

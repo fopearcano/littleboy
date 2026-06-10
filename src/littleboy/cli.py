@@ -33,6 +33,7 @@ from littleboy.calibration import (
     default_labelled_outcome_corpus,
     default_outcome_corpus,
     default_scoring_corpus,
+    diagnose_disagreements,
     explain_label_disagreement,
     explain_policy_disagreement,
     explain_reliability_disagreements,
@@ -966,6 +967,89 @@ def explain_disagreement_cmd(
         typer.echo(json.dumps(explanation.model_dump(mode="json"), indent=2, ensure_ascii=False))
         return
     _echo_explanation(explanation)
+
+
+@app.command()
+def diagnose(
+    against: str = typer.Option(
+        "consensus", "--against", help="A labeler name, or 'consensus' (the default)."
+    ),
+    policy: str = typer.Option(
+        "standard", "--policy", "-p", help=f"The engine-side policy: {_POLICY_CHOICES}."
+    ),
+    split: str | None = typer.Option(
+        None, "--split", help="Restrict to one split: 'dev' or 'holdout'."
+    ),
+    independent: bool = typer.Option(
+        False, "--independent", help="Use the packaged independent 16-case set."
+    ),
+    external: bool = typer.Option(
+        False, "--external", help="Use the packaged external 40-case x 5-labeller set."
+    ),
+    output_format: str = typer.Option(
+        "text", "--format", "-f", help="Output format: 'json' or 'text'."
+    ),
+) -> None:
+    """Diagnose WHERE the disagreement with a labeller comes from, corpus-wide."""
+    if output_format not in {"json", "text"}:
+        typer.echo(f"Unknown format '{output_format}'; use 'json' or 'text'.", err=True)
+        raise typer.Exit(code=2)
+    if split not in {None, "dev", "holdout"}:
+        typer.echo(f"Unknown split '{split}'; use 'dev' or 'holdout'.", err=True)
+        raise typer.Exit(code=2)
+    if independent and external:
+        typer.echo("Use at most one of --independent, --external.", err=True)
+        raise typer.Exit(code=2)
+    if against in {m.value for m in PolicyMode}:
+        typer.echo("diagnose compares the engine with labellers, not policies.", err=True)
+        raise typer.Exit(code=2)
+    engine_policy = _resolve_policy(policy)
+
+    if independent:
+        corpus = default_independent_outcome_corpus()
+    elif external:
+        corpus = default_external_outcome_corpus()
+    else:
+        corpus = default_labelled_outcome_corpus()
+
+    labeler = None if against == "consensus" else against
+    try:
+        diagnosis = diagnose_disagreements(corpus, labeler, policy=engine_policy, split=split)
+    except ValueError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=2) from exc
+
+    if output_format == "json":
+        typer.echo(json.dumps(diagnosis.model_dump(mode="json"), indent=2, ensure_ascii=False))
+        return
+
+    where = f", split={diagnosis.split}" if diagnosis.split else ""
+    typer.echo(
+        f"DIAGNOSIS: engine[{diagnosis.policy}] vs {diagnosis.target} "
+        f"(n={diagnosis.n_cases}{where})"
+    )
+    ceiling = (
+        f"   (inter-labeller ceiling: {diagnosis.agreement_ceiling:.2f})"
+        if diagnosis.agreement_ceiling is not None
+        else ""
+    )
+    typer.echo(
+        f"  agreement: {diagnosis.n_agree}/{diagnosis.n_cases} = {diagnosis.agreement:.2f}  "
+        f"CI[{diagnosis.agreement_ci.low:.2f},{diagnosis.agreement_ci.high:.2f}]{ceiling}"
+    )
+    typer.echo(f"  disagreement breakdown (n={diagnosis.n_disagree}):")
+    for fraction in diagnosis.fractions:
+        typer.echo(
+            f"    {fraction.classification:18s} {fraction.count:3d}/{diagnosis.n_disagree}"
+            f" = {fraction.fraction:.2f}  "
+            f"CI[{fraction.fraction_ci.low:.2f},{fraction.fraction_ci.high:.2f}]"
+        )
+    if diagnosis.tuning_agenda:
+        typer.echo("  tuning agenda:")
+        for i, line in enumerate(diagnosis.tuning_agenda, 1):
+            typer.echo(f"    {i}. {line}")
+    for note in diagnosis.notes:
+        typer.echo(f"  - {note}")
 
 
 @app.command()

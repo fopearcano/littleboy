@@ -11,18 +11,19 @@ and returns a **transparent, explained verdict** with an honest account of its
 own uncertainty. It is a reasoning engine, not a user interface and not a
 language model.
 
-This is **v0.19**, which completes the disagreement explanations with the **fact
-route** and unifies the two: when the engine diverges from a labeller, it now
-searches the deliberation layer's case probes for the **smallest fact resolutions**
-that would make the engine produce the label's verdict exactly
-(`minimal_fact_accounts` — the targeted counterpart of a minimal flip set,
-engine-verified and provably minimal), and classifies every disagreement as
-**policy-bridgeable / fact-bridgeable / both / neither** — `both` means genuinely
-ambiguous between values and facts ("either treat unknown consent as a blocker, or
-learn that consent was refused"), `neither` flags the cases worth a human look,
-and `--all` prints the tally. (v0.18 made disagreements inspectable case by case:
-trace diffs, threshold flips, and the engine-verified minimal parameter account;
-v0.17 gave the fitting gain a real p-value —
+This is **v0.20**, which turns the per-case classifications into a **corpus-level
+diagnosis report**: `littleboy diagnose --against hana` decomposes the
+disagreement with a labeller into its kinds — threshold questions
+(policy-bridgeable), epistemic questions (fact-bridgeable), ambiguous (both), and
+genuine divergence (neither) — each fraction with a Wilson interval, ranks the
+**recurring bridging parameters and facts** (a parameter or fact counts once per
+disagreement it bridges), and emits a concrete **tuning agenda** ("the data gate
+bridges 4 of 25; consequence unknowns 4 more; 17 are genuine divergence, for
+human review") — so a reliability number becomes a work list, with every figure
+drillable back to its engine-verified per-case explanation. (v0.19 added fact
+accounts and the unified classification; v0.18 made disagreements inspectable
+case by case: trace diffs, threshold flips, and the engine-verified minimal
+parameter account; v0.17 gave the fitting gain a real p-value —
 Nadeau–Bengio corrected t over repeated stratified CV + an exact sign test — and a
 40-case × 5-labeller external set; v0.16 added k-fold cross-validated fitting and
 a 16-case independent panel; v0.15 imported real labels from CSV and added the
@@ -670,6 +671,35 @@ See [`docs/CALIBRATION.md`](docs/CALIBRATION.md).
 Deterministic, typed, evaluation-only, additive — the verdict itself is unchanged.
 See [`docs/CALIBRATION.md`](docs/CALIBRATION.md).
 
+## LittleBoy v0.20: The corpus-level diagnosis report
+
+> The per-case explanations answer "why this case?". The diagnosis answers
+> **"where does the disagreement with this labeller come from, overall?"** — and
+> turns the answer into a work list.
+
+- **`diagnose_disagreements`**: one auditable report per (labeller × policy) — a
+  deterministic aggregation of the engine-verified per-case explanations (nothing
+  new is inferred; the per-case classification index is included so every number
+  drills back down). It reports agreement with its Wilson interval against the
+  inter-labeller ceiling, then decomposes the disagreements into
+  **policy-bridgeable / fact-bridgeable / both / neither** fractions, each with
+  its own interval. The diagnosis agreement is the *same measurement* as the
+  reliability table's exact accuracy — a test pins them equal.
+- **Recurring accounts & the tuning agenda**: bridging parameters and facts are
+  ranked by how many disagreements each would align (counted once per case), then
+  rendered as an agenda — on the external set vs `hana`:
+  `'min_data_quality_for_approval' bridges 4/25`, `establishing 'long-term
+  consequences are worse than described' aligns 4/25`, and `17/25 are genuine
+  divergence — candidates for human review`. The reading is direct: hana's
+  divergence is mostly genuine (0.68, CI [0.48, 0.83]), a quarter is the data
+  gate and consequence unknowns, and almost none is the coercion thresholds. The
+  docs are explicit that this is an *agenda, not a recommendation*: the numbers
+  say where alignment is cheap, not where it is right. CLI:
+  `littleboy diagnose --external --against hana [--split holdout] [--format json]`.
+
+Deterministic, typed, evaluation-only, additive — the verdict itself is unchanged.
+See [`docs/CALIBRATION.md`](docs/CALIBRATION.md).
+
 ## How evidence is represented
 
 An `EvidenceSet` holds `EvidenceItem`s, each a `claim` plus its `source_type`
@@ -794,6 +824,7 @@ src/littleboy/
     fitting.py      # fit a threshold policy (single split, k-fold CV, calibrated gain inference)
     stats.py        # stdlib-only Student-t CDF, corrected-t machinery, exact sign test
     explain.py      # disagreement explanations: trace diffs, parameter + fact accounts, classification
+    diagnosis.py    # corpus-level diagnosis: classification fractions, recurring accounts, tuning agenda
     audit_corpus.json     # the packaged, self-contained audit calibration corpus
     scoring_corpus.json   # the packaged scoring-layer calibration corpus
     outcome_corpus.json   # the packaged held-out, human-labelled outcome corpus
@@ -802,7 +833,7 @@ src/littleboy/
   reasoning/
     report.py       # JSON / text rendering
     experiment.py   # EthicalExperiment runner (falsificatory + heuristic)
-  cli.py            # evaluate / experiment / questions / build-case / templates / analyze-language / compare / temporal / audit / deliberate / calibrate / recommend-policy / explain-disagreement
+  cli.py            # evaluate / experiment / questions / build-case / templates / analyze-language / compare / temporal / audit / deliberate / calibrate / recommend-policy / explain-disagreement / diagnose
 tests/              # pytest suite (incl. golden/ for calibration regression)
 examples/           # sample JSON cases (incl. partial_*, language_*, comparison_*, temporal_*, audit_*, voi_*)
 docs/               # ARCHITECTURE, ETHICAL_MODEL, RULE_ENGINE, POLICY_PROFILES,
@@ -827,7 +858,7 @@ pip install -e ".[dev]"     # pydantic, pytest, typer, ruff
 ## Running the tests
 
 ```bash
-pytest                      # 281 tests
+pytest                      # 294 tests
 ruff check src tests        # lint (optional)
 ```
 
@@ -870,6 +901,7 @@ littleboy explain-disagreement ext-0007 --external --against consensus    # WHY 
 littleboy explain-disagreement examples/policy_permissive_case.json --against permissive   # trace diff between two policies
 littleboy explain-disagreement policy_strict_borderline --independent --against cleo       # a 'both' case: policy OR fact route
 littleboy explain-disagreement --all --external --against hana            # one line per disagreement + classification tally
+littleboy diagnose --external --against hana                              # corpus-level diagnosis: fractions, recurring accounts, agenda
 littleboy build-case --minimal --from examples/voi_consent_pivotal.json --strategy lookahead
 littleboy templates                                                       # list scenario templates
 littleboy version
@@ -1050,25 +1082,22 @@ make consequential decisions about real people.
 
 ## Current development status
 
-**v0.19 — fact accounts & the unified explanation.** Implemented on top of v0.18.
-`minimal_fact_accounts` searches the deliberation layer's existing case probes
-(`build_probe_specs` — only genuine unknowns get probes) for the smallest joint
-fact resolutions that make the engine produce **the labeller's verdict exactly**:
-the targeted counterpart of a minimal flip set, every candidate re-evaluated
-through the real engine, provably minimal by increasing-size search, with
-self-describing accounts like `consent = REFUSED`. Every engine-vs-labeller
-disagreement now carries a `bridge_classification` naming the engine-verified
-routes to agreement — `policy-bridgeable` / `fact-bridgeable` / `both` /
-`neither` — with a unified note on `both` cases ("change the policy or establish
-the facts; which is right depends on whether the labeller weighs values
-differently or knows something the case does not state") and an explicit
-worth-a-human-look flag on `neither`. The packaged independent set contains a
-textbook `both` case (`policy_strict_borderline` vs `cleo`: bridged either by
-`unknown_consent_is_blocker` or by `consent = REFUSED`); on the external set vs
-consensus the tally is 17 `neither` / 3 `policy` / 1 `fact` — real normative
-divergence now separated from threshold quibbles and fact gaps.
-`explain-disagreement` shows fact accounts and the classification; `--all` prints
-a classification tally. A 281-test suite (all passing). Purely additive — the
+**v0.20 — the corpus-level diagnosis report.** Implemented on top of v0.19.
+`diagnose_disagreements` aggregates the engine-verified per-case explanations
+into one auditable report per (labeller × policy): agreement with a Wilson
+interval against the inter-labeller ceiling; the disagreement decomposed into
+`policy-bridgeable` / `fact-bridgeable` / `both` / `neither` fractions (each with
+its interval, summing to the disagreement count); the **recurring bridging
+parameters and facts** ranked by how many disagreements each would align (counted
+once per case, with the case ids); a human-readable **tuning agenda** ending in a
+review line for the genuine-divergence cases; and the per-case classification
+index so every number drills back down. Consistency is pinned by tests: the
+diagnosis agreement equals the reliability table's exact accuracy, and the
+fractions equal the per-case classification tally. On the external set vs `hana`:
+agreement 0.38, divergence 68% genuine (CI [0.48, 0.83]), the data gate bridging
+4/25 and consequence unknowns 4/25 — a reliability number turned into a work
+list. New CLI `diagnose` (`--against`, `--split`, corpus flags, text/JSON); a
+diagnosis golden file; a 294-test suite (all passing). Purely additive — the
 verdict itself is unchanged.
 
 Earlier phases delivered the core models; coercion/data-quality/evidence scoring;
@@ -1085,8 +1114,9 @@ probabilistic planning; the v0.14 panel labelling at scale, inter-labeller
 agreement & policy recommendation; the v0.15 real-labels CSV import &
 single-split fitted-threshold recommender; the v0.16 cross-validated fitting &
 16-case independent panel; the v0.17 calibrated CV inference & 40-case external
-set; and the v0.18 case-level disagreement explanations (trace diffs + minimal
-parameter accounts). All v0.1–v0.18 inputs remain valid.
+set; the v0.18 case-level disagreement explanations (trace diffs + minimal
+parameter accounts); and the v0.19 fact accounts & unified classification. All
+v0.1–v0.19 inputs remain valid.
 
 **Deliberately not built:** any web UI, any LLM/API integration, any opaque bias
 detection, any prediction that looks certain, any claim to absolute truth, any
@@ -1097,13 +1127,14 @@ to interrogate, not more dogmatic**.
 
 - Collect labels from **people genuinely unconnected to the project** for the
   external case bank (each case's description already states its facts; the CSV
-  path, agreement, reliability, recommendation, inference, and explanations all
-  run unchanged), and publish the resulting real agreement, gain inference, and
-  disagreement-classification tally.
-- Aggregate the classifications into a **corpus-level diagnosis report**: per
-  labeller and per policy, what fraction of disagreement is threshold (policy),
-  epistemic (facts), or genuine divergence — with the recurring parameters and
-  facts ranked, so the tally becomes a tuning agenda.
+  path, agreement, reliability, recommendation, inference, explanations, and the
+  diagnosis all run unchanged), and publish the resulting real agreement, gain
+  inference, and diagnosis report.
+- Close the loop from agenda to action: a **dry-run tuner** that takes one agenda
+  item (a parameter change or a rule adjustment), applies it as a candidate
+  profile, and reports the full before/after impact — reliability on every
+  labeller, the dev/holdout splits, and the golden diffs it would cause — so a
+  tuning decision is made with its costs visible, never silently.
 - Let `intake_hints` declare fully custom unknowns (probe fields, resolutions, costs,
   and probabilities) so domains beyond the built-in fields can drive the planner —
   which would also widen the fact-account vocabulary case by case.

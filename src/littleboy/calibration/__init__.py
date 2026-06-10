@@ -14,6 +14,10 @@ from littleboy.calibration.corpus import (
     load_corpus,
     run_corpus,
 )
+from littleboy.calibration.diagnosis import (
+    diagnose_disagreements,
+    diagnosis_golden_payload,
+)
 from littleboy.calibration.explain import (
     explain_label_disagreement,
     explain_policy_disagreement,
@@ -55,6 +59,8 @@ from littleboy.calibration.models import (
     CorpusEntry,
     CrossValidatedFit,
     CVGainInference,
+    DiagnosisFraction,
+    DisagreementDiagnosis,
     DisagreementExplanation,
     FittedPolicy,
     FoldResult,
@@ -67,6 +73,7 @@ from littleboy.calibration.models import (
     PolicyRecommendation,
     PolicyReliability,
     PolicyScoringMetrics,
+    RecurringAccount,
     ReliabilityReport,
     ScoringCalibrationReport,
     ScoringCorpus,
@@ -105,6 +112,8 @@ __all__ = [
     "CorpusEntry",
     "CrossValidatedFit",
     "CVGainInference",
+    "DiagnosisFraction",
+    "DisagreementDiagnosis",
     "DisagreementExplanation",
     "FittedPolicy",
     "FoldResult",
@@ -117,6 +126,7 @@ __all__ = [
     "PolicyRecommendation",
     "PolicyReliability",
     "PolicyScoringMetrics",
+    "RecurringAccount",
     "ReliabilityReport",
     "ScoringCalibrationReport",
     "ScoringCorpus",
@@ -139,6 +149,8 @@ __all__ = [
     "default_labelled_outcome_corpus",
     "default_outcome_corpus",
     "default_scoring_corpus",
+    "diagnose_disagreements",
+    "diagnosis_golden_payload",
     "disposition",
     "explain_label_disagreement",
     "explain_policy_disagreement",
