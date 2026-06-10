@@ -390,6 +390,62 @@ littleboy recommend-policy --external                            # the 40-case x
 littleboy recommend-policy --external --inference --repeats 10   # both together
 ```
 
+### Case-level disagreement explanations (v0.18)
+
+A reliability table says *how often* the engine disagrees with a labeller. v0.18
+says **why, case by case**: every opaque `disagreements` entry becomes an
+inspectable `DisagreementExplanation`, built on the existing `ReasoningTrace` (it
+re-derives nothing) and evaluation-only (no verdict changes).
+
+**Policy-vs-policy: a true trace diff + the minimal parameter account.** Both
+sides are engine evaluations, so the divergence can be pinned exactly:
+
+- **rule deltas** (`TraceDelta`) — rules whose *outcome* changed (status, severity,
+  blocker, verdict effect), e.g. `LB-R002: failed/blocker -> passed/warning`;
+- **threshold flips** (`ThresholdFlip`) — the coercion / data-quality / evidence
+  scores are computed *before* any policy applies, so when the same score crosses a
+  limit under one policy only, that is the parametric mechanism:
+  `coercion_score=0.65 vs max_coercion_for_acceptable: 0.6 (crossed) -> 0.75 (not crossed)`;
+- the **minimal parameter account** (`minimal_policy_accounts`) — the rigorous
+  part: the smallest set(s) of policy parameters that, moved from side A's values
+  to side B's, make the engine actually produce side B's verdict. Every candidate
+  hybrid profile is **re-evaluated through the real engine** (nothing inferred from
+  the trace), and the search proceeds by increasing size, so every returned set is
+  provably minimal — the policy-parameter analogue of the deliberation layer's
+  minimal flip sets.
+
+**Engine-vs-label: decisive factors + the bridge.** The human side has no trace,
+so the honest explanation is: the engine's **decisive factors** (blockers, caps,
+downgrades, the data gate — straight from the trace), **which built-in policies
+agree** with the label (exactly, or on disposition), and the parameter account
+toward the **nearest agreeing policy** (the *bridge*). Every diagnosis is specific:
+
+```text
+DISAGREEMENT ext-0007: engine[standard] = INSUFFICIENT_DATA  vs  label[consensus] = NOT_ACCEPTABLE
+  decisive (side A):
+    - LB-R004 Data Quality Rule [blocker]: Epistemic basis 0.27 is below the policy minimum 0.35.
+  bridge policy: permissive
+  minimal parameter account(s) (verified by re-evaluation):
+    - min_data_quality_for_approval: 0.35 -> 0.25
+```
+
+— the engine declined for data reasons; the panel condemned; lowering the data
+gate (one parameter) aligns them. When no single account exists the explanation
+says which kind of impasse it is: a **within-disposition** disagreement ("the
+difference is in degree, not in kind"), or **no built-in policy agrees even on
+disposition** ("this disagreement is not a threshold question within the built-in
+policy family") — the cases worth a human look, now separable from mere threshold
+quibbles. `explain_reliability_disagreements` yields exactly one explanation per
+reliability-table disagreement (a test pins the counts), and everything is
+golden-pinned (`tests/golden/disagreement_explanation.golden.json`).
+
+```bash
+littleboy explain-disagreement ext-0007 --external --against consensus    # engine vs the panel
+littleboy explain-disagreement ext-0004 --external --against hana         # engine vs one labeller
+littleboy explain-disagreement case.json --against precautionary          # policy vs policy on any case
+littleboy explain-disagreement --all --external --against hana            # every disagreement, one line each
+```
+
 ## Limitations
 
 - The **audit corpus** is small and hand-labelled: its rates are calibration
@@ -427,6 +483,13 @@ littleboy recommend-policy --external --inference --repeats 10   # both together
   not collected from genuinely unrelated people. Genuine external validity needs
   exactly that collection step; the machinery (CSV import, inter-rater agreement,
   reliability, recommendation, fitting, inference) is all in place, waiting for it.
+- The **disagreement explanations** (v0.18) explain the *engine's* side fully (its
+  trace is complete), but the human side only indirectly — via which policies
+  would agree and what parameter change would bridge the gap. A "no built-in
+  account" diagnosis means the label is unreachable by threshold moves alone; it
+  does not say *why the human judged as they did*. And the minimal parameter
+  account is relative to the built-in parameterisation: a divergence could in
+  principle be accounted for by a parameter the profiles do not expose.
 - Golden-file pinning catches drift but does not *validate* correctness — a wrong
   expectation, once frozen, stays wrong until a human revisits it.
 - The scoring-layer detectors are deliberately coarse (a coercion band, the data

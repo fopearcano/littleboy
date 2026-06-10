@@ -14,6 +14,13 @@ from littleboy.calibration.corpus import (
     load_corpus,
     run_corpus,
 )
+from littleboy.calibration.explain import (
+    explain_label_disagreement,
+    explain_policy_disagreement,
+    explain_reliability_disagreements,
+    explanation_golden_payload,
+    minimal_policy_accounts,
+)
 from littleboy.calibration.fitting import (
     cross_validate_threshold_policy,
     cross_validated_fit_golden_payload,
@@ -47,6 +54,7 @@ from littleboy.calibration.models import (
     CorpusEntry,
     CrossValidatedFit,
     CVGainInference,
+    DisagreementExplanation,
     FittedPolicy,
     FoldResult,
     InterRaterAgreement,
@@ -63,7 +71,9 @@ from littleboy.calibration.models import (
     ScoringCorpus,
     ScoringCorpusEntry,
     SplitReliability,
+    ThresholdFlip,
     ThresholdSet,
+    TraceDelta,
 )
 from littleboy.calibration.reliability import (
     default_external_outcome_corpus,
@@ -94,6 +104,7 @@ __all__ = [
     "CorpusEntry",
     "CrossValidatedFit",
     "CVGainInference",
+    "DisagreementExplanation",
     "FittedPolicy",
     "FoldResult",
     "InterRaterAgreement",
@@ -110,7 +121,9 @@ __all__ = [
     "ScoringCorpus",
     "ScoringCorpusEntry",
     "SplitReliability",
+    "ThresholdFlip",
     "ThresholdSet",
+    "TraceDelta",
     "aggregate",
     "apply_labels",
     "consensus_verdict",
@@ -126,6 +139,10 @@ __all__ = [
     "default_outcome_corpus",
     "default_scoring_corpus",
     "disposition",
+    "explain_label_disagreement",
+    "explain_policy_disagreement",
+    "explain_reliability_disagreements",
+    "explanation_golden_payload",
     "external_case_bank",
     "fit_threshold_policy",
     "fitted_policy_golden_payload",
@@ -137,6 +154,7 @@ __all__ = [
     "load_corpus",
     "load_outcome_corpus",
     "load_scoring_corpus",
+    "minimal_policy_accounts",
     "outcome_corpus_from_csv",
     "parse_labels_csv",
     "parse_verdict",

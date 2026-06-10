@@ -30,6 +30,7 @@ from littleboy.calibration import (
     CorpusEntry,
     CrossValidatedFit,
     CVGainInference,
+    DisagreementExplanation,
     FittedPolicy,
     InterRaterAgreement,
     OutcomeCorpus,
@@ -46,11 +47,15 @@ from littleboy.calibration import (
     default_labelled_outcome_corpus,
     default_outcome_corpus,
     default_scoring_corpus,
+    explain_label_disagreement,
+    explain_policy_disagreement,
+    explain_reliability_disagreements,
     external_case_bank,
     fit_threshold_policy,
     generate_outcome_corpus,
     generate_scoring_corpus,
     labels_to_csv,
+    minimal_policy_accounts,
     outcome_corpus_from_csv,
     parse_labels_csv,
     recommend_policy,
@@ -184,7 +189,7 @@ from littleboy.temporal import (
     score_reversibility,
 )
 
-__version__ = "0.17.0"
+__version__ = "0.18.0"
 
 __all__ = [
     "AuditCorpus",
@@ -195,6 +200,7 @@ __all__ = [
     "CrossValidatedFit",
     "DeliberationReport",
     "Deliberator",
+    "DisagreementExplanation",
     "FittedPolicy",
     "InformationValue",
     "IntakeHints",
@@ -220,12 +226,16 @@ __all__ = [
     "default_scoring_corpus",
     "expected_cost_first_question",
     "expected_questionnaire_cost",
+    "explain_label_disagreement",
+    "explain_policy_disagreement",
+    "explain_reliability_disagreements",
     "external_case_bank",
     "fit_threshold_policy",
     "generate_outcome_corpus",
     "generate_scoring_corpus",
     "labels_to_csv",
     "minimal_flip_sets",
+    "minimal_policy_accounts",
     "outcome_corpus_from_csv",
     "parse_labels_csv",
     "plan_minimal_questions",

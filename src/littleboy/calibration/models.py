@@ -434,3 +434,98 @@ class CVGainInference(_CalBase):
     per_repetition_mean_gain: list[float] = Field(default_factory=list)
     agreement_ceiling: float | None = None
     notes: list[str] = Field(default_factory=list)
+
+
+# =============================================================================
+# Disagreement explanation (v0.18): the minimal difference behind a divergence
+# =============================================================================
+
+
+class TraceDelta(_CalBase):
+    """One rule whose outcome differs between two evaluations of the same case.
+
+    A rule absent from one side's applied list is shown with status ``skipped``.
+    Only *outcome* differences (status, severity, blocker, verdict effect) are
+    reported; identical outcomes with differently-worded messages are not deltas.
+    """
+
+    rule_id: str
+    name: str = ""
+    status_a: str
+    status_b: str
+    severity_a: str
+    severity_b: str
+    blocker_a: bool = False
+    blocker_b: bool = False
+    verdict_delta_a: int = 0
+    verdict_delta_b: int = 0
+    verdict_cap_a: str | None = None
+    verdict_cap_b: str | None = None
+    message_a: str = ""
+    message_b: str = ""
+
+
+class ThresholdFlip(_CalBase):
+    """A policy-independent score that crosses a threshold under one policy only.
+
+    ``value`` is the same on both sides (coercion / data-quality / evidence scores
+    are computed before any policy applies); only the limit differs. ``crossed``
+    means ``value >= limit``.
+    """
+
+    quantity: str
+    value: float
+    threshold: str
+    limit_a: float
+    limit_b: float
+    crossed_a: bool
+    crossed_b: bool
+
+
+class DisagreementExplanation(_CalBase):
+    """Why one case got divergent verdicts -- the minimal difference, made inspectable.
+
+    Two kinds. ``policy-vs-policy``: both sides are engine evaluations, so the
+    explanation is a true trace diff plus the **minimal parameter account** -- the
+    smallest set(s) of policy parameters that, moved from side A's to side B's
+    values, make the engine produce side B's verdict (engine-verified, like a
+    minimal flip set over policy parameters instead of facts). ``engine-vs-label``:
+    the human side has no trace, so the explanation is the engine's decisive
+    factors, which built-in policies agree with the label, and the parameter
+    account toward the nearest agreeing policy (``bridge_policy``) -- or an honest
+    note that no built-in policy reproduces the label at all.
+    """
+
+    case_id: str = ""
+    kind: str = Field(description="'policy-vs-policy' or 'engine-vs-label'.")
+    side_a: str
+    side_b: str
+    verdict_a: Verdict
+    verdict_b: Verdict
+    disposition_a: str = ""
+    disposition_b: str = ""
+    agree: bool = False
+    coercion_score: float = Field(default=0.0, ge=0.0, le=1.0)
+    data_quality_score: float = Field(default=0.0, ge=0.0, le=1.0)
+    evidence_score: float = Field(default=0.0, ge=0.0, le=1.0)
+    confidence_a: float = Field(default=0.0, ge=0.0, le=1.0)
+    confidence_b: float | None = Field(default=None, ge=0.0, le=1.0)
+    engine_decisive: list[str] = Field(default_factory=list)
+    other_decisive: list[str] = Field(default_factory=list)
+    bridge_policy: str | None = Field(
+        default=None,
+        description="engine-vs-label only: the nearest built-in that agrees with the label.",
+    )
+    agreeing_policies_exact: list[str] = Field(default_factory=list)
+    agreeing_policies_disposition: list[str] = Field(default_factory=list)
+    minimal_parameter_accounts: list[list[str]] = Field(
+        default_factory=list,
+        description="Smallest parameter sets that flip side A's verdict to side B's.",
+    )
+    parameter_changes: dict[str, str] = Field(
+        default_factory=dict,
+        description="Every differing policy parameter, as 'A value -> B value'.",
+    )
+    trace_deltas: list[TraceDelta] = Field(default_factory=list)
+    threshold_flips: list[ThresholdFlip] = Field(default_factory=list)
+    notes: list[str] = Field(default_factory=list)

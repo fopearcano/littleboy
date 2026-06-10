@@ -11,18 +11,18 @@ and returns a **transparent, explained verdict** with an honest account of its
 own uncertainty. It is a reasoning engine, not a user interface and not a
 language model.
 
-This is **v0.17**, which gives the fitting gain a **real p-value** and a bigger
-external set to earn it on: `cv_gain_inference` runs **repeated, stratified k-fold
-CV** and applies the **Nadeau–Bengio corrected resampled t-test** (whose variance
-correction means repeating CV cannot manufacture confidence), cross-checked by an
-**exact sign test** on paired out-of-fold predictions — all stdlib-only, with the
-Student-t CDF implemented from the incomplete beta and tested against closed
-forms. A new packaged **external set of 40 diverse cases × 5 hand-authored
-labellers** (varying severity, data adequacy, consent, reversibility, evidence)
-exercises the whole stack on genuinely messy disagreement, and the gain interval
-demonstrably **tightens as n grows** (width 0.129 → 0.079 from n=40 → 160, with
-significance emerging honestly). (v0.16 added k-fold cross-validated fitting and a
-16-case independent panel; v0.15 imported real labels from CSV and added the
+This is **v0.18**, which makes every disagreement **inspectable case by case**: a
+reliability table's opaque counts become `DisagreementExplanation`s built on the
+existing `ReasoningTrace` — for two policies, a true **trace diff** (rule deltas +
+threshold flips) plus the engine-verified **minimal parameter account** (the
+smallest policy-parameter change that actually reproduces the other verdict, the
+policy analogue of a minimal flip set); for engine-vs-labeller, the engine's
+**decisive factors**, **which built-in policies agree** with the label, and the
+account toward the nearest agreeing one — or an honest "this is not a threshold
+question" when none does. (v0.17 gave the fitting gain a real p-value —
+Nadeau–Bengio corrected t over repeated stratified CV + an exact sign test — and a
+40-case × 5-labeller external set; v0.16 added k-fold cross-validated fitting and
+a 16-case independent panel; v0.15 imported real labels from CSV and added the
 single-split fitted-threshold recommender; v0.14 grew the held-out set to a
 160-case panel and added inter-labeller agreement + a policy-recommendation layer;
 v0.13 added external-validity calibration and globally-cost-optimal probabilistic
@@ -601,6 +601,40 @@ Deterministic, typed, stdlib-only, additive — the verdict itself is unchanged.
 Deterministic, typed, stdlib-only, additive — the verdict itself is unchanged. See
 [`docs/CALIBRATION.md`](docs/CALIBRATION.md).
 
+## LittleBoy v0.18: Case-level disagreement explanations
+
+> A reliability table says *how often* the engine disagrees. It should also say
+> **why** — case by case, down to the one parameter or rule that accounts for it.
+
+- **Policy-vs-policy: a true trace diff** (`explain_policy_disagreement`): rules
+  whose *outcome* changed between the two evaluations (`TraceDelta`, e.g.
+  `LB-R002: failed/blocker -> passed/warning`); **threshold flips**
+  (`ThresholdFlip`) where the same policy-independent score crosses a limit under
+  one policy only (`coercion_score=0.65 vs max_coercion_for_acceptable: 0.6
+  (crossed) -> 0.75 (not crossed)`); and the **minimal parameter account**
+  (`minimal_policy_accounts`) — the smallest set(s) of policy parameters that,
+  moved to the other policy's values, make the engine *actually produce* the other
+  verdict. Every candidate hybrid profile is re-evaluated through the real engine,
+  and the search proceeds by increasing size, so each account is provably minimal —
+  the policy-parameter analogue of the deliberation layer's minimal flip sets.
+- **Engine-vs-labeller** (`explain_label_disagreement`,
+  `explain_reliability_disagreements`): the human side has no trace, so the honest
+  explanation is the engine's **decisive factors** (blockers, caps, downgrades,
+  the data gate — straight from the trace), **which built-in policies agree** with
+  the label, and the parameter account toward the nearest agreeing policy (the
+  *bridge*) — e.g. *"the engine declined on the data gate (LB-R004); `permissive`
+  reproduces the panel's verdict; the one-parameter account is
+  `min_data_quality_for_approval: 0.35 -> 0.25`"*. Impasses are diagnosed
+  specifically: **within-disposition** ("degree, not kind") vs **no built-in
+  agrees even on disposition** ("not a threshold question") — separating the cases
+  worth a human look from threshold quibbles. One explanation per reliability
+  disagreement, count-pinned by test. CLI: `littleboy explain-disagreement
+  ext-0007 --external --against consensus` (or `--against <policy>` on any case
+  JSON, or `--all` for one line per disagreement).
+
+Deterministic, typed, evaluation-only, additive — the verdict itself is unchanged.
+See [`docs/CALIBRATION.md`](docs/CALIBRATION.md).
+
 ## How evidence is represented
 
 An `EvidenceSet` holds `EvidenceItem`s, each a `claim` plus its `source_type`
@@ -724,6 +758,7 @@ src/littleboy/
     labels.py       # import real independent labels from CSV; transparent consensus; round-trip
     fitting.py      # fit a threshold policy (single split, k-fold CV, calibrated gain inference)
     stats.py        # stdlib-only Student-t CDF, corrected-t machinery, exact sign test
+    explain.py      # case-level disagreement explanations: trace diffs + minimal parameter accounts
     audit_corpus.json     # the packaged, self-contained audit calibration corpus
     scoring_corpus.json   # the packaged scoring-layer calibration corpus
     outcome_corpus.json   # the packaged held-out, human-labelled outcome corpus
@@ -732,7 +767,7 @@ src/littleboy/
   reasoning/
     report.py       # JSON / text rendering
     experiment.py   # EthicalExperiment runner (falsificatory + heuristic)
-  cli.py            # evaluate / experiment / questions / build-case / templates / analyze-language / compare / temporal / audit / deliberate / calibrate / recommend-policy
+  cli.py            # evaluate / experiment / questions / build-case / templates / analyze-language / compare / temporal / audit / deliberate / calibrate / recommend-policy / explain-disagreement
 tests/              # pytest suite (incl. golden/ for calibration regression)
 examples/           # sample JSON cases (incl. partial_*, language_*, comparison_*, temporal_*, audit_*, voi_*)
 docs/               # ARCHITECTURE, ETHICAL_MODEL, RULE_ENGINE, POLICY_PROFILES,
@@ -757,7 +792,7 @@ pip install -e ".[dev]"     # pydantic, pytest, typer, ruff
 ## Running the tests
 
 ```bash
-pytest                      # 255 tests
+pytest                      # 271 tests
 ruff check src tests        # lint (optional)
 ```
 
@@ -796,6 +831,9 @@ littleboy recommend-policy --stakeholder strict --inference               # cali
 littleboy recommend-policy --labels-csv my_labels.csv                     # use real labels (case_id,labeler,verdict[,split])
 littleboy recommend-policy --independent                                  # against the packaged independent three-person panel
 littleboy recommend-policy --external --inference                         # the 40-case x 5-labeller external set + inference
+littleboy explain-disagreement ext-0007 --external --against consensus    # WHY the engine diverges from the panel, case-level
+littleboy explain-disagreement examples/policy_permissive_case.json --against permissive   # trace diff between two policies
+littleboy explain-disagreement --all --external --against hana            # one line per disagreement with that labeller
 littleboy build-case --minimal --from examples/voi_consent_pivotal.json --strategy lookahead
 littleboy templates                                                       # list scenario templates
 littleboy version
@@ -976,25 +1014,24 @@ make consequential decisions about real people.
 
 ## Current development status
 
-**v0.17 — calibrated inference & a larger external set.** Implemented on top of
-v0.16. `cv_gain_inference` runs **repeated, stratified k-fold CV** (disposition-
-balanced folds, a different deterministic partition per repetition) and tests the
-fitting gain with the **Nadeau–Bengio corrected resampled t-test** — the
-`s²·(1/m + 1/(k−1))` variance correction floors the standard error so repeating CV
-cannot manufacture confidence — plus an **exact sign test** on paired out-of-fold
-predictions; `fitting_helps` now requires `p < alpha` and a positive mean. The
-machinery is stdlib-only (`calibration/stats.py`: Student-t CDF via the regularised
-incomplete beta, tested against closed forms). On the synthetic panel the `strict`
-gain reads +0.069, 95% CI [+0.029, +0.108], p = 0.0010 (sign test 11 vs 0), and the
-interval tightens with n (0.129 → 0.079 from n=40 → 160). A packaged
-`default_external_outcome_corpus` adds **40 diverse generated cases**
-(`external_case_bank`: severity, data adequacy, consent, reversibility, evidence
-all vary) **× 5 hand-authored labellers** (`external_labels.csv`, written against
-the case facts without consulting the engine), with genuinely messy agreement (dev
-kappa ~0.28) — on which the inference honestly finds fitting does *not* demonstrably
-help (p = 0.41). New `recommend-policy --inference`, `--repeats`, `--external`; a
-CV-gain-inference golden file; a 255-test suite (all passing). Purely additive —
-the verdict itself is unchanged.
+**v0.18 — case-level disagreement explanations.** Implemented on top of v0.17.
+`calibration/explain.py` turns every reliability disagreement into an inspectable
+`DisagreementExplanation` built on the existing `ReasoningTrace`. Policy-vs-policy
+(`explain_policy_disagreement`) gives a true trace diff — `TraceDelta`s for rules
+whose outcome changed, `ThresholdFlip`s where the same policy-independent score
+crosses a limit under one policy only — plus the **minimal parameter account**
+(`minimal_policy_accounts`): the smallest set(s) of policy parameters that, swapped
+to the other policy's values, actually reproduce the other verdict, every candidate
+re-evaluated through the real engine and provably minimal by increasing-size
+search. Engine-vs-labeller (`explain_label_disagreement`,
+`explain_reliability_disagreements`) reports the engine's decisive factors, which
+built-ins agree with the label, and the account toward the nearest agreeing policy
+(the *bridge*), with specific impasse diagnoses (within-disposition vs "not a
+threshold question within the built-in family"). One explanation per
+reliability-table disagreement, count-pinned by test. New CLI
+`explain-disagreement` (case id or JSON path, `--against <labeler|policy>`,
+`--all`); a disagreement-explanation golden file; a 271-test suite (all passing).
+Purely additive — the verdict itself is unchanged.
 
 Earlier phases delivered the core models; coercion/data-quality/evidence scoring;
 consent/agency models; the tri-state Axiom 3 justification; feasibility-aware
@@ -1008,8 +1045,9 @@ v0.11 cost-aware interactive intake; the v0.12 domain-driven intake &
 independently-labelled calibration; the v0.13 external-validity reliability &
 probabilistic planning; the v0.14 panel labelling at scale, inter-labeller
 agreement & policy recommendation; the v0.15 real-labels CSV import &
-single-split fitted-threshold recommender; and the v0.16 cross-validated fitting &
-16-case independent panel. All v0.1–v0.16 inputs remain valid.
+single-split fitted-threshold recommender; the v0.16 cross-validated fitting &
+16-case independent panel; and the v0.17 calibrated CV inference & 40-case
+external set. All v0.1–v0.17 inputs remain valid.
 
 **Deliberately not built:** any web UI, any LLM/API integration, any opaque bias
 detection, any prediction that looks certain, any claim to absolute truth, any
@@ -1020,14 +1058,14 @@ to interrogate, not more dogmatic**.
 
 - Collect labels from **people genuinely unconnected to the project** for the
   external case bank (each case's description already states its facts; the CSV
-  path, agreement, reliability, recommendation, and inference all run unchanged),
-  and publish the resulting real agreement and gain inference.
+  path, agreement, reliability, recommendation, inference, and explanations all
+  run unchanged), and publish the resulting real agreement and gain inference.
+- Extend disagreement explanations with **fact-level accounts**: when no policy
+  parameter bridges the gap, search the deliberation layer's case probes for the
+  smallest *fact* change that would align the engine with the labeller — unifying
+  the parameter account and the minimal flip set into one explanation.
 - Let `intake_hints` declare fully custom unknowns (probe fields, resolutions, costs,
   and probabilities) so domains beyond the built-in fields can drive the planner.
-- A **case-level explanation diff**: for any disagreement between the engine and a
-  labeller (or between two policies), render the minimal trace difference — which
-  rule, threshold, or missing fact accounts for the divergent verdict — so
-  reliability tables become inspectable case by case.
 - **Optional** LLM-assisted indicator extraction (language, consequence, audit)
   behind an explicit flag, with the model's suggestions shown, attributed, and
   editable — the deterministic core staying authoritative and the audit trail

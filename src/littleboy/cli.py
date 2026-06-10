@@ -32,6 +32,9 @@ from littleboy.calibration import (
     default_labelled_outcome_corpus,
     default_outcome_corpus,
     default_scoring_corpus,
+    explain_label_disagreement,
+    explain_policy_disagreement,
+    explain_reliability_disagreements,
     fit_threshold_policy,
     generate_scoring_corpus,
     load_corpus,
@@ -791,6 +794,164 @@ def recommend_policy_cmd(
         typer.echo(f"  fitting helps: {g.fitting_helps}  (alpha = {g.alpha})")
         for note in g.notes:
             typer.echo(f"  - {note}")
+
+
+def _echo_explanation(exp) -> None:
+    head = "NO DISAGREEMENT" if exp.agree else "DISAGREEMENT"
+    typer.echo(
+        f"{head} {exp.case_id or '(case)'}: {exp.side_a} = {exp.verdict_a.value}  "
+        f"vs  {exp.side_b} = {exp.verdict_b.value}"
+    )
+    typer.echo(f"  dispositions: {exp.disposition_a} vs {exp.disposition_b}")
+    conf = f"{exp.confidence_a:.2f}"
+    if exp.confidence_b is not None:
+        conf += f" / {exp.confidence_b:.2f}"
+    typer.echo(
+        f"  scores: coercion={exp.coercion_score:.2f} data_quality={exp.data_quality_score:.2f} "
+        f"evidence={exp.evidence_score:.2f} confidence={conf}"
+    )
+    if exp.engine_decisive:
+        typer.echo("  decisive (side A):")
+        for line in exp.engine_decisive:
+            typer.echo(f"    - {line}")
+    if exp.other_decisive:
+        typer.echo("  decisive (side B):")
+        for line in exp.other_decisive:
+            typer.echo(f"    - {line}")
+    if exp.kind == "engine-vs-label" and not exp.agree:
+        exact = ", ".join(exp.agreeing_policies_exact) or "none"
+        disp = ", ".join(exp.agreeing_policies_disposition) or "none"
+        typer.echo(f"  built-ins agreeing with the label: exact: {exact} | disposition: {disp}")
+        if exp.bridge_policy:
+            typer.echo(f"  bridge policy: {exp.bridge_policy}")
+    if exp.minimal_parameter_accounts:
+        typer.echo("  minimal parameter account(s) (verified by re-evaluation):")
+        for account in exp.minimal_parameter_accounts:
+            changes = "; ".join(f"{p}: {exp.parameter_changes.get(p, '?')}" for p in account)
+            typer.echo(f"    - {changes}")
+    if exp.threshold_flips:
+        typer.echo("  threshold flips (same score, different limit):")
+        for flip in exp.threshold_flips:
+            side_a = "crossed" if flip.crossed_a else "not crossed"
+            side_b = "crossed" if flip.crossed_b else "not crossed"
+            typer.echo(
+                f"    - {flip.quantity}={flip.value:.2f} vs {flip.threshold}: "
+                f"{flip.limit_a} ({side_a}) -> {flip.limit_b} ({side_b})"
+            )
+    if exp.trace_deltas:
+        typer.echo("  rule deltas:")
+        for delta in exp.trace_deltas:
+            tag_a = f"{delta.status_a}/{delta.severity_a}" + (
+                " [blocker]" if delta.blocker_a else ""
+            )
+            tag_b = f"{delta.status_b}/{delta.severity_b}" + (
+                " [blocker]" if delta.blocker_b else ""
+            )
+            typer.echo(f"    - {delta.rule_id} {delta.name}: {tag_a} -> {tag_b}")
+    for note in exp.notes:
+        typer.echo(f"  - {note}")
+
+
+@app.command(name="explain-disagreement")
+def explain_disagreement_cmd(
+    case_ref: str | None = typer.Argument(
+        None, help="A corpus case id, or a path to an ActionCase JSON file (omit with --all)."
+    ),
+    against: str = typer.Option(
+        ...,
+        "--against",
+        help="A labeler name, 'consensus', or a built-in policy name.",
+    ),
+    policy: str = typer.Option(
+        "standard", "--policy", "-p", help=f"The engine-side policy: {_POLICY_CHOICES}."
+    ),
+    all_cases: bool = typer.Option(
+        False, "--all", help="Explain every disagreement vs --against across the corpus."
+    ),
+    independent: bool = typer.Option(
+        False, "--independent", help="Use the packaged independent 16-case set."
+    ),
+    external: bool = typer.Option(
+        False, "--external", help="Use the packaged external 40-case x 5-labeller set."
+    ),
+    output_format: str = typer.Option(
+        "text", "--format", "-f", help="Output format: 'json' or 'text'."
+    ),
+) -> None:
+    """Explain WHY one case got divergent verdicts -- the minimal difference, inspectable."""
+    if output_format not in {"json", "text"}:
+        typer.echo(f"Unknown format '{output_format}'; use 'json' or 'text'.", err=True)
+        raise typer.Exit(code=2)
+    if independent and external:
+        typer.echo("Use at most one of --independent, --external.", err=True)
+        raise typer.Exit(code=2)
+    engine_policy = _resolve_policy(policy)
+    versus_policy = against in {m.value for m in PolicyMode}
+
+    if independent:
+        corpus = default_independent_outcome_corpus()
+    elif external:
+        corpus = default_external_outcome_corpus()
+    else:
+        corpus = default_labelled_outcome_corpus()
+
+    if all_cases:
+        if versus_policy:
+            typer.echo("--all explains label disagreements; --against must be a labeler.", err=True)
+            raise typer.Exit(code=2)
+        labeler = None if against == "consensus" else against
+        try:
+            explanations = explain_reliability_disagreements(corpus, labeler, policy=engine_policy)
+        except ValueError as exc:
+            typer.echo(str(exc), err=True)
+            raise typer.Exit(code=2) from exc
+        if output_format == "json":
+            payload = [e.model_dump(mode="json") for e in explanations]
+            typer.echo(json.dumps(payload, indent=2, ensure_ascii=False))
+            return
+        typer.echo(f"{len(explanations)} disagreement(s): engine[{engine_policy}] vs {against}")
+        for exp in explanations:
+            account = (
+                "; ".join(",".join(a) for a in exp.minimal_parameter_accounts[:1])
+                or exp.bridge_policy
+                or "no built-in account"
+            )
+            typer.echo(
+                f"  {exp.case_id}: {exp.verdict_a.value} vs {exp.verdict_b.value}  [{account}]"
+            )
+        return
+
+    if case_ref is None:
+        typer.echo("Provide a case id / path, or use --all.", err=True)
+        raise typer.Exit(code=2)
+
+    path = Path(case_ref)
+    entry = next((e for e in corpus.entries if e.id == case_ref), None)
+    if versus_policy:
+        if entry is not None:
+            case, case_id = entry.case, entry.id
+        elif path.is_file():
+            case, case_id = _load_case(path), path.stem
+        else:
+            typer.echo(f"Case '{case_ref}' is neither a corpus id nor a file.", err=True)
+            raise typer.Exit(code=2)
+        explanation = explain_policy_disagreement(case, engine_policy, against, case_id=case_id)
+    else:
+        if entry is None:
+            hint = " (labels live in a corpus; pass a corpus case id)" if path.is_file() else ""
+            typer.echo(f"Case id '{case_ref}' not found in the chosen corpus{hint}.", err=True)
+            raise typer.Exit(code=2)
+        labeler = None if against == "consensus" else against
+        try:
+            explanation = explain_label_disagreement(entry, labeler, policy=engine_policy)
+        except ValueError as exc:
+            typer.echo(str(exc), err=True)
+            raise typer.Exit(code=2) from exc
+
+    if output_format == "json":
+        typer.echo(json.dumps(explanation.model_dump(mode="json"), indent=2, ensure_ascii=False))
+        return
+    _echo_explanation(explanation)
 
 
 @app.command()

@@ -1,0 +1,90 @@
+{
+  "case_id": "policy_permissive_case",
+  "kind": "policy-vs-policy",
+  "side_a": "standard",
+  "side_b": "permissive",
+  "verdict_a": "NOT_ACCEPTABLE",
+  "verdict_b": "ACCEPTABLE_WITH_RESERVATIONS",
+  "disposition_a": "impermissible",
+  "disposition_b": "permissible",
+  "agree": false,
+  "coercion_score": 0.645,
+  "data_quality_score": 0.7055,
+  "evidence_score": 0.0,
+  "confidence_a": 0.7055,
+  "confidence_b": 0.7055,
+  "engine_decisive": [
+    "LB-R002 Coercion Detection Rule [blocker]: Coercion exceeds the acceptable threshold (0.64 >= 0.60) and is not established as justified.",
+    "LB-R007 Justified Coercion Rule [blocker]: Coercion is high and no Axiom 3 justification was supplied."
+  ],
+  "other_decisive": [],
+  "bridge_policy": null,
+  "agreeing_policies_exact": [],
+  "agreeing_policies_disposition": [],
+  "minimal_parameter_accounts": [
+    [
+      "max_coercion_for_acceptable"
+    ]
+  ],
+  "parameter_changes": {
+    "mode": "standard -> permissive",
+    "min_data_quality_for_approval": "0.35 -> 0.25",
+    "min_evidence_quality_for_approval": "0.3 -> 0.2",
+    "min_confidence": "0.3 -> 0.2",
+    "data_quality_good": "0.7 -> 0.6",
+    "max_coercion_for_acceptable": "0.6 -> 0.75",
+    "coercion_moderate": "0.3 -> 0.4",
+    "irreversible_requires_high_certainty": "True -> False",
+    "irreversible_min_epistemic": "0.5 -> 0.4",
+    "vulnerability_confidence_penalty": "0.15 -> 0.1",
+    "informational_manipulation_severe": "True -> False"
+  },
+  "trace_deltas": [
+    {
+      "rule_id": "LB-R002",
+      "name": "Coercion Detection Rule",
+      "status_a": "failed",
+      "status_b": "passed",
+      "severity_a": "blocker",
+      "severity_b": "warning",
+      "blocker_a": true,
+      "blocker_b": false,
+      "verdict_delta_a": 0,
+      "verdict_delta_b": 0,
+      "verdict_cap_a": "ETHICALLY_SUSPICIOUS",
+      "verdict_cap_b": null,
+      "message_a": "Coercion exceeds the acceptable threshold (0.64 >= 0.60) and is not established as justified.",
+      "message_b": "Coercion is moderate (0.64); scrutiny of alternatives and justification applies."
+    },
+    {
+      "rule_id": "LB-R007",
+      "name": "Justified Coercion Rule",
+      "status_a": "failed",
+      "status_b": "not_applicable",
+      "severity_a": "blocker",
+      "severity_b": "info",
+      "blocker_a": true,
+      "blocker_b": false,
+      "verdict_delta_a": 0,
+      "verdict_delta_b": 0,
+      "verdict_cap_a": "NOT_ACCEPTABLE",
+      "verdict_cap_b": null,
+      "message_a": "Coercion is high and no Axiom 3 justification was supplied.",
+      "message_b": "coercion is not high enough to require justification"
+    }
+  ],
+  "threshold_flips": [
+    {
+      "quantity": "coercion_score",
+      "value": 0.645,
+      "threshold": "max_coercion_for_acceptable",
+      "limit_a": 0.6,
+      "limit_b": 0.75,
+      "crossed_a": true,
+      "crossed_b": false
+    }
+  ],
+  "notes": [
+    "minimal account verified by re-evaluation: changing 1 parameter(s) of 'standard' to 'permissive' values reproduces the other verdict; no smaller change does"
+  ]
+}
