@@ -16,6 +16,7 @@ used without it. Malformed input fails gracefully with an explanation.
 from __future__ import annotations
 
 import json
+from collections import Counter
 from pathlib import Path
 
 import typer
@@ -829,6 +830,12 @@ def _echo_explanation(exp) -> None:
         for account in exp.minimal_parameter_accounts:
             changes = "; ".join(f"{p}: {exp.parameter_changes.get(p, '?')}" for p in account)
             typer.echo(f"    - {changes}")
+    if exp.minimal_fact_accounts:
+        typer.echo("  minimal fact account(s) (verified by re-evaluation):")
+        for account in exp.minimal_fact_accounts:
+            typer.echo(f"    - {'; '.join(account)}")
+    if exp.bridge_classification:
+        typer.echo(f"  classification: {exp.bridge_classification}")
     if exp.threshold_flips:
         typer.echo("  threshold flips (same score, different limit):")
         for flip in exp.threshold_flips:
@@ -911,14 +918,21 @@ def explain_disagreement_cmd(
             return
         typer.echo(f"{len(explanations)} disagreement(s): engine[{engine_policy}] vs {against}")
         for exp in explanations:
-            account = (
-                "; ".join(",".join(a) for a in exp.minimal_parameter_accounts[:1])
-                or exp.bridge_policy
-                or "no built-in account"
-            )
+            param_route = "; ".join(",".join(a) for a in exp.minimal_parameter_accounts[:1])
+            fact_route = "; ".join("; ".join(a) for a in exp.minimal_fact_accounts[:1])
+            if exp.bridge_classification == "fact-bridgeable":
+                route = fact_route or param_route
+            else:
+                route = param_route or fact_route
+            route = route or exp.bridge_policy or "no account"
             typer.echo(
-                f"  {exp.case_id}: {exp.verdict_a.value} vs {exp.verdict_b.value}  [{account}]"
+                f"  {exp.case_id}: {exp.verdict_a.value} vs {exp.verdict_b.value}  "
+                f"[{exp.bridge_classification}] {route}"
             )
+        tally = Counter(exp.bridge_classification for exp in explanations)
+        if tally:
+            summary = "  ".join(f"{kind}: {count}" for kind, count in sorted(tally.items()))
+            typer.echo(f"classification tally: {summary}")
         return
 
     if case_ref is None:

@@ -526,6 +526,20 @@ class DisagreementExplanation(_CalBase):
         default_factory=dict,
         description="Every differing policy parameter, as 'A value -> B value'.",
     )
+    minimal_fact_accounts: list[list[str]] = Field(
+        default_factory=list,
+        description=(
+            "Smallest joint fact resolutions (self-describing probe labels) that make "
+            "the engine produce side B's verdict exactly (engine-vs-label only)."
+        ),
+    )
+    bridge_classification: str = Field(
+        default="",
+        description=(
+            "'policy-bridgeable' | 'fact-bridgeable' | 'both' | 'neither' "
+            "('' when agreeing, or for policy-vs-policy)."
+        ),
+    )
     trace_deltas: list[TraceDelta] = Field(default_factory=list)
     threshold_flips: list[ThresholdFlip] = Field(default_factory=list)
     notes: list[str] = Field(default_factory=list)

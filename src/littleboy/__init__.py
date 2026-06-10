@@ -55,6 +55,7 @@ from littleboy.calibration import (
     generate_outcome_corpus,
     generate_scoring_corpus,
     labels_to_csv,
+    minimal_fact_accounts,
     minimal_policy_accounts,
     outcome_corpus_from_csv,
     parse_labels_csv,
@@ -189,7 +190,7 @@ from littleboy.temporal import (
     score_reversibility,
 )
 
-__version__ = "0.18.0"
+__version__ = "0.19.0"
 
 __all__ = [
     "AuditCorpus",
@@ -234,6 +235,7 @@ __all__ = [
     "generate_outcome_corpus",
     "generate_scoring_corpus",
     "labels_to_csv",
+    "minimal_fact_accounts",
     "minimal_flip_sets",
     "minimal_policy_accounts",
     "outcome_corpus_from_csv",

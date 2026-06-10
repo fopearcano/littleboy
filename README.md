@@ -11,15 +11,18 @@ and returns a **transparent, explained verdict** with an honest account of its
 own uncertainty. It is a reasoning engine, not a user interface and not a
 language model.
 
-This is **v0.18**, which makes every disagreement **inspectable case by case**: a
-reliability table's opaque counts become `DisagreementExplanation`s built on the
-existing `ReasoningTrace` — for two policies, a true **trace diff** (rule deltas +
-threshold flips) plus the engine-verified **minimal parameter account** (the
-smallest policy-parameter change that actually reproduces the other verdict, the
-policy analogue of a minimal flip set); for engine-vs-labeller, the engine's
-**decisive factors**, **which built-in policies agree** with the label, and the
-account toward the nearest agreeing one — or an honest "this is not a threshold
-question" when none does. (v0.17 gave the fitting gain a real p-value —
+This is **v0.19**, which completes the disagreement explanations with the **fact
+route** and unifies the two: when the engine diverges from a labeller, it now
+searches the deliberation layer's case probes for the **smallest fact resolutions**
+that would make the engine produce the label's verdict exactly
+(`minimal_fact_accounts` — the targeted counterpart of a minimal flip set,
+engine-verified and provably minimal), and classifies every disagreement as
+**policy-bridgeable / fact-bridgeable / both / neither** — `both` means genuinely
+ambiguous between values and facts ("either treat unknown consent as a blocker, or
+learn that consent was refused"), `neither` flags the cases worth a human look,
+and `--all` prints the tally. (v0.18 made disagreements inspectable case by case:
+trace diffs, threshold flips, and the engine-verified minimal parameter account;
+v0.17 gave the fitting gain a real p-value —
 Nadeau–Bengio corrected t over repeated stratified CV + an exact sign test — and a
 40-case × 5-labeller external set; v0.16 added k-fold cross-validated fitting and
 a 16-case independent panel; v0.15 imported real labels from CSV and added the
@@ -635,6 +638,38 @@ Deterministic, typed, stdlib-only, additive — the verdict itself is unchanged.
 Deterministic, typed, evaluation-only, additive — the verdict itself is unchanged.
 See [`docs/CALIBRATION.md`](docs/CALIBRATION.md).
 
+## LittleBoy v0.19: Fact accounts & the unified explanation
+
+> A labeller who diverges from the engine is doing one of two things: weighing
+> values differently, or assuming a fact the case leaves unknown. The explanation
+> should search **both routes** — and say when it found neither.
+
+- **Minimal fact accounts** (`minimal_fact_accounts`): the case's genuine unknowns
+  and their candidate resolutions come from the deliberation layer's existing
+  probes (`build_probe_specs` — the same composable `case -> case` transforms
+  behind value of information and minimal flip sets), and the search is the
+  *targeted* counterpart of a minimal flip set: the joint resolution must make the
+  engine produce **the labeller's verdict exactly** (not just any different one).
+  Increasing-size search, every candidate re-evaluated through the real engine —
+  verified and provably minimal, e.g. `consent = REFUSED`.
+- **The unified classification** (`bridge_classification`): every
+  engine-vs-labeller disagreement is classified by which engine-verified routes to
+  agreement exist — **`policy-bridgeable`** (a built-in policy reproduces the
+  label; the parameter account shows the smallest change), **`fact-bridgeable`**
+  (resolving unknowns reaches the label — the labeller may know something the case
+  doesn't state), **`both`** (genuinely ambiguous between values and facts: on the
+  packaged independent set, `policy_strict_borderline` vs `cleo` is bridged
+  *either* by `unknown_consent_is_blocker: False -> True` *or* by
+  `consent = REFUSED`, and the explanation says which question that poses), or
+  **`neither`** (worth a human look — on the external set vs consensus, 17 of 21,
+  mostly the panel condemning on data the engine refuses to judge: a real
+  normative difference, now separated from threshold quibbles and fact gaps).
+  `littleboy explain-disagreement --all` classifies every line and prints the
+  tally.
+
+Deterministic, typed, evaluation-only, additive — the verdict itself is unchanged.
+See [`docs/CALIBRATION.md`](docs/CALIBRATION.md).
+
 ## How evidence is represented
 
 An `EvidenceSet` holds `EvidenceItem`s, each a `claim` plus its `source_type`
@@ -758,7 +793,7 @@ src/littleboy/
     labels.py       # import real independent labels from CSV; transparent consensus; round-trip
     fitting.py      # fit a threshold policy (single split, k-fold CV, calibrated gain inference)
     stats.py        # stdlib-only Student-t CDF, corrected-t machinery, exact sign test
-    explain.py      # case-level disagreement explanations: trace diffs + minimal parameter accounts
+    explain.py      # disagreement explanations: trace diffs, parameter + fact accounts, classification
     audit_corpus.json     # the packaged, self-contained audit calibration corpus
     scoring_corpus.json   # the packaged scoring-layer calibration corpus
     outcome_corpus.json   # the packaged held-out, human-labelled outcome corpus
@@ -792,7 +827,7 @@ pip install -e ".[dev]"     # pydantic, pytest, typer, ruff
 ## Running the tests
 
 ```bash
-pytest                      # 271 tests
+pytest                      # 281 tests
 ruff check src tests        # lint (optional)
 ```
 
@@ -833,7 +868,8 @@ littleboy recommend-policy --independent                                  # agai
 littleboy recommend-policy --external --inference                         # the 40-case x 5-labeller external set + inference
 littleboy explain-disagreement ext-0007 --external --against consensus    # WHY the engine diverges from the panel, case-level
 littleboy explain-disagreement examples/policy_permissive_case.json --against permissive   # trace diff between two policies
-littleboy explain-disagreement --all --external --against hana            # one line per disagreement with that labeller
+littleboy explain-disagreement policy_strict_borderline --independent --against cleo       # a 'both' case: policy OR fact route
+littleboy explain-disagreement --all --external --against hana            # one line per disagreement + classification tally
 littleboy build-case --minimal --from examples/voi_consent_pivotal.json --strategy lookahead
 littleboy templates                                                       # list scenario templates
 littleboy version
@@ -1014,24 +1050,26 @@ make consequential decisions about real people.
 
 ## Current development status
 
-**v0.18 — case-level disagreement explanations.** Implemented on top of v0.17.
-`calibration/explain.py` turns every reliability disagreement into an inspectable
-`DisagreementExplanation` built on the existing `ReasoningTrace`. Policy-vs-policy
-(`explain_policy_disagreement`) gives a true trace diff — `TraceDelta`s for rules
-whose outcome changed, `ThresholdFlip`s where the same policy-independent score
-crosses a limit under one policy only — plus the **minimal parameter account**
-(`minimal_policy_accounts`): the smallest set(s) of policy parameters that, swapped
-to the other policy's values, actually reproduce the other verdict, every candidate
-re-evaluated through the real engine and provably minimal by increasing-size
-search. Engine-vs-labeller (`explain_label_disagreement`,
-`explain_reliability_disagreements`) reports the engine's decisive factors, which
-built-ins agree with the label, and the account toward the nearest agreeing policy
-(the *bridge*), with specific impasse diagnoses (within-disposition vs "not a
-threshold question within the built-in family"). One explanation per
-reliability-table disagreement, count-pinned by test. New CLI
-`explain-disagreement` (case id or JSON path, `--against <labeler|policy>`,
-`--all`); a disagreement-explanation golden file; a 271-test suite (all passing).
-Purely additive — the verdict itself is unchanged.
+**v0.19 — fact accounts & the unified explanation.** Implemented on top of v0.18.
+`minimal_fact_accounts` searches the deliberation layer's existing case probes
+(`build_probe_specs` — only genuine unknowns get probes) for the smallest joint
+fact resolutions that make the engine produce **the labeller's verdict exactly**:
+the targeted counterpart of a minimal flip set, every candidate re-evaluated
+through the real engine, provably minimal by increasing-size search, with
+self-describing accounts like `consent = REFUSED`. Every engine-vs-labeller
+disagreement now carries a `bridge_classification` naming the engine-verified
+routes to agreement — `policy-bridgeable` / `fact-bridgeable` / `both` /
+`neither` — with a unified note on `both` cases ("change the policy or establish
+the facts; which is right depends on whether the labeller weighs values
+differently or knows something the case does not state") and an explicit
+worth-a-human-look flag on `neither`. The packaged independent set contains a
+textbook `both` case (`policy_strict_borderline` vs `cleo`: bridged either by
+`unknown_consent_is_blocker` or by `consent = REFUSED`); on the external set vs
+consensus the tally is 17 `neither` / 3 `policy` / 1 `fact` — real normative
+divergence now separated from threshold quibbles and fact gaps.
+`explain-disagreement` shows fact accounts and the classification; `--all` prints
+a classification tally. A 281-test suite (all passing). Purely additive — the
+verdict itself is unchanged.
 
 Earlier phases delivered the core models; coercion/data-quality/evidence scoring;
 consent/agency models; the tri-state Axiom 3 justification; feasibility-aware
@@ -1046,8 +1084,9 @@ independently-labelled calibration; the v0.13 external-validity reliability &
 probabilistic planning; the v0.14 panel labelling at scale, inter-labeller
 agreement & policy recommendation; the v0.15 real-labels CSV import &
 single-split fitted-threshold recommender; the v0.16 cross-validated fitting &
-16-case independent panel; and the v0.17 calibrated CV inference & 40-case
-external set. All v0.1–v0.17 inputs remain valid.
+16-case independent panel; the v0.17 calibrated CV inference & 40-case external
+set; and the v0.18 case-level disagreement explanations (trace diffs + minimal
+parameter accounts). All v0.1–v0.18 inputs remain valid.
 
 **Deliberately not built:** any web UI, any LLM/API integration, any opaque bias
 detection, any prediction that looks certain, any claim to absolute truth, any
@@ -1059,13 +1098,15 @@ to interrogate, not more dogmatic**.
 - Collect labels from **people genuinely unconnected to the project** for the
   external case bank (each case's description already states its facts; the CSV
   path, agreement, reliability, recommendation, inference, and explanations all
-  run unchanged), and publish the resulting real agreement and gain inference.
-- Extend disagreement explanations with **fact-level accounts**: when no policy
-  parameter bridges the gap, search the deliberation layer's case probes for the
-  smallest *fact* change that would align the engine with the labeller — unifying
-  the parameter account and the minimal flip set into one explanation.
+  run unchanged), and publish the resulting real agreement, gain inference, and
+  disagreement-classification tally.
+- Aggregate the classifications into a **corpus-level diagnosis report**: per
+  labeller and per policy, what fraction of disagreement is threshold (policy),
+  epistemic (facts), or genuine divergence — with the recurring parameters and
+  facts ranked, so the tally becomes a tuning agenda.
 - Let `intake_hints` declare fully custom unknowns (probe fields, resolutions, costs,
-  and probabilities) so domains beyond the built-in fields can drive the planner.
+  and probabilities) so domains beyond the built-in fields can drive the planner —
+  which would also widen the fact-account vocabulary case by case.
 - **Optional** LLM-assisted indicator extraction (language, consequence, audit)
   behind an explicit flag, with the model's suggestions shown, attributed, and
   editable — the deterministic core staying authoritative and the audit trail

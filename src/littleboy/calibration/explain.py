@@ -12,18 +12,22 @@ re-derives nothing). Two kinds of explanation:
   side B's verdict. Every account is engine-verified (the hybrid profile is
   actually evaluated), exactly like the deliberation layer's minimal flip sets but
   over policy parameters instead of facts.
-- **engine-vs-label** -- the human side has no trace, so the honest explanation is:
-  the engine's decisive factors, which built-in policies agree with the label, and
-  the parameter account toward the nearest agreeing policy (the *bridge*). When no
-  built-in reproduces the label, that is reported plainly: the disagreement is not
-  a threshold question within the built-in policy family.
+- **engine-vs-label** -- the human side has no trace, so the honest explanation is
+  the engine's decisive factors plus the two possible *routes to agreement*, both
+  engine-verified: the **policy route** (which built-in policies agree with the
+  label; the parameter account toward the nearest one, the *bridge*) and the
+  **fact route** (``minimal_fact_accounts``: the smallest resolutions of the
+  case's genuine unknowns -- via the deliberation layer's probes -- that make the
+  engine produce the label's verdict exactly). ``bridge_classification`` names
+  what exists: ``policy-bridgeable`` / ``fact-bridgeable`` / ``both`` /
+  ``neither`` -- the ``neither`` cases are the ones worth a human look.
 
 Deterministic, typed, evaluation-only: nothing here changes any verdict.
 """
 
 from __future__ import annotations
 
-from itertools import combinations
+from itertools import combinations, product
 
 from littleboy.calibration.models import (
     DisagreementExplanation,
@@ -36,6 +40,7 @@ from littleboy.calibration.reliability import disposition
 from littleboy.core.enums import PolicyMode, Verdict
 from littleboy.core.evaluator import EthicalEvaluator
 from littleboy.core.models import ActionCase, EvaluationReport, RuleResult
+from littleboy.deliberation.voi import build_probe_specs
 from littleboy.rules.policy import PolicyProfile, get_policy
 
 _PARAM_FIELDS: tuple[str, ...] = tuple(PolicyProfile.model_fields.keys())
@@ -100,6 +105,51 @@ def minimal_policy_accounts(
                 hits.append(list(combo))
                 if len(hits) >= max_accounts:
                     break
+        if hits:
+            return hits
+    return []
+
+
+def minimal_fact_accounts(
+    case: ActionCase,
+    policy: PolicyMode | PolicyProfile | str,
+    target: Verdict,
+    *,
+    max_size: int = 2,
+    max_accounts: int = 8,
+) -> list[list[str]]:
+    """The smallest joint fact resolutions that make the engine produce ``target`` exactly.
+
+    The unknowns and their candidate resolutions come from the deliberation
+    layer's probes (``build_probe_specs`` -- only genuine unknowns get probes), so
+    this is the targeted counterpart of a minimal flip set: instead of flipping to
+    *any* other verdict, the joint resolution must land on the labeller's verdict.
+    Each account is a list of self-describing resolution labels (e.g.
+    ``'consent = REFUSED'``), verified by actually re-evaluating the transformed
+    case, and minimal by increasing-size search.
+    Returns ``[]`` when the engine already agrees, the case has no genuine
+    unknowns, or no account exists within ``max_size``.
+    """
+    evaluator = EthicalEvaluator(get_policy(policy))
+    if evaluator.evaluate(case).verdict == target:
+        return []
+    specs = build_probe_specs(case)
+    if not specs:
+        return []
+    for size in range(1, min(max_size, len(specs)) + 1):
+        hits: list[list[str]] = []
+        for combo in combinations(range(len(specs)), size):
+            for choice in product(*(specs[i].resolutions for i in combo)):
+                resolved = case
+                for _label, transform in choice:
+                    resolved = transform(resolved)
+                if evaluator.evaluate(resolved).verdict == target:
+                    # the probe labels are already self-describing ('consent = REFUSED',
+                    # 'long-term consequences are benign', ...)
+                    hits.append([label for label, _t in choice])
+                    break  # the first satisfying joint resolution accounts for this combo
+            if len(hits) >= max_accounts:
+                break
         if hits:
             return hits
     return []
@@ -269,13 +319,18 @@ def explain_label_disagreement(
     *,
     policy: PolicyMode | PolicyProfile | str = "standard",
     max_size: int = 3,
+    max_fact_size: int = 2,
 ) -> DisagreementExplanation:
     """Explain why the engine's verdict diverges from one labeller's (or the consensus).
 
-    The human side has no trace, so the explanation is the engine's decisive
-    factors plus a *bridge*: the nearest built-in policy that agrees with the
-    label, with the engine-verified minimal parameter account toward it. If no
-    built-in agrees even on disposition, that is stated plainly.
+    The human side has no trace, so the explanation gives the engine's decisive
+    factors and then the two possible routes to agreement, both engine-verified:
+    the **policy route** (the nearest built-in policy that agrees with the label,
+    with the minimal parameter account toward it) and the **fact route** (the
+    smallest fact resolutions that make the engine produce the label's verdict).
+    ``bridge_classification`` says which routes exist: 'policy-bridgeable',
+    'fact-bridgeable', 'both', or 'neither' -- the 'neither' cases are the ones
+    worth a human look.
     """
     label = _label_of(entry, labeler)
     profile = get_policy(policy)
@@ -290,10 +345,14 @@ def explain_label_disagreement(
 
     bridge: PolicyMode | None = None
     accounts: list[list[str]] = []
+    fact_accounts: list[list[str]] = []
     trace_deltas: list[TraceDelta] = []
     flips: list[ThresholdFlip] = []
     notes: list[str] = []
     target_name = labeler or "consensus"
+
+    if not agree:
+        fact_accounts = minimal_fact_accounts(entry.case, profile, label, max_size=max_fact_size)
 
     if agree:
         notes.append(f"no disagreement: the engine matches {target_name}'s verdict")
@@ -334,6 +393,36 @@ def explain_label_disagreement(
             "disagreement is not a threshold question within the built-in policy family"
         )
 
+    classification = ""
+    if not agree:
+        policy_route = bool(exact)
+        fact_route = bool(fact_accounts)
+        if policy_route and fact_route:
+            classification = "both"
+        elif policy_route:
+            classification = "policy-bridgeable"
+        elif fact_route:
+            classification = "fact-bridgeable"
+        else:
+            classification = "neither"
+        if fact_route:
+            notes.append(
+                f"fact route (verified by re-evaluation): resolving "
+                f"{'; '.join(fact_accounts[0])} makes the engine produce {target_name}'s "
+                "verdict exactly"
+            )
+        if classification == "both":
+            notes.append(
+                "two routes to agreement: change the policy (parameter account) or establish "
+                "the facts (fact account) -- which is right depends on whether the labeller "
+                "weighs values differently or knows something the case does not state"
+            )
+        elif classification == "neither":
+            notes.append(
+                "neither a policy parameter nor a fact resolution (within search limits) "
+                "aligns the engine with this label -- worth a human look"
+            )
+
     return DisagreementExplanation(
         case_id=entry.id,
         kind="engine-vs-label",
@@ -358,6 +447,8 @@ def explain_label_disagreement(
         parameter_changes=(
             _parameter_changes(profile, get_policy(bridge)) if bridge is not None else {}
         ),
+        minimal_fact_accounts=fact_accounts,
+        bridge_classification=classification,
         trace_deltas=trace_deltas,
         threshold_flips=flips,
         notes=notes,
@@ -371,6 +462,7 @@ def explain_reliability_disagreements(
     policy: PolicyMode | PolicyProfile | str = "standard",
     split: str | None = None,
     max_size: int = 2,
+    max_fact_size: int = 2,
 ) -> list[DisagreementExplanation]:
     """Explain every engine-vs-label disagreement behind a reliability table.
 
@@ -382,7 +474,9 @@ def explain_reliability_disagreements(
     for entry in corpus.entries:
         if split is not None and entry.split != split:
             continue
-        explanation = explain_label_disagreement(entry, labeler, policy=policy, max_size=max_size)
+        explanation = explain_label_disagreement(
+            entry, labeler, policy=policy, max_size=max_size, max_fact_size=max_fact_size
+        )
         if not explanation.agree:
             out.append(explanation)
     return out

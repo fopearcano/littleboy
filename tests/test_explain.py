@@ -1,4 +1,4 @@
-"""Tests for the v0.18 disagreement-explanation layer."""
+"""Tests for the disagreement-explanation layer (v0.18) and fact accounts (v0.19)."""
 
 from __future__ import annotations
 
@@ -16,11 +16,13 @@ from littleboy.calibration import (
     explain_policy_disagreement,
     explain_reliability_disagreements,
     explanation_golden_payload,
+    minimal_fact_accounts,
     minimal_policy_accounts,
     run_reliability,
 )
 from littleboy.cli import app
 from littleboy.core.evaluator import EthicalEvaluator
+from littleboy.deliberation.voi import build_probe_specs
 from littleboy.rules.policy import DEFAULT_PROFILES, PolicyMode
 
 EXAMPLES = Path(__file__).resolve().parent.parent / "examples"
@@ -220,3 +222,120 @@ def test_cli_explain_error_paths():
     # no case and no --all
     result = runner.invoke(app, ["explain-disagreement", "--against", "consensus"])
     assert result.exit_code == 2
+
+
+# --- fact accounts + unified classification (v0.19) ---------------------------
+
+
+def test_fact_account_reaches_the_label_exactly():
+    # ext-0034: consent is UNKNOWN; the panel judged it suspicious. Resolving the
+    # unknown to REFUSED makes the engine produce the label's verdict exactly.
+    entry = _entry(default_external_outcome_corpus(), "ext-0034")
+    exp = explain_label_disagreement(entry, None, policy="standard")
+    assert exp.bridge_classification == "fact-bridgeable"
+    assert ["consent = REFUSED"] in exp.minimal_fact_accounts
+    assert any("fact route" in note for note in exp.notes)
+
+
+def test_fact_account_is_verified_via_the_probe_api():
+    # rebuild the named resolution from the public probe API, apply it, and confirm
+    # the engine actually lands on the label's verdict -- nothing is asserted on faith
+    entry = _entry(default_external_outcome_corpus(), "ext-0034")
+    exp = explain_label_disagreement(entry, None, policy="standard")
+    account = exp.minimal_fact_accounts[0]
+    case = entry.case
+    specs = build_probe_specs(case)
+    for label in account:
+        transform = next(t for spec in specs for lbl, t in spec.resolutions if lbl == label)
+        case = transform(case)
+    verdict = EthicalEvaluator(PolicyMode.STANDARD).evaluate(case).verdict
+    assert verdict == exp.verdict_b
+
+
+def test_fact_accounts_empty_on_agreement_and_without_probes():
+    corpus = default_external_outcome_corpus()
+    evaluator = EthicalEvaluator(PolicyMode.STANDARD)
+    agreeing = next(
+        e for e in corpus.entries if evaluator.evaluate(e.case).verdict == e.human_verdict
+    )
+    assert minimal_fact_accounts(agreeing.case, "standard", agreeing.human_verdict) == []
+
+
+def test_both_routes_unified_on_a_real_case():
+    # policy_strict_borderline vs cleo: EITHER treat unknown consent as a blocker
+    # (policy route) OR learn that consent was refused (fact route)
+    from littleboy.calibration import default_independent_outcome_corpus
+
+    entry = _entry(default_independent_outcome_corpus(), "policy_strict_borderline")
+    exp = explain_label_disagreement(entry, "cleo", policy="standard")
+    assert exp.bridge_classification == "both"
+    assert ["unknown_consent_is_blocker"] in exp.minimal_parameter_accounts
+    assert ["consent = REFUSED"] in exp.minimal_fact_accounts
+    assert any("two routes to agreement" in note for note in exp.notes)
+
+
+def test_classification_is_consistent_with_the_accounts():
+    corpus = default_external_outcome_corpus()
+    for exp in explain_reliability_disagreements(corpus, "hana", policy="standard"):
+        policy_route = bool(exp.agreeing_policies_exact)
+        fact_route = bool(exp.minimal_fact_accounts)
+        expected = {
+            (True, True): "both",
+            (True, False): "policy-bridgeable",
+            (False, True): "fact-bridgeable",
+            (False, False): "neither",
+        }[(policy_route, fact_route)]
+        assert exp.bridge_classification == expected
+
+
+def test_classification_covers_multiple_kinds():
+    corpus = default_external_outcome_corpus()
+    kinds = {
+        e.bridge_classification
+        for e in explain_reliability_disagreements(corpus, "hana", policy="standard")
+    }
+    assert kinds <= {"both", "policy-bridgeable", "fact-bridgeable", "neither"}
+    assert {"fact-bridgeable", "policy-bridgeable", "neither"} <= kinds
+
+
+def test_agreeing_explanation_has_no_classification():
+    corpus = default_external_outcome_corpus()
+    evaluator = EthicalEvaluator(PolicyMode.STANDARD)
+    entry = next(e for e in corpus.entries if evaluator.evaluate(e.case).verdict == e.human_verdict)
+    exp = explain_label_disagreement(entry, None, policy="standard")
+    assert exp.bridge_classification == ""
+    assert exp.minimal_fact_accounts == []
+
+
+def test_policy_vs_policy_has_no_fact_machinery():
+    exp = explain_policy_disagreement(
+        _case("policy_permissive_case.json"), "standard", "permissive"
+    )
+    assert exp.bridge_classification == ""
+    assert exp.minimal_fact_accounts == []
+
+
+def test_cli_shows_fact_account_and_classification():
+    result = runner.invoke(
+        app,
+        [
+            "explain-disagreement",
+            "policy_strict_borderline",
+            "--independent",
+            "--against",
+            "cleo",
+        ],
+    )
+    assert result.exit_code == 0
+    assert "minimal fact account" in result.stdout
+    assert "consent = REFUSED" in result.stdout
+    assert "classification: both" in result.stdout
+
+
+def test_cli_all_prints_classification_tally():
+    result = runner.invoke(
+        app, ["explain-disagreement", "--all", "--external", "--against", "hana"]
+    )
+    assert result.exit_code == 0
+    assert "classification tally:" in result.stdout
+    assert "fact-bridgeable" in result.stdout

@@ -19,6 +19,7 @@ from littleboy.calibration.explain import (
     explain_policy_disagreement,
     explain_reliability_disagreements,
     explanation_golden_payload,
+    minimal_fact_accounts,
     minimal_policy_accounts,
 )
 from littleboy.calibration.fitting import (
@@ -154,6 +155,7 @@ __all__ = [
     "load_corpus",
     "load_outcome_corpus",
     "load_scoring_corpus",
+    "minimal_fact_accounts",
     "minimal_policy_accounts",
     "outcome_corpus_from_csv",
     "parse_labels_csv",

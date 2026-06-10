@@ -446,6 +446,55 @@ littleboy explain-disagreement case.json --against precautionary          # poli
 littleboy explain-disagreement --all --external --against hana            # every disagreement, one line each
 ```
 
+### Fact accounts & the unified explanation (v0.19)
+
+v0.18 explained engine-vs-labeller gaps through one lens: which *policy* change
+would align the engine. But a disagreement can have a second, entirely different
+explanation: maybe the labeller **knows (or assumes) a fact the case leaves
+unknown**. v0.19 adds the **fact route** and unifies the two.
+
+**Minimal fact accounts** (`minimal_fact_accounts`). The case's genuine unknowns
+and their candidate resolutions come from the deliberation layer's existing probes
+(`build_probe_specs` — the same composable `case -> case` transforms behind value
+of information and minimal flip sets). The search is the *targeted* counterpart of
+a minimal flip set: instead of flipping to any other verdict, the joint resolution
+must make the engine produce **the labeller's verdict exactly**. Increasing-size
+search, every candidate re-evaluated through the real engine, so each account is
+verified and provably minimal — e.g. `consent = REFUSED`, or `long-term
+consequences are worse than described`.
+
+**The unified explanation.** Every engine-vs-labeller disagreement now carries a
+`bridge_classification` naming which engine-verified routes to agreement exist:
+
+- **`policy-bridgeable`** — some built-in policy reproduces the label exactly (the
+  parameter account shows the smallest change);
+- **`fact-bridgeable`** — resolving the case's unknowns reaches the label (the
+  labeller may know something the case does not state);
+- **`both`** — genuinely ambiguous between values and facts. The packaged
+  independent set has a textbook case: `policy_strict_borderline` vs `cleo`
+  (engine: acceptable-with-reservations; cleo: ethically suspicious) — *either*
+  treat unknown consent as a blocker (`unknown_consent_is_blocker: False -> True`,
+  the policy route) *or* learn that consent was refused (`consent = REFUSED`, the
+  fact route). The explanation says so and adds: which is right depends on whether
+  the labeller weighs values differently or knows something the case does not
+  state;
+- **`neither`** — no parameter and no fact resolution (within search limits)
+  aligns the engine: flagged as **worth a human look**. On the external set vs the
+  consensus, 17 of 21 disagreements are `neither` — mostly cases where the panel
+  condemned on data the engine refuses to judge: a real normative difference, now
+  separated from threshold quibbles and fact gaps.
+
+The `--all` summary classifies every line and prints a tally
+(`classification tally: fact-bridgeable: 5  neither: 17  policy-bridgeable: 3`),
+so a reliability table's disagreements decompose at a glance into *policy
+questions*, *fact questions*, and *genuine divergence*.
+
+```bash
+littleboy explain-disagreement policy_strict_borderline --independent --against cleo   # a 'both' case
+littleboy explain-disagreement ext-0034 --external --against consensus                 # a fact-bridgeable case
+littleboy explain-disagreement --all --external --against hana                         # tally at the end
+```
+
 ## Limitations
 
 - The **audit corpus** is small and hand-labelled: its rates are calibration
@@ -483,13 +532,15 @@ littleboy explain-disagreement --all --external --against hana            # ever
   not collected from genuinely unrelated people. Genuine external validity needs
   exactly that collection step; the machinery (CSV import, inter-rater agreement,
   reliability, recommendation, fitting, inference) is all in place, waiting for it.
-- The **disagreement explanations** (v0.18) explain the *engine's* side fully (its
-  trace is complete), but the human side only indirectly — via which policies
-  would agree and what parameter change would bridge the gap. A "no built-in
-  account" diagnosis means the label is unreachable by threshold moves alone; it
-  does not say *why the human judged as they did*. And the minimal parameter
-  account is relative to the built-in parameterisation: a divergence could in
-  principle be accounted for by a parameter the profiles do not expose.
+- The **disagreement explanations** (v0.18/v0.19) explain the *engine's* side
+  fully (its trace is complete), but the human side only indirectly — via which
+  policy change or which fact resolution would bridge the gap. A `neither`
+  classification means the label is unreachable by threshold moves or by
+  resolving the case's *modelled* unknowns; it does not say *why the human judged
+  as they did*. The parameter account is relative to the exposed
+  parameterisation, and the fact account is relative to the probe vocabulary —
+  a divergence could rest on a consideration neither captures. Both searches are
+  also size-capped, so "no account" means "no small account".
 - Golden-file pinning catches drift but does not *validate* correctness — a wrong
   expectation, once frozen, stays wrong until a human revisits it.
 - The scoring-layer detectors are deliberately coarse (a coercion band, the data

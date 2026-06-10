@@ -39,6 +39,8 @@
     "vulnerability_confidence_penalty": "0.15 -> 0.1",
     "informational_manipulation_severe": "True -> False"
   },
+  "minimal_fact_accounts": [],
+  "bridge_classification": "",
   "trace_deltas": [
     {
       "rule_id": "LB-R002",
