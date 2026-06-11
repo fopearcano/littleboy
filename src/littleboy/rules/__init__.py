@@ -16,10 +16,13 @@ from littleboy.rules.policy import (
     NamedPolicy,
     PolicyProfile,
     PolicyProvenance,
+    ProvenanceCheck,
     get_policy,
     load_named_policy,
+    profile_changes,
     resolve_policy_ref,
     save_named_policy,
+    verify_named_policy,
 )
 from littleboy.rules.registry import RuleRegistry
 
@@ -30,6 +33,7 @@ __all__ = [
     "NamedPolicy",
     "PolicyProfile",
     "PolicyProvenance",
+    "ProvenanceCheck",
     "Rule",
     "RuleContext",
     "RuleEngine",
@@ -38,6 +42,8 @@ __all__ = [
     "default_registry",
     "get_policy",
     "load_named_policy",
+    "profile_changes",
     "resolve_policy_ref",
     "save_named_policy",
+    "verify_named_policy",
 ]

@@ -251,10 +251,18 @@ def explain_policy_disagreement(
     *,
     case_id: str = "",
     max_size: int = 3,
+    label_a: str = "",
+    label_b: str = "",
 ) -> DisagreementExplanation:
-    """Diff two policies' evaluations of one case down to the minimal account."""
+    """Diff two policies' evaluations of one case down to the minimal account.
+
+    ``label_a`` / ``label_b`` name custom profiles in the output (named policies
+    are never displayed as their base mode).
+    """
     profile_a = get_policy(policy_a)
     profile_b = get_policy(policy_b)
+    display_a = label_a or profile_a.mode.value
+    display_b = label_b or profile_b.mode.value
     report_a = EthicalEvaluator(profile_a).evaluate(case)
     report_b = EthicalEvaluator(profile_b).evaluate(case)
     agree = report_a.verdict == report_b.verdict
@@ -267,7 +275,7 @@ def explain_policy_disagreement(
     elif accounts:
         notes.append(
             f"minimal account verified by re-evaluation: changing {len(accounts[0])} "
-            f"parameter(s) of '{profile_a.mode.value}' to '{profile_b.mode.value}' values "
+            f"parameter(s) of '{display_a}' to '{display_b}' values "
             "reproduces the other verdict; no smaller change does"
         )
     else:
@@ -279,8 +287,8 @@ def explain_policy_disagreement(
     return DisagreementExplanation(
         case_id=case_id,
         kind="policy-vs-policy",
-        side_a=profile_a.mode.value,
-        side_b=profile_b.mode.value,
+        side_a=display_a,
+        side_b=display_b,
         verdict_a=report_a.verdict,
         verdict_b=report_b.verdict,
         disposition_a=disposition(report_a.verdict),
@@ -318,6 +326,7 @@ def explain_label_disagreement(
     labeler: str | None = None,
     *,
     policy: PolicyMode | PolicyProfile | str = "standard",
+    policy_label: str = "",
     max_size: int = 3,
     max_fact_size: int = 2,
 ) -> DisagreementExplanation:
@@ -426,7 +435,7 @@ def explain_label_disagreement(
     return DisagreementExplanation(
         case_id=entry.id,
         kind="engine-vs-label",
-        side_a=f"engine[{profile.mode.value}]",
+        side_a=f"engine[{policy_label or profile.mode.value}]",
         side_b=f"label[{target_name}]",
         verdict_a=report.verdict,
         verdict_b=label,
@@ -460,6 +469,7 @@ def explain_reliability_disagreements(
     labeler: str | None = None,
     *,
     policy: PolicyMode | PolicyProfile | str = "standard",
+    policy_label: str = "",
     split: str | None = None,
     max_size: int = 2,
     max_fact_size: int = 2,
@@ -475,7 +485,12 @@ def explain_reliability_disagreements(
         if split is not None and entry.split != split:
             continue
         explanation = explain_label_disagreement(
-            entry, labeler, policy=policy, max_size=max_size, max_fact_size=max_fact_size
+            entry,
+            labeler,
+            policy=policy,
+            policy_label=policy_label,
+            max_size=max_size,
+            max_fact_size=max_fact_size,
         )
         if not explanation.agree:
             out.append(explanation)

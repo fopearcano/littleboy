@@ -111,3 +111,33 @@ named profile without touching the built-ins** — adoption as data:
 
 The built-in profiles remain untouched and untouchable by all of this: a named
 policy is a file you chose to write, carrying its own history.
+
+## Calibration under a named policy (v0.23)
+
+An adopted profile is a **first-class measurement subject**, and its history is
+**verified, never silently trusted**:
+
+- **Reliability rows under its own name**: `run_reliability(...,
+  extra_policies=[named])` and `recommend_policy_for_stakeholder(...,
+  extra_policies=...)` enter named policies into the per-policy tables and the
+  recommendation ranking *alongside* the four built-ins — the name in the
+  `policy` column, never conflated with its base, and a name that collides with
+  a built-in is rejected. CLI: `littleboy calibrate --scope reliability
+  --with-policy my_policy.json` and `littleboy recommend-policy --with-policy
+  my_policy.json` (repeatable). A consistency test pins the named row's counts
+  to the tuner's after-numbers: the same measurement, two views.
+- **The name everywhere it appears**: `diagnose` and `explain-disagreement`
+  under a custom policy now carry the name in the report itself
+  (`DIAGNOSIS: engine[research_gate_025] vs consensus`,
+  `engine[research_gate_025]` in explanations), and `explain-disagreement
+  --against` accepts a named-policy file too, so a custom profile can be
+  diffed against a built-in (or another custom) case by case.
+- **Provenance integrity** (`verify_named_policy`): the declared changes are
+  *recomputed* from the named base profile via the single canonical rendering
+  (`profile_changes`, shared with the tuner) and compared byte-for-byte. Every
+  kind of tampering is named specifically — a mismatched value, an undeclared
+  change, a declared-but-absent change, an unknown base — and the CLI warns
+  loudly on stderr whenever a tampered file is loaded: *the profile is what
+  runs; the declared history cannot be trusted.* A policy without provenance is
+  consistent-by-vacuity and says so. The check never blocks (the profile itself
+  is validated separately); it makes the lie visible.

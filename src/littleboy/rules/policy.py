@@ -195,6 +195,85 @@ def load_named_policy(path: str | Path) -> NamedPolicy:
     return NamedPolicy.model_validate_json(Path(path).read_text(encoding="utf-8"))
 
 
+def profile_changes(base: PolicyProfile, candidate: PolicyProfile) -> dict[str, str]:
+    """Every differing parameter between two profiles, as ``'before -> after'``.
+
+    The single canonical rendering: the tuner writes provenance with it, and
+    :func:`verify_named_policy` recomputes with it, so a consistent provenance
+    matches byte-for-byte.
+    """
+    return {
+        name: f"{getattr(base, name)!r} -> {getattr(candidate, name)!r}"
+        for name in PolicyProfile.model_fields
+        if getattr(base, name) != getattr(candidate, name)
+    }
+
+
+class ProvenanceCheck(BaseModel):
+    """The result of verifying a named policy's provenance against its profile."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str
+    has_provenance: bool = True
+    consistent: bool = True
+    declared_changes: dict[str, str] = Field(default_factory=dict)
+    recomputed_changes: dict[str, str] = Field(default_factory=dict)
+    problems: list[str] = Field(default_factory=list)
+
+
+def verify_named_policy(named: NamedPolicy) -> ProvenanceCheck:
+    """Check that a policy's declared provenance matches what its profile actually is.
+
+    The declared changes are recomputed from the named base profile and compared
+    byte-for-byte. A mismatch means the file's *history* cannot be trusted (the
+    profile itself is still valid and is what actually runs) -- reported honestly,
+    never silently. A policy without provenance is consistent-by-vacuity but says
+    so.
+    """
+    if named.provenance is None:
+        return ProvenanceCheck(
+            name=named.name,
+            has_provenance=False,
+            problems=["no provenance declared; nothing to verify"],
+        )
+    declared = dict(named.provenance.changes)
+    try:
+        base = DEFAULT_PROFILES[PolicyMode(named.provenance.base)]
+    except ValueError:
+        return ProvenanceCheck(
+            name=named.name,
+            consistent=False,
+            declared_changes=declared,
+            problems=[
+                f"unknown base policy {named.provenance.base!r}: "
+                "the provenance cannot be verified against any built-in"
+            ],
+        )
+    recomputed = profile_changes(base, named.profile)
+    problems: list[str] = []
+    for key in sorted(recomputed.keys() - declared.keys()):
+        problems.append(
+            f"undeclared change: {key} is actually {recomputed[key]} "
+            "but the provenance does not declare it"
+        )
+    for key in sorted(declared.keys() - recomputed.keys()):
+        problems.append(f"declared change not present in the profile: {key} ({declared[key]})")
+    for key in sorted(declared.keys() & recomputed.keys()):
+        if declared[key] != recomputed[key]:
+            problems.append(
+                f"mismatched change for {key}: declared {declared[key]!r}, "
+                f"actually {recomputed[key]!r}"
+            )
+    return ProvenanceCheck(
+        name=named.name,
+        consistent=not problems,
+        declared_changes=declared,
+        recomputed_changes=recomputed,
+        problems=problems,
+    )
+
+
 def resolve_policy_ref(ref: str) -> tuple[PolicyProfile | PolicyMode, str]:
     """Resolve a CLI-style policy reference to ``(policy, label)``.
 

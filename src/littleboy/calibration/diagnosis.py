@@ -62,6 +62,7 @@ def diagnose_disagreements(
     labeler: str | None = None,
     *,
     policy: PolicyMode | PolicyProfile | str = "standard",
+    policy_label: str = "",
     split: str | None = None,
     max_size: int = 2,
     max_fact_size: int = 2,
@@ -75,6 +76,7 @@ def diagnose_disagreements(
     classification index, and a ranked, human-readable tuning agenda.
     """
     profile = get_policy(policy)
+    policy_display = policy_label or profile.mode.value
     target = labeler or "consensus"
     entries = [e for e in corpus.entries if split is None or e.split == split]
     if not entries:
@@ -84,7 +86,12 @@ def diagnose_disagreements(
     n_agree = 0
     for entry in entries:
         exp = explain_label_disagreement(
-            entry, labeler, policy=profile, max_size=max_size, max_fact_size=max_fact_size
+            entry,
+            labeler,
+            policy=profile,
+            policy_label=policy_label,
+            max_size=max_size,
+            max_fact_size=max_fact_size,
         )
         if exp.agree:
             n_agree += 1
@@ -143,9 +150,15 @@ def diagnose_disagreements(
             "with one labeller cannot be expected to exceed it without over-fitting"
         )
 
+    if policy_label:
+        notes.append(
+            f"engine policy is the named custom profile '{policy_label}' "
+            f"(base {profile.mode.value}), not a built-in"
+        )
+
     return DisagreementDiagnosis(
         target=target,
-        policy=profile.mode.value,
+        policy=policy_display,
         split=split,
         corpus_title=corpus.title,
         n_cases=n_cases,

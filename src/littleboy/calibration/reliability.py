@@ -15,7 +15,7 @@ the agreement ceiling) shown rather than hidden.
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from importlib import resources
 from pathlib import Path
 
@@ -32,7 +32,7 @@ from littleboy.calibration.models import (
 from littleboy.calibration.scoring import wilson_ci
 from littleboy.core.enums import PolicyMode, Verdict
 from littleboy.core.evaluator import EthicalEvaluator
-from littleboy.rules.policy import PolicyProfile
+from littleboy.rules.policy import NamedPolicy, PolicyProfile
 
 _OUTCOME_RESOURCE = "outcome_corpus.json"
 _INDEPENDENT_RESOURCE = "independent_labels.csv"
@@ -221,18 +221,41 @@ def _label_for(labeler: str | None) -> _LabelOf:
     return lambda e: next((lv.verdict for lv in e.labels if lv.labeler == labeler), e.human_verdict)
 
 
-def run_reliability(corpus: OutcomeCorpus, *, labeler: str | None = None) -> ReliabilityReport:
+def run_reliability(
+    corpus: OutcomeCorpus,
+    *,
+    labeler: str | None = None,
+    extra_policies: Sequence[NamedPolicy] = (),
+) -> ReliabilityReport:
     """Per-policy agreement with the labels (consensus, or a stakeholder ``labeler``).
 
     Splits into ``dev`` and ``holdout`` and attaches the inter-labeller agreement
     ceiling per split. Report and trust the holdout; the dev split is for tuning.
+    ``extra_policies`` adds named custom policies as additional rows alongside the
+    four built-ins -- each under its own name, never conflated with its base mode
+    (a name that collides with a built-in is rejected).
     """
+    builtin_names = {m.value for m in PolicyMode}
+    seen: set[str] = set()
+    for named in extra_policies:
+        if named.name in builtin_names:
+            raise ValueError(f"named policy {named.name!r} collides with a built-in policy name")
+        if named.name in seen:
+            raise ValueError(f"duplicate named policy {named.name!r}")
+        seen.add(named.name)
+
     label_of = _label_for(labeler)
     splits: list[SplitReliability] = []
     for split_name in _SPLITS:
         entries = [e for e in corpus.entries if e.split == split_name]
         policies = (
-            [_policy_reliability(entries, mode, label_of) for mode in PolicyMode] if entries else []
+            [_policy_reliability(entries, mode, label_of) for mode in PolicyMode]
+            + [
+                _policy_reliability(entries, named.profile, label_of, name=named.name)
+                for named in extra_policies
+            ]
+            if entries
+            else []
         )
         splits.append(
             SplitReliability(
@@ -340,9 +363,14 @@ def recommend_policy_for_stakeholder(
     *,
     split: str = "holdout",
     metric: str = "disposition",
+    extra_policies: Sequence[NamedPolicy] = (),
 ) -> PolicyRecommendation:
-    """Recommend the policy best matching one stakeholder's (or the consensus) labels."""
-    report = run_reliability(corpus, labeler=labeler)
+    """Recommend the policy best matching one stakeholder's (or the consensus) labels.
+
+    ``extra_policies`` enters named custom policies into the ranking alongside the
+    built-ins; the recommendation can legitimately be a named policy.
+    """
+    report = run_reliability(corpus, labeler=labeler, extra_policies=extra_policies)
     return recommend_policy(report, split=split, metric=metric)
 
 

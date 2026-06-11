@@ -86,8 +86,9 @@ from littleboy.rules.policy import (
     NamedPolicy,
     PolicyProfile,
     PolicyProvenance,
-    resolve_policy_ref,
+    load_named_policy,
     save_named_policy,
+    verify_named_policy,
 )
 from littleboy.temporal.report import render_temporal_json, render_temporal_text
 
@@ -114,17 +115,45 @@ def _load_case(case_path: Path) -> ActionCase:
         raise typer.Exit(code=2) from exc
 
 
+def _warn_if_tampered(named: NamedPolicy) -> None:
+    """Loudly flag provenance that does not match the profile (never silently trusted)."""
+    check = verify_named_policy(named)
+    if check.has_provenance and not check.consistent:
+        typer.echo(
+            f"[WARNING: provenance of '{named.name}' does NOT match its profile -- the "
+            "profile is what runs; the declared history cannot be trusted]",
+            err=True,
+        )
+        for problem in check.problems:
+            typer.echo(f"  - {problem}", err=True)
+
+
+def _load_policy_file(path: Path) -> NamedPolicy:
+    try:
+        named = load_named_policy(path)
+    except ValidationError as exc:
+        typer.echo(f"Invalid named-policy file {path}:\n{exc}", err=True)
+        raise typer.Exit(code=2) from exc
+    _warn_if_tampered(named)
+    return named
+
+
 def _resolve_policy_ref(policy: str) -> tuple[PolicyMode | PolicyProfile, str]:
     """Resolve a built-in mode name or a named-policy JSON path to (policy, label)."""
     try:
-        return resolve_policy_ref(policy)
-    except (ValueError, ValidationError) as exc:
-        typer.echo(
-            f"Unknown policy '{policy}': use one of {_POLICY_CHOICES}, "
-            f"or a path to a named-policy JSON file. ({exc})",
-            err=True,
-        )
-        raise typer.Exit(code=2) from exc
+        return PolicyMode(policy), ""
+    except ValueError:
+        pass
+    path = Path(policy)
+    if path.is_file():
+        named = _load_policy_file(path)
+        return named.profile, named.name
+    typer.echo(
+        f"Unknown policy '{policy}': use one of {_POLICY_CHOICES}, "
+        "or a path to a named-policy JSON file.",
+        err=True,
+    )
+    raise typer.Exit(code=2)
 
 
 def _resolve_policy(policy: str) -> PolicyMode | PolicyProfile:
@@ -541,6 +570,11 @@ def calibrate(
         "-l",
         help="Use the large multi-labeller outcome corpus (with inter-rater agreement).",
     ),
+    with_policy: list[Path] = typer.Option(
+        [],
+        "--with-policy",
+        help="Add a named custom policy (JSON file) as a reliability row (repeatable).",
+    ),
     n: int = typer.Option(120, "--n", help="Number of generated cases (with --generated)."),
     seed: int = typer.Option(0, "--seed", help="Seed for the generated corpus (with --generated)."),
 ) -> None:
@@ -567,7 +601,12 @@ def calibrate(
         scoring_report = run_scoring_corpus(scoring_corpus)
     if scope in {"reliability", "all"}:
         outcome_corpus = default_labelled_outcome_corpus() if labelled else default_outcome_corpus()
-        reliability_report = run_reliability(outcome_corpus)
+        extras = [_load_policy_file(path) for path in with_policy]
+        try:
+            reliability_report = run_reliability(outcome_corpus, extra_policies=extras)
+        except ValueError as exc:
+            typer.echo(str(exc), err=True)
+            raise typer.Exit(code=2) from exc
 
     if output_format == "json":
         payload: dict = {}
@@ -681,6 +720,11 @@ def recommend_policy_cmd(
         readable=True,
         help="Overlay real labels (case_id,labeler,verdict[,split]) onto the corpus cases.",
     ),
+    with_policy: list[Path] = typer.Option(
+        [],
+        "--with-policy",
+        help="Enter a named custom policy (JSON file) into the ranking (repeatable).",
+    ),
     output_format: str = typer.Option(
         "text", "--format", "-f", help="Output format: 'json' or 'text'."
     ),
@@ -708,7 +752,14 @@ def recommend_policy_cmd(
             typer.echo(f"Could not apply labels from {labels_csv}: {exc}", err=True)
             raise typer.Exit(code=2) from exc
 
-    rec = recommend_policy_for_stakeholder(corpus, stakeholder, metric=metric)
+    extras = [_load_policy_file(path) for path in with_policy]
+    try:
+        rec = recommend_policy_for_stakeholder(
+            corpus, stakeholder, metric=metric, extra_policies=extras
+        )
+    except ValueError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=2) from exc
     fitted = fit_threshold_policy(corpus, stakeholder, metric=metric) if fit else None
     cv_fit = (
         cross_validate_threshold_policy(corpus, stakeholder, k=folds, metric=metric) if cv else None
@@ -912,8 +963,15 @@ def explain_disagreement_cmd(
     if independent and external:
         typer.echo("Use at most one of --independent, --external.", err=True)
         raise typer.Exit(code=2)
-    engine_policy = _resolve_policy(policy)
-    versus_policy = against in {m.value for m in PolicyMode}
+    engine_policy, engine_label = _resolve_policy_ref(policy)
+    against_policy: PolicyMode | PolicyProfile | None = None
+    against_label = ""
+    if against in {m.value for m in PolicyMode}:
+        against_policy = PolicyMode(against)
+    elif Path(against).is_file():
+        named = _load_policy_file(Path(against))
+        against_policy, against_label = named.profile, named.name
+    versus_policy = against_policy is not None
 
     if independent:
         corpus = default_independent_outcome_corpus()
@@ -928,7 +986,9 @@ def explain_disagreement_cmd(
             raise typer.Exit(code=2)
         labeler = None if against == "consensus" else against
         try:
-            explanations = explain_reliability_disagreements(corpus, labeler, policy=engine_policy)
+            explanations = explain_reliability_disagreements(
+                corpus, labeler, policy=engine_policy, policy_label=engine_label
+            )
         except ValueError as exc:
             typer.echo(str(exc), err=True)
             raise typer.Exit(code=2) from exc
@@ -936,7 +996,8 @@ def explain_disagreement_cmd(
             payload = [e.model_dump(mode="json") for e in explanations]
             typer.echo(json.dumps(payload, indent=2, ensure_ascii=False))
             return
-        typer.echo(f"{len(explanations)} disagreement(s): engine[{engine_policy}] vs {against}")
+        engine_name = engine_label or str(engine_policy)
+        typer.echo(f"{len(explanations)} disagreement(s): engine[{engine_name}] vs {against}")
         for exp in explanations:
             param_route = "; ".join(",".join(a) for a in exp.minimal_parameter_accounts[:1])
             fact_route = "; ".join("; ".join(a) for a in exp.minimal_fact_accounts[:1])
@@ -969,7 +1030,14 @@ def explain_disagreement_cmd(
         else:
             typer.echo(f"Case '{case_ref}' is neither a corpus id nor a file.", err=True)
             raise typer.Exit(code=2)
-        explanation = explain_policy_disagreement(case, engine_policy, against, case_id=case_id)
+        explanation = explain_policy_disagreement(
+            case,
+            engine_policy,
+            against_policy,
+            case_id=case_id,
+            label_a=engine_label,
+            label_b=against_label,
+        )
     else:
         if entry is None:
             hint = " (labels live in a corpus; pass a corpus case id)" if path.is_file() else ""
@@ -977,7 +1045,9 @@ def explain_disagreement_cmd(
             raise typer.Exit(code=2)
         labeler = None if against == "consensus" else against
         try:
-            explanation = explain_label_disagreement(entry, labeler, policy=engine_policy)
+            explanation = explain_label_disagreement(
+                entry, labeler, policy=engine_policy, policy_label=engine_label
+            )
         except ValueError as exc:
             typer.echo(str(exc), err=True)
             raise typer.Exit(code=2) from exc
@@ -1022,7 +1092,7 @@ def diagnose(
     if against in {m.value for m in PolicyMode}:
         typer.echo("diagnose compares the engine with labellers, not policies.", err=True)
         raise typer.Exit(code=2)
-    engine_policy = _resolve_policy(policy)
+    engine_policy, engine_label = _resolve_policy_ref(policy)
 
     if independent:
         corpus = default_independent_outcome_corpus()
@@ -1033,7 +1103,9 @@ def diagnose(
 
     labeler = None if against == "consensus" else against
     try:
-        diagnosis = diagnose_disagreements(corpus, labeler, policy=engine_policy, split=split)
+        diagnosis = diagnose_disagreements(
+            corpus, labeler, policy=engine_policy, policy_label=engine_label, split=split
+        )
     except ValueError as exc:
         typer.echo(str(exc), err=True)
         raise typer.Exit(code=2) from exc

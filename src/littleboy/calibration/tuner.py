@@ -43,7 +43,7 @@ from littleboy.calibration.reliability import (
 from littleboy.calibration.scoring import default_scoring_corpus, wilson_ci
 from littleboy.core.enums import PolicyMode, Verdict
 from littleboy.core.evaluator import EthicalEvaluator
-from littleboy.rules.policy import PolicyProfile, get_policy
+from littleboy.rules.policy import PolicyProfile, get_policy, profile_changes
 
 _PERMISSIVENESS = {
     Verdict.NOT_ACCEPTABLE: 0,
@@ -213,11 +213,7 @@ def tune_dry_run(
         raise ValueError("no changes given; pass at least one parameter=value override")
     base = get_policy(base_policy)
     cand = candidate_profile(base, changes)
-    changed_params = {
-        name: f"{getattr(base, name)!r} -> {getattr(cand, name)!r}"
-        for name in PolicyProfile.model_fields
-        if getattr(base, name) != getattr(cand, name)
-    }
+    changed_params = profile_changes(base, cand)
 
     entries = list(corpus.entries)
     cases = [e.case for e in entries]

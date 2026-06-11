@@ -11,15 +11,19 @@ and returns a **transparent, explained verdict** with an honest account of its
 own uncertainty. It is a reasoning engine, not a user interface and not a
 language model.
 
-This is **v0.22**, which makes a vetted candidate a **first-class named policy —
-adoption as data, with the built-ins untouched**: `littleboy tune ... --save
-my_policy.json` writes the candidate `PolicyProfile` with **clock-free
-provenance** (base, exact changes, description) and the full tuning-impact report
-alongside; every `--policy` option (and `tune --base`) then accepts the file;
-loading re-validates through the same models, round-trip behaviour is
-golden-pinned; and every report carries a `policy_label` so a verdict under a
-tuned policy is **never mistaken for a built-in** (`VERDICT: ... [policy:
-research_gate_025 (custom, base standard)]`). (v0.21 added the dry-run tuner:
+This is **v0.23**, which makes an adopted policy a **first-class measurement
+subject with a verified history**: named policies enter the reliability tables
+and the recommendation ranking as rows **under their own name** (`calibrate
+--with-policy my_policy.json`, `recommend-policy --with-policy ...` — a name
+colliding with a built-in is rejected, and the named row's counts are test-pinned
+to the tuner's after-numbers); `diagnose` and `explain-disagreement` carry the
+name in their reports (`DIAGNOSIS: engine[research_gate_025] ...`, and
+`--against` accepts a policy file, so custom profiles can be diffed case by
+case); and `verify_named_policy` **recomputes the declared provenance against
+the named base** — every kind of tampering named specifically and warned loudly
+on load, never silently trusted. (v0.22 made a vetted candidate a first-class
+named policy: clock-free provenance, save/load/validate, accepted by every
+`--policy`, `policy_label` on every report; v0.21 added the dry-run tuner:
 every flip, every stakeholder delta, every golden, nothing silent; v0.20 turned
 the per-case classifications into a corpus-level diagnosis with fractions,
 recurring accounts, and a tuning agenda; v0.19 added fact accounts and the
@@ -766,6 +770,41 @@ See [`docs/CALIBRATION.md`](docs/CALIBRATION.md).
 Deterministic, typed, additive — the verdict under every built-in policy is
 unchanged. See [`docs/POLICY_PROFILES.md`](docs/POLICY_PROFILES.md).
 
+## LittleBoy v0.23: Calibration under a named policy
+
+> An adopted profile deserves the same measurement discipline as the built-ins —
+> under its own name — and its declared history deserves verification, not trust.
+
+- **Named policies in the measurement suite**: `run_reliability(...,
+  extra_policies=[named])` and `recommend_policy_for_stakeholder(...,
+  extra_policies=...)` add named custom policies as rows in the per-policy
+  reliability tables and candidates in the recommendation ranking, alongside the
+  four built-ins — the **name** in the `policy` column, never conflated with its
+  base; names colliding with a built-in (or duplicated) are rejected. CLI:
+  `calibrate --scope reliability --with-policy file` and `recommend-policy
+  --with-policy file` (repeatable). Consistency is test-pinned: the named row's
+  exact-agreement counts equal the tuner's after-numbers — the same measurement,
+  two views.
+- **The name everywhere it appears**: `diagnose` and `explain-disagreement`
+  under a custom policy carry the name in the report itself
+  (`DIAGNOSIS: engine[research_gate_025] vs consensus`,
+  `engine[research_gate_025]` in explanations, with a note naming the base), and
+  `explain-disagreement --against` now accepts a named-policy file — so a custom
+  profile can be diffed against a built-in (or another custom) down to the
+  minimal parameter account.
+- **Provenance integrity** (`verify_named_policy` / `profile_changes`): the
+  declared changes are **recomputed from the named base** via the single
+  canonical rendering shared with the tuner and compared byte-for-byte. Every
+  kind of tampering is named specifically — mismatched value, undeclared change,
+  declared-but-absent change, unknown base — and the CLI warns loudly whenever a
+  tampered file is loaded: *the profile is what runs; the declared history
+  cannot be trusted.* The check never blocks (the profile is validated
+  separately); it makes the lie visible. A policy without provenance is
+  consistent-by-vacuity and says so.
+
+Deterministic, typed, additive — the verdict under every built-in policy is
+unchanged. See [`docs/POLICY_PROFILES.md`](docs/POLICY_PROFILES.md).
+
 ## How evidence is represented
 
 An `EvidenceSet` holds `EvidenceItem`s, each a `claim` plus its `source_type`
@@ -925,7 +964,7 @@ pip install -e ".[dev]"     # pydantic, pytest, typer, ruff
 ## Running the tests
 
 ```bash
-pytest                      # 323 tests
+pytest                      # 335 tests
 ruff check src tests        # lint (optional)
 ```
 
@@ -972,6 +1011,8 @@ littleboy diagnose --external --against hana                              # corp
 littleboy tune --set min_data_quality_for_approval=0.25 --external        # DRY-RUN a candidate change: every flip, every stakeholder, every golden
 littleboy tune --set min_data_quality_for_approval=0.25 --external --save my_policy.json --name research_gate_025   # adopt as a named policy file
 littleboy evaluate examples/simple_case.json --policy my_policy.json      # use a named custom policy anywhere --policy is accepted
+littleboy calibrate --scope reliability --with-policy my_policy.json     # the named policy as a reliability row (v0.23)
+littleboy recommend-policy --external --with-policy my_policy.json       # ...and in the recommendation ranking
 littleboy build-case --minimal --from examples/voi_consent_pivotal.json --strategy lookahead
 littleboy templates                                                       # list scenario templates
 littleboy version
@@ -1152,22 +1193,21 @@ make consequential decisions about real people.
 
 ## Current development status
 
-**v0.22 — named custom policies as data.** Implemented on top of v0.21.
-`NamedPolicy` + `PolicyProvenance` (in `littleboy.rules.policy`) make a vetted
-candidate a first-class profile: a name, the base it derives from, the exact
-changes, a description — **clock-free**, so saved policies are deterministic and
-diffable. `save_named_policy` / `load_named_policy` write and re-validate
-human-diffable JSON (corrupt or out-of-range profiles rejected on load);
-`littleboy tune ... --save` writes the policy with the full tuning-impact report
-alongside. `resolve_policy_ref` lets every CLI `--policy` (and `tune --base`)
-accept a built-in mode name or a policy file; `EvaluationReport` gains a
-`policy_label` (empty for built-ins — old reports byte-identical — the custom
-name otherwise), the text rendering shows `[policy: name (custom, base
-standard)]`, and custom loads are announced on stderr so stdout JSON stays pure.
-Round-trip behaviour and the saved payload are golden-pinned, and
-`DEFAULT_PROFILES` is asserted untouched by save/load. New `tune --save/--name/
---describe`; a named-policy golden file; a 323-test suite (all passing). Purely
-additive — the verdict under every built-in policy is unchanged.
+**v0.23 — calibration under a named policy.** Implemented on top of v0.22.
+Named policies become first-class measurement subjects: `run_reliability` and
+`recommend_policy_for_stakeholder` accept `extra_policies` and add each named
+profile as a row/candidate **under its own name** alongside the four built-ins
+(collisions with built-in names and duplicates rejected; the named row's counts
+test-pinned to the tuner's after-numbers). `diagnose` and `explain-disagreement`
+take `policy_label` and carry the name in their reports; `explain-disagreement
+--against` accepts a named-policy file, so custom profiles diff against
+built-ins case by case. `verify_named_policy` recomputes the declared provenance
+from the named base via the canonical `profile_changes` rendering (shared with
+the tuner) and names every kind of tampering — mismatched value, undeclared
+change, declared-but-absent change, unknown base — with a loud CLI warning on
+load and consistent files staying silent. New `--with-policy` on `calibrate` and
+`recommend-policy`; a 335-test suite (all passing). Purely additive — the
+verdict under every built-in policy is unchanged.
 
 Earlier phases delivered the core models; coercion/data-quality/evidence scoring;
 consent/agency models; the tri-state Axiom 3 justification; feasibility-aware
@@ -1186,7 +1226,8 @@ single-split fitted-threshold recommender; the v0.16 cross-validated fitting &
 set; the v0.18 case-level disagreement explanations (trace diffs + minimal
 parameter accounts); the v0.19 fact accounts & unified classification; the
 v0.20 corpus-level diagnosis report (fractions, recurring accounts, tuning
-agenda); and the v0.21 dry-run tuner. All v0.1–v0.21 inputs remain valid.
+agenda); the v0.21 dry-run tuner; and the v0.22 named custom policies. All
+v0.1–v0.22 inputs remain valid.
 
 **Deliberately not built:** any web UI, any LLM/API integration, any opaque bias
 detection, any prediction that looks certain, any claim to absolute truth, any
@@ -1200,11 +1241,10 @@ to interrogate, not more dogmatic**.
   path, agreement, reliability, recommendation, inference, explanations,
   diagnosis, and the tuner all run unchanged), and publish the resulting real
   agreement, gain inference, and diagnosis report.
-- Run the **calibration suite under a named policy**: let `calibrate`,
-  `recommend-policy`, and the reliability tables take `--policy my_policy.json`
-  so an adopted profile's miss/false-alarm rates and per-labeller reliability are
-  reported (and goldens optionally pinned) under its own name, not just the base
-  mode's.
+- A **policy registry file**: let a project keep several named policies in one
+  place (a directory or index), list them (`littleboy policies`), and reference
+  them by name from any command — with the provenance check run across the whole
+  registry so a drifted file is flagged before it is ever used.
 - Let `intake_hints` declare fully custom unknowns (probe fields, resolutions, costs,
   and probabilities) so domains beyond the built-in fields can drive the planner —
   which would also widen the fact-account vocabulary case by case.

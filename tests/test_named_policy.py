@@ -1,4 +1,4 @@
-"""Tests for the v0.22 named custom policies."""
+"""Tests for named custom policies (v0.22) and calibration under them (v0.23)."""
 
 from __future__ import annotations
 
@@ -14,10 +14,18 @@ from littleboy import (
     NamedPolicy,
     PolicyProvenance,
     load_named_policy,
+    profile_changes,
     resolve_policy_ref,
     save_named_policy,
+    verify_named_policy,
 )
-from littleboy.calibration import candidate_profile, default_external_outcome_corpus
+from littleboy.calibration import (
+    candidate_profile,
+    default_external_outcome_corpus,
+    recommend_policy_for_stakeholder,
+    run_reliability,
+    tune_dry_run,
+)
 from littleboy.cli import app
 from littleboy.core.enums import PolicyMode
 from littleboy.core.evaluator import EthicalEvaluator
@@ -179,7 +187,8 @@ def test_cli_diagnose_announces_a_custom_policy(tmp_path):
     save_named_policy(path, _gate_policy())
     result = runner.invoke(app, ["diagnose", "--external", "--policy", str(path)])
     assert result.exit_code == 0
-    assert "[using custom policy 'research_gate_025'" in result.output
+    # v0.23: the diagnosis itself carries the name (not just a stderr notice)
+    assert "DIAGNOSIS: engine[research_gate_025] vs consensus" in result.output
 
 
 def test_cli_tune_accepts_a_custom_base(tmp_path):
@@ -212,3 +221,168 @@ def test_cli_rejects_a_bad_policy_ref():
         ],
     )
     assert result.exit_code == 2
+
+
+# --- calibration under a named policy + provenance integrity (v0.23) ----------
+
+
+def test_profile_changes_is_the_canonical_rendering():
+    named = _gate_policy()
+    base = DEFAULT_PROFILES[PolicyMode.STANDARD]
+    assert profile_changes(base, named.profile) == {"min_data_quality_for_approval": "0.35 -> 0.25"}
+    assert profile_changes(base, base) == {}
+
+
+def test_verify_consistent_provenance():
+    check = verify_named_policy(_gate_policy())
+    assert check.has_provenance and check.consistent
+    assert check.problems == []
+    assert check.recomputed_changes == check.declared_changes
+
+
+def test_verify_catches_every_kind_of_tampering():
+    # 1. mismatched value: the declared history lies about the change
+    named = _gate_policy()
+    named.provenance.changes["min_data_quality_for_approval"] = "0.35 -> 0.30"
+    check = verify_named_policy(named)
+    assert not check.consistent
+    assert any("mismatched change" in p for p in check.problems)
+
+    # 2. undeclared change: the profile differs from base in ways provenance omits
+    named = _gate_policy()
+    named.profile = named.profile.model_copy(update={"coercion_moderate": 0.2})
+    check = verify_named_policy(named)
+    assert not check.consistent
+    assert any("undeclared change: coercion_moderate" in p for p in check.problems)
+
+    # 3. declared-but-not-real change
+    named = _gate_policy()
+    named.provenance.changes["min_confidence"] = "0.3 -> 0.2"
+    check = verify_named_policy(named)
+    assert not check.consistent
+    assert any("not present in the profile" in p for p in check.problems)
+
+    # 4. unknown base
+    named = _gate_policy()
+    named.provenance.base = "imaginary"
+    check = verify_named_policy(named)
+    assert not check.consistent
+    assert any("unknown base policy" in p for p in check.problems)
+
+
+def test_verify_without_provenance_says_so():
+    named = NamedPolicy(name="bare", profile=_gate_policy().profile)
+    check = verify_named_policy(named)
+    assert not check.has_provenance
+    assert check.consistent  # vacuously: nothing declared, nothing contradicted
+    assert any("nothing to verify" in p for p in check.problems)
+
+
+def test_reliability_includes_the_named_policy_row():
+    corpus = default_external_outcome_corpus()
+    named = _gate_policy()
+    report = run_reliability(corpus, labeler="hana", extra_policies=[named])
+    for split in report.splits:
+        names = [p.policy for p in split.policies]
+        assert names == ["permissive", "standard", "strict", "precautionary", "research_gate_025"]
+    # consistency: the named row equals the tuner's after-numbers for hana
+    impact = tune_dry_run(corpus, {"min_data_quality_for_approval": "0.25"}, check_goldens=False)
+    for split in report.splits:
+        row = next(p for p in split.policies if p.policy == "research_gate_025")
+        si = next(
+            s for s in impact.stakeholder_impacts if s.target == "hana" and s.split == split.split
+        )
+        assert row.exact_correct == si.after_correct
+
+
+def test_reliability_rejects_name_collisions_and_duplicates():
+    corpus = default_external_outcome_corpus()
+    impostor = NamedPolicy(name="standard", profile=_gate_policy().profile)
+    with pytest.raises(ValueError, match="collides with a built-in"):
+        run_reliability(corpus, extra_policies=[impostor])
+    named = _gate_policy()
+    with pytest.raises(ValueError, match="duplicate named policy"):
+        run_reliability(corpus, extra_policies=[named, named])
+
+
+def test_recommendation_can_rank_the_named_policy():
+    rec = recommend_policy_for_stakeholder(
+        default_external_outcome_corpus(), None, extra_policies=[_gate_policy()]
+    )
+    assert "research_gate_025" in [p.policy for p in rec.ranked]
+
+
+def test_cli_calibrate_with_policy_row(tmp_path):
+    path = tmp_path / "gate.json"
+    save_named_policy(path, _gate_policy())
+    result = runner.invoke(app, ["calibrate", "--scope", "reliability", "--with-policy", str(path)])
+    assert result.exit_code == 0
+    assert "research_gate_025" in result.stdout
+
+
+def test_cli_recommend_policy_with_policy_row(tmp_path):
+    path = tmp_path / "gate.json"
+    save_named_policy(path, _gate_policy())
+    result = runner.invoke(app, ["recommend-policy", "--external", "--with-policy", str(path)])
+    assert result.exit_code == 0
+    assert "research_gate_025" in result.stdout
+
+
+def test_cli_explain_disagreement_carries_the_name(tmp_path):
+    path = tmp_path / "gate.json"
+    save_named_policy(path, _gate_policy())
+    # engine-vs-label under the named policy
+    result = runner.invoke(
+        app,
+        [
+            "explain-disagreement",
+            "ext-0005",
+            "--external",
+            "--against",
+            "consensus",
+            "--policy",
+            str(path),
+        ],
+    )
+    assert result.exit_code == 0
+    assert "engine[research_gate_025]" in result.output
+    # policy-vs-policy where --against is itself a named-policy file
+    result = runner.invoke(
+        app,
+        [
+            "explain-disagreement",
+            "ext-0007",
+            "--external",
+            "--against",
+            str(path),
+            "--policy",
+            "standard",
+        ],
+    )
+    assert result.exit_code == 0
+    assert "standard = " in result.output
+    assert "research_gate_025 = " in result.output
+
+
+def test_cli_warns_on_tampered_provenance(tmp_path):
+    named = _gate_policy()
+    named.provenance.changes["min_data_quality_for_approval"] = "0.35 -> 0.30"
+    path = tmp_path / "tampered.json"
+    save_named_policy(path, named)
+    result = runner.invoke(
+        app, ["evaluate", str(EXAMPLES / "simple_case.json"), "--policy", str(path)]
+    )
+    # the profile still runs (it is valid); the lie about its history is loud
+    assert result.exit_code == 0
+    assert "does NOT match its profile" in result.output
+    assert "mismatched change for min_data_quality_for_approval" in result.output
+
+
+def test_cli_consistent_provenance_is_silent(tmp_path):
+    path = tmp_path / "gate.json"
+    save_named_policy(path, _gate_policy())
+    result = runner.invoke(
+        app, ["evaluate", str(EXAMPLES / "simple_case.json"), "--policy", str(path)]
+    )
+    assert result.exit_code == 0
+    assert "does NOT match" not in result.output

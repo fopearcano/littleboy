@@ -595,7 +595,13 @@ A vetted candidate can be **saved as a named policy** (v0.22): `--save` writes a
 description) with the full tuning-impact report alongside
 (`<stem>.impact.json`), and every `--policy` option then accepts the file —
 reports carry the custom name (`policy_label`) so it is never mistaken for a
-built-in. See [`docs/POLICY_PROFILES.md`](POLICY_PROFILES.md).
+built-in. And the calibration suite treats it as a first-class subject (v0.23):
+`calibrate --scope reliability --with-policy my_policy.json` and
+`recommend-policy --with-policy ...` add it as a row/candidate under its own
+name, `diagnose`/`explain-disagreement` carry the name in their reports, and a
+loaded file's provenance is **verified against its profile** (tampering warned
+loudly, never silently trusted). See
+[`docs/POLICY_PROFILES.md`](POLICY_PROFILES.md).
 
 ## Limitations
 
