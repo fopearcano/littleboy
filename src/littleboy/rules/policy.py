@@ -365,10 +365,16 @@ class PolicyRegistry(BaseModel):
     notes: list[str] = Field(default_factory=list)
 
 
+_RESERVED_REGISTRY_FILES = ("trusted_keys.json",)
+
+
 def _registry_files(directory: Path) -> list[Path]:
-    # the tuner's --save writes <stem>.impact.json companions; they are reports, not policies
+    # the tuner's --save writes <stem>.impact.json companions, and the decision log
+    # uses trusted_keys.json -- those are not policies and must not be scanned as such.
     return sorted(
-        path for path in directory.glob("*.json") if not path.name.endswith(".impact.json")
+        path
+        for path in directory.glob("*.json")
+        if not path.name.endswith(".impact.json") and path.name not in _RESERVED_REGISTRY_FILES
     )
 
 

@@ -201,3 +201,35 @@ The log proves *integrity*, not *authority*: it shows that the recorded history
 matches the current files (or exactly where it does not), but it cannot vouch for
 who made a change or why. It makes a silent swap impossible to hide, not
 impossible to attempt.
+
+## Signed adoptions (v0.26)
+
+The log proves integrity by default; **signing** adds *authority* — who adopted,
+not just what — strictly opt-in, stdlib-only, and clock-free:
+
+- **`littleboy adopt <policy> --because "..." --sign-with KEYFILE`** attaches a
+  detached **HMAC-SHA256** over the entry's canonical bytes (the keyfile is
+  `{"key_id": ..., "secret": "<hex>"}`, the signer's private material — never in
+  the registry). The signature covers the entry's content, its `key_id`, and its
+  chain position, but **not the chain itself**: signing never perturbs the
+  integrity chain, so signed and unsigned logs chain identically and an unsigned
+  log behaves exactly as in v0.25. HMAC is deterministic, so a signed log stays
+  byte-reproducible.
+- **`littleboy decisions --verify`** classifies each entry against a
+  **trusted-keys file** (`trusted_keys.json` in the registry, or
+  `$LITTLEBOY_TRUSTED_KEYS` / `--trusted-keys`): `unsigned`, `signed-trusted`,
+  `signed-untrusted` (unknown key id — cannot verify), or `signed-invalid` (key
+  trusted but the HMAC does not match — tampering or the wrong secret). A
+  `signed-invalid` entry is **always** a problem; `--require-signatures` makes
+  `unsigned` and `signed-untrusted` failures too, a stricter CI gate. Tampering
+  with a signed entry's content flips it to `signed-invalid` (the HMAC no longer
+  matches), so signatures catch edits the chain check alone would only catch at
+  the chained boundary.
+
+**The honest limit, stated plainly**: HMAC is *symmetric* — the verifier holds
+the same secret as the signer, so a signature authenticates *within a trust
+boundary* (a team that shares a secret), not *against* the secret-holder. Anyone
+with the trusted-keys file can forge a valid signature. True non-repudiation
+needs asymmetric signatures, which are deliberately out of scope (stdlib only, no
+third-party crypto). Keeping the trusted-keys file out of the shared registry
+(via `$LITTLEBOY_TRUSTED_KEYS`) is the meaningful mitigation.

@@ -20,6 +20,7 @@ Nothing here changes any verdict; it records which policy a project chose to run
 from __future__ import annotations
 
 import hashlib
+import hmac
 import json
 from pathlib import Path
 
@@ -33,7 +34,13 @@ from littleboy.rules.policy import (
 )
 
 DECISION_LOG_NAME = "decisions.jsonl"
+TRUSTED_KEYS_NAME = "trusted_keys.json"
+TRUSTED_KEYS_ENV_VAR = "LITTLEBOY_TRUSTED_KEYS"
 _GENESIS = "0" * 64  # the previous-hash of the very first entry
+# fields that are NOT part of the chain content (the chain pointer and the
+# signature metadata): excluding them keeps the v0.25 chain hashes unchanged,
+# so signing an entry never perturbs the integrity chain.
+_NON_CONTENT = ("prev_hash", "key_id", "signature")
 
 
 def profile_hash(profile: PolicyProfile) -> str:
@@ -69,19 +76,109 @@ class DecisionEntry(BaseModel):
         default_factory=dict, description="A small, stable digest of the tuning impact, if given."
     )
     prev_hash: str = Field(description="sha256 of the previous entry's canonical line (chain).")
+    key_id: str = Field(default="", description="The signing key id, if this entry was signed.")
+    signature: str = Field(
+        default="", description="Detached HMAC-SHA256 over the entry, if signed (hex)."
+    )
 
 
 def _entry_payload(entry: DecisionEntry) -> dict:
-    """The chained content of an entry: everything except the chain pointer itself."""
+    """The chained content of an entry: everything except the chain pointer and signature."""
     data = entry.model_dump(mode="json")
-    data.pop("prev_hash")
+    for field in _NON_CONTENT:
+        data.pop(field, None)
     return data
 
 
 def entry_hash(entry: DecisionEntry) -> str:
-    """The hash an entry contributes to the chain (its content, excluding ``prev_hash``)."""
+    """The hash an entry contributes to the chain (its content, excluding chain/signature)."""
     canonical = json.dumps(_entry_payload(entry), sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+# =============================================================================
+# Optional detached signatures (v0.26): authority on top of integrity
+# =============================================================================
+#
+# The hash chain proves *what* was adopted (integrity); a signature proves *who*
+# adopted it (authority). HMAC-SHA256 over the entry's canonical bytes, with a
+# shared secret keyed by id. Signing is strictly opt-in: an unsigned log behaves
+# exactly as in v0.25. NB: HMAC is symmetric -- the verifier holds the same
+# secret as the signer, so this authenticates within a trust boundary (a team
+# sharing a secret), not against the holder of the secret. True non-repudiation
+# needs asymmetric signatures, which are out of scope (stdlib only).
+
+
+class SigningKey(BaseModel):
+    """A signer's private material: a key id and a hex secret. Never in the registry."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    key_id: str
+    secret: str = Field(description="Hex-encoded shared secret for HMAC-SHA256.")
+
+
+class TrustedKey(BaseModel):
+    """One trusted key the verifier holds: its id and the shared secret to check with."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    key_id: str
+    secret: str
+
+
+def load_signing_key(path: str | Path) -> SigningKey:
+    """Load a signing key from a JSON file (``{"key_id": ..., "secret": <hex>}``)."""
+    return SigningKey.model_validate_json(Path(path).read_text(encoding="utf-8"))
+
+
+def trusted_keys_path(directory: str | Path | None = None) -> Path:
+    """Where the verifier's trusted-keys file lives (env override, else in the registry)."""
+    import os
+
+    env = os.environ.get(TRUSTED_KEYS_ENV_VAR)
+    if env:
+        return Path(env)
+    return registry_dir(directory) / TRUSTED_KEYS_NAME
+
+
+def load_trusted_keys(path: str | Path) -> dict[str, str]:
+    """Load ``key_id -> secret`` from a trusted-keys JSON file (list of ``TrustedKey``)."""
+    raw = json.loads(Path(path).read_text(encoding="utf-8"))
+    keys = [TrustedKey.model_validate(item) for item in raw]
+    return {k.key_id: k.secret for k in keys}
+
+
+def _signable_bytes(entry: DecisionEntry) -> bytes:
+    """The exact bytes a signature covers: the whole entry except the signature itself.
+
+    Includes ``key_id`` and ``prev_hash`` -- so the signature binds the signer's
+    identity and the entry's chain position, not just its content.
+    """
+    data = entry.model_dump(mode="json")
+    data.pop("signature", None)
+    return json.dumps(data, sort_keys=True, separators=(",", ":")).encode("utf-8")
+
+
+def sign_entry(entry: DecisionEntry, key: SigningKey) -> str:
+    """The detached HMAC-SHA256 (hex) for ``entry`` under ``key`` (entry must carry key.key_id)."""
+    return hmac.new(bytes.fromhex(key.secret), _signable_bytes(entry), hashlib.sha256).hexdigest()
+
+
+def entry_signature_status(entry: DecisionEntry, trusted: dict[str, str]) -> str:
+    """Classify an entry's signature: unsigned / signed-trusted / -untrusted / -invalid.
+
+    ``signed-untrusted`` means the key id is not in ``trusted`` (cannot verify);
+    ``signed-invalid`` means the key is trusted but the HMAC does not match
+    (tampering, or the wrong secret) -- always a problem.
+    """
+    if not entry.signature:
+        return "unsigned"
+    secret = trusted.get(entry.key_id)
+    if secret is None:
+        return "signed-untrusted"
+    expected = hmac.new(bytes.fromhex(secret), _signable_bytes(entry), hashlib.sha256).hexdigest()
+    return "signed-trusted" if hmac.compare_digest(expected, entry.signature) else "signed-invalid"
 
 
 def decision_log_path(directory: str | Path | None = None) -> Path:
@@ -123,13 +220,16 @@ def append_decision(
     reason: str = "",
     impact: dict | None = None,
     force: bool = False,
+    signing_key: SigningKey | None = None,
 ) -> DecisionEntry:
     """Append one adoption to the log, refusing a flagged policy unless ``force``.
 
     Returns the appended :class:`DecisionEntry`. A flagged policy (tampered
     provenance) raises ``ValueError`` unless ``force=True``, in which case the
     entry records ``forced=True`` and the flags present at adoption -- the
-    override is logged, never silent.
+    override is logged, never silent. When ``signing_key`` is given, the entry is
+    HMAC-signed; signing never changes the integrity chain (the signature is not
+    chain content), so signed and unsigned logs chain identically.
     """
     check = verify_named_policy(named)
     flags = [] if check.consistent else list(check.problems)
@@ -152,7 +252,10 @@ def append_decision(
         flags_at_adoption=flags,
         impact_summary=_impact_digest(impact),
         prev_hash=entry_hash(prev) if prev else _GENESIS,
+        key_id=signing_key.key_id if signing_key else "",
     )
+    if signing_key is not None:
+        entry = entry.model_copy(update={"signature": sign_entry(entry, signing_key)})
     path = decision_log_path(directory)
     path.parent.mkdir(parents=True, exist_ok=True)
     line = json.dumps(entry.model_dump(mode="json"), ensure_ascii=False)
@@ -174,18 +277,29 @@ class DecisionLogReport(BaseModel):
     chain_intact: bool = True
     n_problems: int = 0
     problems: list[str] = Field(default_factory=list)
+    signature_status: list[str] = Field(
+        default_factory=list, description="Per-entry signature classification, in order."
+    )
+    trusted_keys_found: bool = False
+    require_signatures: bool = False
     notes: list[str] = Field(default_factory=list)
 
 
-def verify_decision_log(directory: str | Path | None = None) -> DecisionLogReport:
-    """Verify the chain and re-check each adoption against the current registry files.
+def verify_decision_log(
+    directory: str | Path | None = None,
+    *,
+    trusted_keys: str | Path | None = None,
+    require_signatures: bool = False,
+) -> DecisionLogReport:
+    """Verify the chain, the registry content, and (optionally) the entry signatures.
 
-    Two integrity checks: the **hash chain** (each entry's ``prev_hash`` must equal
-    the prior entry's content hash, and sequence numbers must be contiguous), and
-    **content drift** (the adopted ``profile_hash`` must still match the registry
-    file that currently carries that name -- a silently swapped file after
-    adoption is exactly what this catches). Missing-from-registry is reported, not
-    treated as drift.
+    Three checks: the **hash chain** (each entry's ``prev_hash`` must equal the
+    prior entry's content hash, sequence numbers contiguous); **content drift**
+    (the adopted ``profile_hash`` must still match the registry file carrying that
+    name -- a silent post-adoption swap); and **signatures** against a trusted-keys
+    file (default: ``trusted_keys.json`` in the registry, or ``$LITTLEBOY_TRUSTED_KEYS``).
+    A ``signed-invalid`` entry is always a problem; ``unsigned`` / ``signed-untrusted``
+    become problems only under ``require_signatures``.
     """
     d = registry_dir(directory)
     path = decision_log_path(directory)
@@ -193,11 +307,22 @@ def verify_decision_log(directory: str | Path | None = None) -> DecisionLogRepor
         return DecisionLogReport(
             directory=str(d),
             exists=False,
+            require_signatures=require_signatures,
             notes=[f"no decision log at {path}; adopt a policy to start one"],
         )
 
     entries = read_decision_log(directory)
     problems: list[str] = []
+
+    keys_path = Path(trusted_keys) if trusted_keys is not None else trusted_keys_path(directory)
+    trusted: dict[str, str] = {}
+    trusted_found = keys_path.is_file()
+    if trusted_found:
+        try:
+            trusted = load_trusted_keys(keys_path)
+        except Exception as exc:  # noqa: BLE001 - a broken keyfile is reported, not raised
+            problems.append(f"trusted-keys file {keys_path} is unreadable: {type(exc).__name__}")
+            trusted_found = False
 
     # 1. the hash chain
     chain_intact = True
@@ -240,11 +365,37 @@ def verify_decision_log(directory: str | Path | None = None) -> DecisionLogRepor
                 "the profile that was adopted (a silent swap after adoption)"
             )
 
+    # 3. signatures (opt-in): invalid is always a problem; missing/untrusted only when required
+    signature_status = [entry_signature_status(entry, trusted) for entry in entries]
+    for i, (entry, status) in enumerate(zip(entries, signature_status, strict=True)):
+        if status == "signed-invalid":
+            problems.append(
+                f"entry {i} ('{entry.policy_name}'): signature is INVALID for key "
+                f"'{entry.key_id}' -- the entry was altered or signed with the wrong secret"
+            )
+        elif require_signatures and status != "signed-trusted":
+            detail = (
+                "is unsigned"
+                if status == "unsigned"
+                else f"is signed by untrusted key '{entry.key_id}'"
+            )
+            problems.append(
+                f"entry {i} ('{entry.policy_name}'): {detail}, but signatures are required"
+            )
+
     notes = [
         "the hash chain catches altered/removed/reordered entries; the content check catches "
         "a registry file swapped after adoption",
         "clock-free: the log carries no timestamps, so it stays deterministic and diffable",
     ]
+    if not trusted_found:
+        notes.append(
+            f"no trusted-keys file at {keys_path}; signed entries read as 'signed-untrusted'"
+        )
+    notes.append(
+        "signatures are HMAC (symmetric): the verifier holds the same secret as the signer, so "
+        "they authenticate within a trust boundary, not against the secret-holder"
+    )
     return DecisionLogReport(
         directory=str(d),
         n_entries=len(entries),
@@ -253,5 +404,8 @@ def verify_decision_log(directory: str | Path | None = None) -> DecisionLogRepor
         chain_intact=chain_intact,
         n_problems=len(problems),
         problems=problems,
+        signature_status=signature_status,
+        trusted_keys_found=trusted_found,
+        require_signatures=require_signatures,
         notes=notes,
     )

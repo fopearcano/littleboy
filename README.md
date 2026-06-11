@@ -11,14 +11,16 @@ and returns a **transparent, explained verdict** with an honest account of its
 own uncertainty. It is a reasoning engine, not a user interface and not a
 language model.
 
-This is **v0.25**, which gives the registry a **memory**: an append-only,
-clock-free, hash-chained decision log (`decisions.jsonl`). `littleboy adopt
-<policy> --because "..."` records choosing a working policy — its content hash,
-the base it replaced, the reason, and the tuner's impact summary — refusing a
-flagged policy unless `--force` (logged as such); `littleboy decisions --verify`
-re-checks the **hash chain** (altered/removed/reordered entries) and **content
-drift** (a registry file silently swapped *after* adoption), a CI gate for the
-log; and `littleboy policies` now shows the adopted policy. (v0.24 gave named
+This is **v0.26**, which adds **authority** to the decision log: an adoption can
+carry a detached **HMAC-SHA256 signature** (stdlib only, opt-in). `littleboy
+adopt <policy> --because "..." --sign-with KEYFILE` signs the entry without
+perturbing the integrity chain; `littleboy decisions --verify` classifies each
+entry against a trusted-keys file as `signed-trusted` / `signed-untrusted` /
+`signed-invalid` / `unsigned` — a `signed-invalid` is always a failure, and
+`--require-signatures` makes unsigned/untrusted entries fail too (a stricter CI
+gate). The docs are explicit that symmetric HMAC proves authority only within a
+shared-secret trust boundary. (v0.25 gave the registry a memory: an append-only,
+clock-free, hash-chained decision log with drift detection; v0.24 gave named
 policies one verified home — a registry listed and CI-verified, referenced by
 name; v0.23 made named policies first-class measurement subjects with verified
 provenance; v0.22 made a vetted candidate a first-class named policy: clock-free
@@ -860,6 +862,34 @@ hide, not impossible to attempt. Deterministic, typed, additive — the verdict
 under every built-in policy is unchanged. See
 [`docs/POLICY_PROFILES.md`](docs/POLICY_PROFILES.md).
 
+## LittleBoy v0.26: Signed adoptions
+
+> The log proves *what* was adopted; a signature proves *who* adopted it —
+> opt-in, stdlib-only, and honest about what a symmetric MAC can and cannot say.
+
+- **`littleboy adopt ... --sign-with KEYFILE`** (`append_decision(...,
+  signing_key=...)`): attaches a detached **HMAC-SHA256** over the entry's
+  canonical bytes — the keyfile (`{"key_id", "secret"}`) is the signer's private
+  material, never in the registry. The signature covers the entry's content, its
+  `key_id`, and its chain position, but **not the integrity chain**, so signed
+  and unsigned logs chain identically and an unsigned log behaves exactly as in
+  v0.25. HMAC is deterministic, so signed logs stay byte-reproducible.
+- **`littleboy decisions --verify [--require-signatures]`**
+  (`verify_decision_log`, `entry_signature_status`): classifies each entry
+  against a trusted-keys file (`trusted_keys.json` in the registry, or
+  `$LITTLEBOY_TRUSTED_KEYS` / `--trusted-keys`) as `unsigned` / `signed-trusted`
+  / `signed-untrusted` / `signed-invalid`. A `signed-invalid` (tampered content
+  or wrong secret) is **always** a failure; `--require-signatures` makes
+  `unsigned` and `signed-untrusted` failures too. The reserved `trusted_keys.json`
+  is excluded from the policy registry scan, so it is never mistaken for a policy.
+
+The honest limit, stated in the docs and a note on every verify: HMAC is
+**symmetric**, so a signature authenticates *within a trust boundary* (a team
+sharing a secret), not *against* the secret-holder — true non-repudiation needs
+asymmetric signatures, deliberately out of scope (stdlib only). Deterministic,
+typed, additive — the verdict under every built-in policy is unchanged. See
+[`docs/POLICY_PROFILES.md`](docs/POLICY_PROFILES.md).
+
 ## How evidence is represented
 
 An `EvidenceSet` holds `EvidenceItem`s, each a `claim` plus its `source_type`
@@ -1019,7 +1049,7 @@ pip install -e ".[dev]"     # pydantic, pytest, typer, ruff
 ## Running the tests
 
 ```bash
-pytest                      # 366 tests
+pytest                      # 382 tests
 ruff check src tests        # lint (optional)
 ```
 
@@ -1073,6 +1103,8 @@ littleboy policies --verify                                               # CI g
 littleboy evaluate examples/simple_case.json --policy research_gate_025   # reference a registered policy by NAME
 littleboy adopt research_gate_025 --because "lower the gate after the diagnosis"   # record the choice (v0.25)
 littleboy decisions --verify                                              # the adoption history; CI gate on chain breaks / drift
+littleboy adopt research_gate_025 --because "..." --sign-with alice.key   # sign the adoption (HMAC, v0.26)
+littleboy decisions --verify --require-signatures                         # CI gate: every entry must be signed-and-trusted
 littleboy build-case --minimal --from examples/voi_consent_pivotal.json --strategy lookahead
 littleboy templates                                                       # list scenario templates
 littleboy version
@@ -1253,19 +1285,19 @@ make consequential decisions about real people.
 
 ## Current development status
 
-**v0.25 — the decision log.** Implemented on top of v0.24. The registry gains a
-memory: `littleboy.rules.decisions` is an append-only, clock-free, hash-chained
-log (`decisions.jsonl` in the registry). `append_decision` records adopting a
-working policy — sequence number, policy name, a sha256 content hash of its
-profile, the base, the policy replaced, the reason, and a small tuner-impact
-digest — refusing a flagged policy unless `force=True` (the override and its
-flags recorded, never silent), and producing byte-identical bytes on a replayed
-adoption (no timestamps). `verify_decision_log` checks the hash chain
-(altered/removed/reordered entries) and content drift (a registry file swapped
-after adoption). New CLI `adopt` and `decisions` (with `--verify` as a CI gate),
-and `policies` now shows the adopted policy. New `tests/test_decisions.py`; a
-366-test suite (all passing). Purely additive — the verdict under every built-in
-policy is unchanged.
+**v0.26 — signed adoptions.** Implemented on top of v0.25. A decision-log entry
+can carry a detached **HMAC-SHA256 signature** (stdlib `hmac`/`hashlib`, opt-in):
+`append_decision(..., signing_key=...)` / `adopt --sign-with KEYFILE` sign over
+the entry's canonical bytes (content + key_id + chain position, but not the chain
+itself, so signing never perturbs integrity and unsigned logs are unchanged).
+`verify_decision_log` / `decisions --verify` classify each entry against a
+trusted-keys file (`entry_signature_status`: unsigned / signed-trusted /
+signed-untrusted / signed-invalid); `signed-invalid` always fails,
+`--require-signatures` makes unsigned/untrusted fail too. The trusted-keys file
+may live outside the registry (`$LITTLEBOY_TRUSTED_KEYS`) and is excluded from
+the policy scan. HMAC's symmetric limit is stated plainly in the docs and on
+every verify. New `tests/test_signed_decisions.py`; a 382-test suite (all
+passing). Purely additive — the verdict under every built-in policy is unchanged.
 
 Earlier phases delivered the core models; coercion/data-quality/evidence scoring;
 consent/agency models; the tri-state Axiom 3 justification; feasibility-aware
@@ -1286,7 +1318,7 @@ parameter accounts); the v0.19 fact accounts & unified classification; the
 v0.20 corpus-level diagnosis report (fractions, recurring accounts, tuning
 agenda); the v0.21 dry-run tuner; the v0.22 named custom policies; and the
 v0.23 calibration under a named policy (verified provenance); and the v0.24
-policy registry. All v0.1–v0.24 inputs remain valid.
+policy registry; and the v0.25 decision log. All v0.1–v0.25 inputs remain valid.
 
 **Deliberately not built:** any web UI, any LLM/API integration, any opaque bias
 detection, any prediction that looks certain, any claim to absolute truth, any
@@ -1300,10 +1332,11 @@ to interrogate, not more dogmatic**.
   path, agreement, reliability, recommendation, inference, explanations,
   diagnosis, and the tuner all run unchanged), and publish the resulting real
   agreement, gain inference, and diagnosis report.
-- **Signed adoptions**: let an adoption entry carry an optional detached
-  signature over its canonical bytes, so the decision log can prove *authority*
-  (who adopted) as well as integrity (what was adopted) -- the deterministic
-  core and clock-free log unchanged, signing strictly opt-in and offline.
+- **An asymmetric signing option**: an opt-in adapter that, *if* a vetted
+  pure-Python Ed25519 (or similar) implementation is vendored, lets adoptions be
+  signed by a private key and verified against public keys -- giving genuine
+  non-repudiation without a shared secret, the HMAC path staying the stdlib
+  default.
 - Let `intake_hints` declare fully custom unknowns (probe fields, resolutions, costs,
   and probabilities) so domains beyond the built-in fields can drive the planner —
   which would also widen the fact-account vocabulary case by case.

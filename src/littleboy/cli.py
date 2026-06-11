@@ -83,8 +83,10 @@ from littleboy.reasoning.report import (
     render_text,
 )
 from littleboy.rules.decisions import (
+    TRUSTED_KEYS_ENV_VAR,
     append_decision,
     current_policy,
+    load_signing_key,
     verify_decision_log,
 )
 from littleboy.rules.policy import (
@@ -1397,6 +1399,9 @@ def adopt(
         "--force",
         help="Adopt a flagged (tampered-provenance) policy anyway; logged as such.",
     ),
+    sign_with: Path | None = typer.Option(
+        None, "--sign-with", help="Sign the entry with an HMAC keyfile ({key_id, secret} JSON)."
+    ),
 ) -> None:
     """Record adopting a policy as the project's working policy (append-only, hash-chained)."""
     try:
@@ -1432,9 +1437,22 @@ def adopt(
             except json.JSONDecodeError:
                 impact = None
 
+    key = None
+    if sign_with is not None:
+        try:
+            key = load_signing_key(sign_with)
+        except (ValidationError, json.JSONDecodeError, OSError) as exc:
+            typer.echo(f"Invalid signing key {sign_with}: {exc}", err=True)
+            raise typer.Exit(code=2) from exc
+
     try:
         entry = append_decision(
-            named, directory=registry, reason=because, impact=impact, force=force
+            named,
+            directory=registry,
+            reason=because,
+            impact=impact,
+            force=force,
+            signing_key=key,
         )
     except ValueError as exc:
         typer.echo(str(exc), err=True)
@@ -1442,9 +1460,10 @@ def adopt(
         raise typer.Exit(code=2) from exc
 
     note = "  [FORCED: adopted a flagged policy; the flags are recorded]" if entry.forced else ""
+    signed = f"  [signed by '{entry.key_id}']" if entry.signature else ""
     typer.echo(
         f"adopted '{entry.policy_name}' as the working policy "
-        f"(decision #{entry.seq}, replaced '{entry.replaced or 'none'}'){note}"
+        f"(decision #{entry.seq}, replaced '{entry.replaced or 'none'}'){signed}{note}"
     )
 
 
@@ -1456,15 +1475,27 @@ def decisions(
     verify: bool = typer.Option(
         False, "--verify", help="Exit non-zero if the chain is broken or a policy has drifted."
     ),
+    trusted_keys: Path | None = typer.Option(
+        None,
+        "--trusted-keys",
+        help=f"Trusted-keys file (default: ${TRUSTED_KEYS_ENV_VAR} or registry trusted_keys.json).",
+    ),
+    require_signatures: bool = typer.Option(
+        False,
+        "--require-signatures",
+        help="Treat unsigned or untrusted entries as failures too (stricter CI gate).",
+    ),
     output_format: str = typer.Option(
         "text", "--format", "-f", help="Output format: 'json' or 'text'."
     ),
 ) -> None:
-    """Show the policy-adoption history: append-only, hash-chained, drift-checked."""
+    """Show the policy-adoption history: append-only, hash-chained, drift- and signature-checked."""
     if output_format not in {"json", "text"}:
         typer.echo(f"Unknown format '{output_format}'; use 'json' or 'text'.", err=True)
         raise typer.Exit(code=2)
-    report = verify_decision_log(registry)
+    report = verify_decision_log(
+        registry, trusted_keys=trusted_keys, require_signatures=require_signatures
+    )
 
     if output_format == "json":
         typer.echo(json.dumps(report.model_dump(mode="json"), indent=2, ensure_ascii=False))
@@ -1477,11 +1508,14 @@ def decisions(
         )
         if report.current:
             typer.echo(f"  current: {report.current}")
+        status_by_seq = dict(enumerate(report.signature_status))
         for entry in report.entries:
             forced = "  [FORCED]" if entry.forced else ""
+            status = status_by_seq.get(entry.seq, "unsigned")
+            sig = "" if status == "unsigned" else f"  [{status}: {entry.key_id}]"
             typer.echo(
                 f"  #{entry.seq} {entry.policy_name}  (base {entry.base or '-'}, "
-                f"replaced {entry.replaced or 'none'}){forced}"
+                f"replaced {entry.replaced or 'none'}){sig}{forced}"
             )
             if entry.reason:
                 typer.echo(f"       reason: {entry.reason}")

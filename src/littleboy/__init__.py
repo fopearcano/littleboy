@@ -194,10 +194,16 @@ from littleboy.rules import (
 from littleboy.rules.decisions import (
     DecisionEntry,
     DecisionLogReport,
+    SigningKey,
+    TrustedKey,
     append_decision,
     current_policy,
+    entry_signature_status,
+    load_signing_key,
+    load_trusted_keys,
     profile_hash,
     read_decision_log,
+    sign_entry,
     verify_decision_log,
 )
 from littleboy.temporal import (
@@ -216,7 +222,7 @@ from littleboy.temporal import (
     score_reversibility,
 )
 
-__version__ = "0.25.0"
+__version__ = "0.26.0"
 
 __all__ = [
     "AuditCorpus",
@@ -230,6 +236,8 @@ __all__ = [
     "DisagreementDiagnosis",
     "DecisionEntry",
     "DecisionLogReport",
+    "SigningKey",
+    "TrustedKey",
     "DisagreementExplanation",
     "FittedPolicy",
     "InformationValue",
@@ -258,6 +266,7 @@ __all__ = [
     "default_scoring_corpus",
     "append_decision",
     "current_policy",
+    "entry_signature_status",
     "diagnose_disagreements",
     "expected_cost_first_question",
     "expected_questionnaire_cost",
@@ -381,10 +390,13 @@ __all__ = [
     "get_template",
     "list_templates",
     "load_named_policy",
+    "load_signing_key",
+    "load_trusted_keys",
     "lookup_registered_policy",
     "profile_changes",
     "profile_hash",
     "read_decision_log",
+    "sign_entry",
     "project_temporal",
     "recommended_next_questions",
     "resolve_policy_ref",
