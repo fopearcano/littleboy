@@ -11,19 +11,19 @@ and returns a **transparent, explained verdict** with an honest account of its
 own uncertainty. It is a reasoning engine, not a user interface and not a
 language model.
 
-This is **v0.24**, which gives a project's named policies **one verified home**:
-a registry directory (`./policies`, `$LITTLEBOY_POLICY_DIR`, or `--registry`)
-that `littleboy policies` lists with every entry's provenance status — `ok` /
-`no-prov` / `FLAGGED` (tampered, duplicated, or colliding with a built-in) /
-`UNREADABLE` — so a drifted file is visible **before it is ever used**;
-`littleboy policies --verify` is a one-line CI gate (non-zero exit on any
-flagged entry); and every `--policy`, `--with-policy`, `tune --base`, and
-`explain-disagreement --against` now resolves **by name** in a fixed order
-(built-in mode → registered name → file path) with every ambiguity rejected
-loudly. (v0.23 made named policies first-class measurement subjects with
-verified provenance; v0.22 made a vetted candidate a first-class
-named policy: clock-free provenance, save/load/validate, accepted by every
-`--policy`, `policy_label` on every report; v0.21 added the dry-run tuner:
+This is **v0.25**, which gives the registry a **memory**: an append-only,
+clock-free, hash-chained decision log (`decisions.jsonl`). `littleboy adopt
+<policy> --because "..."` records choosing a working policy — its content hash,
+the base it replaced, the reason, and the tuner's impact summary — refusing a
+flagged policy unless `--force` (logged as such); `littleboy decisions --verify`
+re-checks the **hash chain** (altered/removed/reordered entries) and **content
+drift** (a registry file silently swapped *after* adoption), a CI gate for the
+log; and `littleboy policies` now shows the adopted policy. (v0.24 gave named
+policies one verified home — a registry listed and CI-verified, referenced by
+name; v0.23 made named policies first-class measurement subjects with verified
+provenance; v0.22 made a vetted candidate a first-class named policy: clock-free
+provenance, save/load/validate, accepted by every `--policy`, `policy_label` on
+every report; v0.21 added the dry-run tuner:
 every flip, every stakeholder delta, every golden, nothing silent; v0.20 turned
 the per-case classifications into a corpus-level diagnosis with fractions,
 recurring accounts, and a tuning agenda; v0.19 added fact accounts and the
@@ -834,6 +834,32 @@ unchanged. See [`docs/POLICY_PROFILES.md`](docs/POLICY_PROFILES.md).
 Deterministic, typed, additive — the verdict under every built-in policy is
 unchanged. See [`docs/POLICY_PROFILES.md`](docs/POLICY_PROFILES.md).
 
+## LittleBoy v0.25: The decision log
+
+> The registry holds the policies; the decision log holds the **history of
+> choosing between them** — append-only, clock-free, and tamper-evident.
+
+- **`littleboy adopt <name|file> --because "..."`** (`append_decision`): records
+  adopting a working policy as one typed entry — sequence number, policy name, a
+  **content hash** of its profile, the base it derived from, the policy it
+  replaced, the reason, and a small digest of the tuner's impact (attached
+  automatically from `<file>.impact.json`). It **refuses a flagged policy**
+  (tampered provenance) unless `--force`, recording the override and the flags —
+  never silent. The log is **clock-free** (no timestamps), so it stays
+  deterministic and diffable; a replayed adoption produces byte-identical bytes.
+- **`littleboy decisions [--verify]`** (`verify_decision_log`): lists the history
+  and runs two integrity checks — the **hash chain** (each entry pins the prior
+  entry's content hash, catching altered/removed/reordered entries) and
+  **content drift** (each entry pins the adopted profile's hash, catching a
+  registry file *silently swapped after adoption*). `--verify` exits non-zero on
+  any problem — a CI gate for the log. `littleboy policies` shows the currently
+  adopted policy (`adopted: <name>`, marked `*`).
+
+It proves *integrity*, not *authority*: it makes a silent swap impossible to
+hide, not impossible to attempt. Deterministic, typed, additive — the verdict
+under every built-in policy is unchanged. See
+[`docs/POLICY_PROFILES.md`](docs/POLICY_PROFILES.md).
+
 ## How evidence is represented
 
 An `EvidenceSet` holds `EvidenceItem`s, each a `claim` plus its `source_type`
@@ -993,7 +1019,7 @@ pip install -e ".[dev]"     # pydantic, pytest, typer, ruff
 ## Running the tests
 
 ```bash
-pytest                      # 350 tests
+pytest                      # 366 tests
 ruff check src tests        # lint (optional)
 ```
 
@@ -1045,6 +1071,8 @@ littleboy recommend-policy --external --with-policy my_policy.json       # ...an
 littleboy policies --registry ./policies                                  # list the registry, provenance-verified (v0.24)
 littleboy policies --verify                                               # CI gate: non-zero exit if anything is flagged
 littleboy evaluate examples/simple_case.json --policy research_gate_025   # reference a registered policy by NAME
+littleboy adopt research_gate_025 --because "lower the gate after the diagnosis"   # record the choice (v0.25)
+littleboy decisions --verify                                              # the adoption history; CI gate on chain breaks / drift
 littleboy build-case --minimal --from examples/voi_consent_pivotal.json --strategy lookahead
 littleboy templates                                                       # list scenario templates
 littleboy version
@@ -1225,22 +1253,19 @@ make consequential decisions about real people.
 
 ## Current development status
 
-**v0.24 — the policy registry.** Implemented on top of v0.23. Named policies
-get one verified home: `scan_policy_registry` walks the registry directory
-(`./policies`, `$LITTLEBOY_POLICY_DIR`, or an explicit override; deterministic;
-the tuner's `*.impact.json` companions excluded) and reports every file's load
-and provenance status — flagging tampered provenance, duplicate names, names
-colliding with a built-in, and unreadable files, while missing provenance is
-listed but not flagged. `littleboy policies` renders the listing (text/JSON) and
-`--verify` exits non-zero on any flagged entry, a one-line CI gate. Every
-`--policy`, `--with-policy`, `tune --base`, and `explain-disagreement --against`
-resolves by name in a fixed order (built-in → registered name → file path), with
-every ambiguity rejected loudly: built-ins never shadowed, name-vs-file clashes
-erroring with instructions, duplicate registry names refusing resolution,
-policy-vs-labeller clashes rejected for `--against`. A committed fixture
-registry exercises every status, golden-pinned. New `policies` command and
-`LITTLEBOY_POLICY_DIR`; a 350-test suite (all passing). Purely additive — the
-verdict under every built-in policy is unchanged.
+**v0.25 — the decision log.** Implemented on top of v0.24. The registry gains a
+memory: `littleboy.rules.decisions` is an append-only, clock-free, hash-chained
+log (`decisions.jsonl` in the registry). `append_decision` records adopting a
+working policy — sequence number, policy name, a sha256 content hash of its
+profile, the base, the policy replaced, the reason, and a small tuner-impact
+digest — refusing a flagged policy unless `force=True` (the override and its
+flags recorded, never silent), and producing byte-identical bytes on a replayed
+adoption (no timestamps). `verify_decision_log` checks the hash chain
+(altered/removed/reordered entries) and content drift (a registry file swapped
+after adoption). New CLI `adopt` and `decisions` (with `--verify` as a CI gate),
+and `policies` now shows the adopted policy. New `tests/test_decisions.py`; a
+366-test suite (all passing). Purely additive — the verdict under every built-in
+policy is unchanged.
 
 Earlier phases delivered the core models; coercion/data-quality/evidence scoring;
 consent/agency models; the tri-state Axiom 3 justification; feasibility-aware
@@ -1260,8 +1285,8 @@ set; the v0.18 case-level disagreement explanations (trace diffs + minimal
 parameter accounts); the v0.19 fact accounts & unified classification; the
 v0.20 corpus-level diagnosis report (fractions, recurring accounts, tuning
 agenda); the v0.21 dry-run tuner; the v0.22 named custom policies; and the
-v0.23 calibration under a named policy (verified provenance). All v0.1–v0.23
-inputs remain valid.
+v0.23 calibration under a named policy (verified provenance); and the v0.24
+policy registry. All v0.1–v0.24 inputs remain valid.
 
 **Deliberately not built:** any web UI, any LLM/API integration, any opaque bias
 detection, any prediction that looks certain, any claim to absolute truth, any
@@ -1275,10 +1300,10 @@ to interrogate, not more dogmatic**.
   path, agreement, reliability, recommendation, inference, explanations,
   diagnosis, and the tuner all run unchanged), and publish the resulting real
   agreement, gain inference, and diagnosis report.
-- A **decision log**: append-only records of policy adoptions (who switched the
-  project's working policy to what, with the tuner's impact report attached),
-  so the registry carries not just the policies but the history of choosing
-  between them.
+- **Signed adoptions**: let an adoption entry carry an optional detached
+  signature over its canonical bytes, so the decision log can prove *authority*
+  (who adopted) as well as integrity (what was adopted) -- the deterministic
+  core and clock-free log unchanged, signing strictly opt-in and offline.
 - Let `intake_hints` declare fully custom unknowns (probe fields, resolutions, costs,
   and probabilities) so domains beyond the built-in fields can drive the planner —
   which would also widen the fact-account vocabulary case by case.

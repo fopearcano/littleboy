@@ -191,6 +191,15 @@ from littleboy.rules import (
     scan_policy_registry,
     verify_named_policy,
 )
+from littleboy.rules.decisions import (
+    DecisionEntry,
+    DecisionLogReport,
+    append_decision,
+    current_policy,
+    profile_hash,
+    read_decision_log,
+    verify_decision_log,
+)
 from littleboy.temporal import (
     ConsequenceEstimate,
     ConsequenceSet,
@@ -207,7 +216,7 @@ from littleboy.temporal import (
     score_reversibility,
 )
 
-__version__ = "0.24.0"
+__version__ = "0.25.0"
 
 __all__ = [
     "AuditCorpus",
@@ -219,6 +228,8 @@ __all__ = [
     "DeliberationReport",
     "Deliberator",
     "DisagreementDiagnosis",
+    "DecisionEntry",
+    "DecisionLogReport",
     "DisagreementExplanation",
     "FittedPolicy",
     "InformationValue",
@@ -245,6 +256,8 @@ __all__ = [
     "default_labelled_outcome_corpus",
     "default_outcome_corpus",
     "default_scoring_corpus",
+    "append_decision",
+    "current_policy",
     "diagnose_disagreements",
     "expected_cost_first_question",
     "expected_questionnaire_cost",
@@ -370,11 +383,14 @@ __all__ = [
     "load_named_policy",
     "lookup_registered_policy",
     "profile_changes",
+    "profile_hash",
+    "read_decision_log",
     "project_temporal",
     "recommended_next_questions",
     "resolve_policy_ref",
     "save_named_policy",
     "scan_policy_registry",
+    "verify_decision_log",
     "verify_named_policy",
     "score_constructive_language",
     "score_cumulative_coercion",

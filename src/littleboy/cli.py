@@ -82,6 +82,11 @@ from littleboy.reasoning.report import (
     render_language_text,
     render_text,
 )
+from littleboy.rules.decisions import (
+    append_decision,
+    current_policy,
+    verify_decision_log,
+)
 from littleboy.rules.policy import (
     REGISTRY_ENV_VAR,
     NamedPolicy,
@@ -1338,14 +1343,20 @@ def policies(
         typer.echo(f"Unknown format '{output_format}'; use 'json' or 'text'.", err=True)
         raise typer.Exit(code=2)
     reg = scan_policy_registry(registry)
+    adopted = current_policy(registry)
+    adopted_name = adopted.policy_name if adopted else ""
 
     if output_format == "json":
-        typer.echo(json.dumps(reg.model_dump(mode="json"), indent=2, ensure_ascii=False))
+        payload = reg.model_dump(mode="json")
+        payload["adopted"] = adopted_name
+        typer.echo(json.dumps(payload, indent=2, ensure_ascii=False))
     else:
         typer.echo(
             f"POLICY REGISTRY: {reg.directory}  "
             f"({reg.n_policies} policies, {reg.n_flagged} flagged)"
         )
+        if adopted_name:
+            typer.echo(f"  adopted: {adopted_name}  (the project's working policy)")
         for entry in reg.entries:
             if not entry.loadable:
                 status = "UNREADABLE"
@@ -1355,8 +1366,9 @@ def policies(
                 status = "no-prov   "
             else:
                 status = "ok        "
+            marker = " *" if entry.name and entry.name == adopted_name else ""
             base = f"base {entry.base}, {len(entry.changes)} change(s)" if entry.base else "-"
-            typer.echo(f"  [{status}] {entry.name or '?':24s} {entry.file}  ({base})")
+            typer.echo(f"  [{status}] {entry.name or '?':24s} {entry.file}  ({base}){marker}")
             if entry.description:
                 typer.echo(f"               {entry.description}")
             for problem in entry.problems:
@@ -1368,6 +1380,122 @@ def policies(
         typer.echo(
             f"VERIFY FAILED: {reg.n_flagged} flagged entr(y/ies) in {reg.directory}", err=True
         )
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def adopt(
+    policy: str = typer.Argument(..., help="A registered policy name or a named-policy JSON file."),
+    because: str = typer.Option(
+        "", "--because", help="The stated reason for the adoption (recorded in the log)."
+    ),
+    registry: Path | None = typer.Option(
+        None, "--registry", help=f"Registry directory (default: ${REGISTRY_ENV_VAR} or ./policies)."
+    ),
+    force: bool = typer.Option(
+        False,
+        "--force",
+        help="Adopt a flagged (tampered-provenance) policy anyway; logged as such.",
+    ),
+) -> None:
+    """Record adopting a policy as the project's working policy (append-only, hash-chained)."""
+    try:
+        registered = lookup_registered_policy(policy, directory=registry)
+    except ValueError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=2) from exc
+    path = Path(policy)
+    if registered is not None and path.is_file():
+        typer.echo(
+            f"Ambiguous policy reference '{policy}': both a registered name and a file.", err=True
+        )
+        raise typer.Exit(code=2)
+    if registered is not None:
+        named = registered
+    elif path.is_file():
+        named = _load_policy_file(path)
+    else:
+        typer.echo(
+            f"Unknown policy '{policy}': use a registered name (see 'littleboy policies') "
+            "or a path to a named-policy JSON file.",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+
+    # the tuner writes <stem>.impact.json next to a saved policy; attach it if present
+    impact = None
+    if path.is_file():
+        impact_path = path.with_suffix(".impact.json")
+        if impact_path.is_file():
+            try:
+                impact = json.loads(impact_path.read_text(encoding="utf-8"))
+            except json.JSONDecodeError:
+                impact = None
+
+    try:
+        entry = append_decision(
+            named, directory=registry, reason=because, impact=impact, force=force
+        )
+    except ValueError as exc:
+        typer.echo(str(exc), err=True)
+        typer.echo("  (re-run with --force to adopt anyway; the override will be logged)", err=True)
+        raise typer.Exit(code=2) from exc
+
+    note = "  [FORCED: adopted a flagged policy; the flags are recorded]" if entry.forced else ""
+    typer.echo(
+        f"adopted '{entry.policy_name}' as the working policy "
+        f"(decision #{entry.seq}, replaced '{entry.replaced or 'none'}'){note}"
+    )
+
+
+@app.command()
+def decisions(
+    registry: Path | None = typer.Option(
+        None, "--registry", help=f"Registry directory (default: ${REGISTRY_ENV_VAR} or ./policies)."
+    ),
+    verify: bool = typer.Option(
+        False, "--verify", help="Exit non-zero if the chain is broken or a policy has drifted."
+    ),
+    output_format: str = typer.Option(
+        "text", "--format", "-f", help="Output format: 'json' or 'text'."
+    ),
+) -> None:
+    """Show the policy-adoption history: append-only, hash-chained, drift-checked."""
+    if output_format not in {"json", "text"}:
+        typer.echo(f"Unknown format '{output_format}'; use 'json' or 'text'.", err=True)
+        raise typer.Exit(code=2)
+    report = verify_decision_log(registry)
+
+    if output_format == "json":
+        typer.echo(json.dumps(report.model_dump(mode="json"), indent=2, ensure_ascii=False))
+    else:
+        typer.echo(
+            f"DECISION LOG: {report.directory}  "
+            f"({report.n_entries} adoption(s), "
+            f"{'chain intact' if report.chain_intact else 'CHAIN BROKEN'}, "
+            f"{report.n_problems} problem(s))"
+        )
+        if report.current:
+            typer.echo(f"  current: {report.current}")
+        for entry in report.entries:
+            forced = "  [FORCED]" if entry.forced else ""
+            typer.echo(
+                f"  #{entry.seq} {entry.policy_name}  (base {entry.base or '-'}, "
+                f"replaced {entry.replaced or 'none'}){forced}"
+            )
+            if entry.reason:
+                typer.echo(f"       reason: {entry.reason}")
+            if entry.impact_summary.get("n_flips") is not None:
+                typer.echo(f"       impact: {entry.impact_summary['n_flips']} verdict flip(s)")
+            for flag in entry.flags_at_adoption:
+                typer.echo(f"       ! flag at adoption: {flag}")
+        for problem in report.problems:
+            typer.echo(f"  ! {problem}")
+        for note in report.notes:
+            typer.echo(f"  - {note}")
+
+    if verify and (not report.chain_intact or report.n_problems):
+        typer.echo(f"VERIFY FAILED: {report.n_problems} problem(s) in the decision log", err=True)
         raise typer.Exit(code=1)
 
 

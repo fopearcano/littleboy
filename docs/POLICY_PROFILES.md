@@ -170,3 +170,34 @@ listed, verified, and referenced **by name**:
 The registry is still just files: nothing is installed, nothing global mutates,
 and `scan_policy_registry` / `lookup_registered_policy` give the library the
 same capabilities as the CLI.
+
+## The decision log (v0.25)
+
+The registry holds the policies; the **decision log** (`decisions.jsonl` in the
+registry directory) holds the **history of choosing between them** — an
+append-only, clock-free, hash-chained record:
+
+- **`littleboy adopt <name|file> --because "..."`** appends one entry: a
+  sequence number, the policy name and a **content hash** of its profile, the
+  base it derived from, the policy it replaced, the stated reason, and a small
+  digest of the tuner's impact report (attached automatically from
+  `<file>.impact.json` when adopting a saved policy). It **refuses to adopt a
+  flagged policy** (tampered provenance) unless `--force`, and a forced adoption
+  records `forced` and the flags present — the override is logged, never silent.
+- **clock-free**: no timestamps, so the log is deterministic and diffable, and a
+  replayed adoption produces byte-identical bytes (a regression-friendly
+  property, tested directly).
+- **`littleboy decisions [--verify]`** lists the history and runs two integrity
+  checks: the **hash chain** (each entry pins the previous entry's content hash,
+  so an altered, removed, or reordered entry breaks the chain) and **content
+  drift** (each entry pins the adopted profile's hash, so a registry file
+  *silently swapped after adoption* is caught — the file no longer matches what
+  was adopted). `--verify` exits non-zero on any problem, a CI gate for the log.
+- **`littleboy policies`** now shows the currently adopted policy (`adopted:
+  <name>`, marked `*` in the listing) — the project's working policy, read from
+  the tail of the log.
+
+The log proves *integrity*, not *authority*: it shows that the recorded history
+matches the current files (or exactly where it does not), but it cannot vouch for
+who made a change or why. It makes a silent swap impossible to hide, not
+impossible to attempt.

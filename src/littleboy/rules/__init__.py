@@ -9,6 +9,15 @@ from __future__ import annotations
 
 from littleboy.rules.base import Rule, RuleContext
 from littleboy.rules.builtin_rules import BUILTIN_RULES, default_registry
+from littleboy.rules.decisions import (
+    DecisionEntry,
+    DecisionLogReport,
+    append_decision,
+    current_policy,
+    profile_hash,
+    read_decision_log,
+    verify_decision_log,
+)
 from littleboy.rules.engine import RuleEngine, RuleEngineOutcome
 from littleboy.rules.policy import (
     DEFAULT_POLICY_MODE,
@@ -36,6 +45,8 @@ __all__ = [
     "BUILTIN_RULES",
     "DEFAULT_POLICY_MODE",
     "DEFAULT_PROFILES",
+    "DecisionEntry",
+    "DecisionLogReport",
     "REGISTRY_ENV_VAR",
     "NamedPolicy",
     "PolicyProfile",
@@ -48,14 +59,19 @@ __all__ = [
     "RuleEngine",
     "RuleEngineOutcome",
     "RuleRegistry",
+    "append_decision",
+    "current_policy",
     "default_registry",
     "get_policy",
     "load_named_policy",
     "lookup_registered_policy",
     "profile_changes",
+    "profile_hash",
+    "read_decision_log",
     "registry_dir",
     "resolve_policy_ref",
     "save_named_policy",
     "scan_policy_registry",
+    "verify_decision_log",
     "verify_named_policy",
 ]
