@@ -83,11 +83,14 @@ from littleboy.reasoning.report import (
     render_text,
 )
 from littleboy.rules.policy import (
+    REGISTRY_ENV_VAR,
     NamedPolicy,
     PolicyProfile,
     PolicyProvenance,
     load_named_policy,
+    lookup_registered_policy,
     save_named_policy,
+    scan_policy_registry,
     verify_named_policy,
 )
 from littleboy.temporal.report import render_temporal_json, render_temporal_text
@@ -138,22 +141,47 @@ def _load_policy_file(path: Path) -> NamedPolicy:
     return named
 
 
+def _lookup_or_load(ref: str) -> NamedPolicy:
+    """Resolve a custom-policy reference: a registered name, or a JSON file path.
+
+    Registry directory: $LITTLEBOY_POLICY_DIR or ./policies. A reference that is
+    both a registered name and an existing file is ambiguous and rejected; every
+    loaded policy gets the provenance check (tampering warned loudly).
+    """
+    path = Path(ref)
+    try:
+        registered = lookup_registered_policy(ref)
+    except ValueError as exc:  # duplicate names inside the registry
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=2) from exc
+    if registered is not None and path.is_file():
+        typer.echo(
+            f"Ambiguous policy reference '{ref}': it is both a registered policy name "
+            f"and an existing file. Use an explicit path (e.g. ./{ref}) or rename one.",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    if registered is not None:
+        _warn_if_tampered(registered)
+        return registered
+    if path.is_file():
+        return _load_policy_file(path)
+    typer.echo(
+        f"Unknown policy '{ref}': use one of {_POLICY_CHOICES}, a registered policy "
+        "name (see 'littleboy policies'), or a path to a named-policy JSON file.",
+        err=True,
+    )
+    raise typer.Exit(code=2)
+
+
 def _resolve_policy_ref(policy: str) -> tuple[PolicyMode | PolicyProfile, str]:
-    """Resolve a built-in mode name or a named-policy JSON path to (policy, label)."""
+    """Resolve a built-in mode, a registered policy name, or a policy file path."""
     try:
         return PolicyMode(policy), ""
     except ValueError:
         pass
-    path = Path(policy)
-    if path.is_file():
-        named = _load_policy_file(path)
-        return named.profile, named.name
-    typer.echo(
-        f"Unknown policy '{policy}': use one of {_POLICY_CHOICES}, "
-        "or a path to a named-policy JSON file.",
-        err=True,
-    )
-    raise typer.Exit(code=2)
+    named = _lookup_or_load(policy)
+    return named.profile, named.name
 
 
 def _resolve_policy(policy: str) -> PolicyMode | PolicyProfile:
@@ -570,10 +598,10 @@ def calibrate(
         "-l",
         help="Use the large multi-labeller outcome corpus (with inter-rater agreement).",
     ),
-    with_policy: list[Path] = typer.Option(
+    with_policy: list[str] = typer.Option(
         [],
         "--with-policy",
-        help="Add a named custom policy (JSON file) as a reliability row (repeatable).",
+        help="Add a named policy (registered name or JSON file) as a reliability row (repeatable).",
     ),
     n: int = typer.Option(120, "--n", help="Number of generated cases (with --generated)."),
     seed: int = typer.Option(0, "--seed", help="Seed for the generated corpus (with --generated)."),
@@ -601,7 +629,7 @@ def calibrate(
         scoring_report = run_scoring_corpus(scoring_corpus)
     if scope in {"reliability", "all"}:
         outcome_corpus = default_labelled_outcome_corpus() if labelled else default_outcome_corpus()
-        extras = [_load_policy_file(path) for path in with_policy]
+        extras = [_lookup_or_load(ref) for ref in with_policy]
         try:
             reliability_report = run_reliability(outcome_corpus, extra_policies=extras)
         except ValueError as exc:
@@ -720,10 +748,10 @@ def recommend_policy_cmd(
         readable=True,
         help="Overlay real labels (case_id,labeler,verdict[,split]) onto the corpus cases.",
     ),
-    with_policy: list[Path] = typer.Option(
+    with_policy: list[str] = typer.Option(
         [],
         "--with-policy",
-        help="Enter a named custom policy (JSON file) into the ranking (repeatable).",
+        help="Enter a named policy (registered name or JSON file) into the ranking (repeatable).",
     ),
     output_format: str = typer.Option(
         "text", "--format", "-f", help="Output format: 'json' or 'text'."
@@ -752,7 +780,7 @@ def recommend_policy_cmd(
             typer.echo(f"Could not apply labels from {labels_csv}: {exc}", err=True)
             raise typer.Exit(code=2) from exc
 
-    extras = [_load_policy_file(path) for path in with_policy]
+    extras = [_lookup_or_load(ref) for ref in with_policy]
     try:
         rec = recommend_policy_for_stakeholder(
             corpus, stakeholder, metric=metric, extra_policies=extras
@@ -964,14 +992,6 @@ def explain_disagreement_cmd(
         typer.echo("Use at most one of --independent, --external.", err=True)
         raise typer.Exit(code=2)
     engine_policy, engine_label = _resolve_policy_ref(policy)
-    against_policy: PolicyMode | PolicyProfile | None = None
-    against_label = ""
-    if against in {m.value for m in PolicyMode}:
-        against_policy = PolicyMode(against)
-    elif Path(against).is_file():
-        named = _load_policy_file(Path(against))
-        against_policy, against_label = named.profile, named.name
-    versus_policy = against_policy is not None
 
     if independent:
         corpus = default_independent_outcome_corpus()
@@ -979,6 +999,34 @@ def explain_disagreement_cmd(
         corpus = default_external_outcome_corpus()
     else:
         corpus = default_labelled_outcome_corpus()
+
+    against_policy: PolicyMode | PolicyProfile | None = None
+    against_label = ""
+    if against in {m.value for m in PolicyMode}:
+        against_policy = PolicyMode(against)
+    else:
+        try:
+            registered = lookup_registered_policy(against)
+        except ValueError as exc:
+            typer.echo(str(exc), err=True)
+            raise typer.Exit(code=2) from exc
+        if registered is not None:
+            labelers = {"consensus"} | {
+                lv.labeler for entry in corpus.entries for lv in entry.labels
+            }
+            if against in labelers:
+                typer.echo(
+                    f"Ambiguous --against '{against}': it is both a registered policy "
+                    "and a labeller in this corpus. Rename one of them.",
+                    err=True,
+                )
+                raise typer.Exit(code=2)
+            _warn_if_tampered(registered)
+            against_policy, against_label = registered.profile, registered.name
+        elif Path(against).is_file():
+            named = _load_policy_file(Path(against))
+            against_policy, against_label = named.profile, named.name
+    versus_policy = against_policy is not None
 
     if all_cases:
         if versus_policy:
@@ -1267,6 +1315,60 @@ def tune(
             typer.echo(f"    {tag} {gi.golden}: {gi.reason}")
     for note in impact.notes:
         typer.echo(f"  - {note}")
+
+
+@app.command()
+def policies(
+    registry: Path | None = typer.Option(
+        None,
+        "--registry",
+        help=f"Registry directory (default: ${REGISTRY_ENV_VAR} or ./policies).",
+    ),
+    verify: bool = typer.Option(
+        False,
+        "--verify",
+        help="Exit non-zero if any entry is flagged (tampered/unreadable/duplicate/collision).",
+    ),
+    output_format: str = typer.Option(
+        "text", "--format", "-f", help="Output format: 'json' or 'text'."
+    ),
+) -> None:
+    """List the policy registry: every named policy, provenance-verified, nothing hidden."""
+    if output_format not in {"json", "text"}:
+        typer.echo(f"Unknown format '{output_format}'; use 'json' or 'text'.", err=True)
+        raise typer.Exit(code=2)
+    reg = scan_policy_registry(registry)
+
+    if output_format == "json":
+        typer.echo(json.dumps(reg.model_dump(mode="json"), indent=2, ensure_ascii=False))
+    else:
+        typer.echo(
+            f"POLICY REGISTRY: {reg.directory}  "
+            f"({reg.n_policies} policies, {reg.n_flagged} flagged)"
+        )
+        for entry in reg.entries:
+            if not entry.loadable:
+                status = "UNREADABLE"
+            elif entry.flagged:
+                status = "FLAGGED   "
+            elif not entry.has_provenance:
+                status = "no-prov   "
+            else:
+                status = "ok        "
+            base = f"base {entry.base}, {len(entry.changes)} change(s)" if entry.base else "-"
+            typer.echo(f"  [{status}] {entry.name or '?':24s} {entry.file}  ({base})")
+            if entry.description:
+                typer.echo(f"               {entry.description}")
+            for problem in entry.problems:
+                typer.echo(f"               ! {problem}")
+        for note in reg.notes:
+            typer.echo(f"  - {note}")
+
+    if verify and reg.n_flagged:
+        typer.echo(
+            f"VERIFY FAILED: {reg.n_flagged} flagged entr(y/ies) in {reg.directory}", err=True
+        )
+        raise typer.Exit(code=1)
 
 
 @app.command()

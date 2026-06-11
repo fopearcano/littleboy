@@ -13,6 +13,7 @@ risk postures (e.g. a permissive research setting vs. a precautionary one).
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -274,20 +275,208 @@ def verify_named_policy(named: NamedPolicy) -> ProvenanceCheck:
     )
 
 
-def resolve_policy_ref(ref: str) -> tuple[PolicyProfile | PolicyMode, str]:
+def resolve_policy_ref(
+    ref: str, *, registry: str | Path | None = None
+) -> tuple[PolicyProfile | PolicyMode, str]:
     """Resolve a CLI-style policy reference to ``(policy, label)``.
 
-    A built-in mode name resolves to the mode with an empty label; a path to a
-    named-policy JSON file resolves to its profile with its name as the label
-    (non-empty label == custom policy). Anything else raises ``ValueError``.
+    Resolution order: a built-in mode name (empty label); a **registered policy
+    name** in the registry directory; a path to a named-policy JSON file (its
+    name as the label). A reference that is both a registered name and an
+    existing file is ambiguous and rejected loudly. Anything else raises
+    ``ValueError``.
     """
     try:
         return PolicyMode(ref), ""
     except ValueError:
         pass
+    registered = lookup_registered_policy(ref, directory=registry)
     path = Path(ref)
+    if registered is not None and path.is_file():
+        raise ValueError(
+            f"ambiguous policy reference {ref!r}: it is both a registered policy name "
+            f"and an existing file; use an explicit path (e.g. ./{ref}) or rename one"
+        )
+    if registered is not None:
+        return registered.profile, registered.name
     if path.is_file():
         named = load_named_policy(path)
         return named.profile, named.name
     modes = ", ".join(m.value for m in PolicyMode)
-    raise ValueError(f"unknown policy {ref!r}: not a built-in mode ({modes}) and not a policy file")
+    raise ValueError(
+        f"unknown policy {ref!r}: not a built-in mode ({modes}), not a registered "
+        "policy name, and not a policy file"
+    )
+
+
+# =============================================================================
+# The policy registry (v0.24): a directory of named policies, listed & verified
+# =============================================================================
+
+REGISTRY_ENV_VAR = "LITTLEBOY_POLICY_DIR"
+DEFAULT_REGISTRY_DIR = Path("policies")
+
+
+def registry_dir(override: str | Path | None = None) -> Path:
+    """The registry directory: explicit override, else $LITTLEBOY_POLICY_DIR, else ./policies."""
+    if override is not None:
+        return Path(override)
+    env = os.environ.get(REGISTRY_ENV_VAR)
+    if env:
+        return Path(env)
+    return DEFAULT_REGISTRY_DIR
+
+
+class RegistryEntry(BaseModel):
+    """One file in the policy registry, with its load and provenance status."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    file: str
+    name: str = ""
+    base: str = ""
+    changes: dict[str, str] = Field(default_factory=dict)
+    description: str = ""
+    loadable: bool = True
+    has_provenance: bool = False
+    consistent: bool = True
+    flagged: bool = Field(
+        default=False,
+        description=(
+            "True when the entry cannot be trusted as-is: unreadable, tampered "
+            "provenance, a duplicated name, or a name colliding with a built-in. "
+            "Missing provenance alone does not flag."
+        ),
+    )
+    problems: list[str] = Field(default_factory=list)
+
+
+class PolicyRegistry(BaseModel):
+    """A scan of the registry directory: every policy, verified, nothing trusted blindly."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    directory: str
+    exists: bool = True
+    entries: list[RegistryEntry] = Field(default_factory=list)
+    n_policies: int = 0
+    n_flagged: int = 0
+    duplicate_names: list[str] = Field(default_factory=list)
+    notes: list[str] = Field(default_factory=list)
+
+
+def _registry_files(directory: Path) -> list[Path]:
+    # the tuner's --save writes <stem>.impact.json companions; they are reports, not policies
+    return sorted(
+        path for path in directory.glob("*.json") if not path.name.endswith(".impact.json")
+    )
+
+
+def scan_policy_registry(directory: str | Path | None = None) -> PolicyRegistry:
+    """Scan the registry: load and provenance-verify every policy file, flag what's wrong.
+
+    Deterministic (files sorted by name). Flagged = unreadable, tampered
+    provenance, duplicate names, or a name colliding with a built-in mode --
+    the entries that must not be used as-is. A policy without provenance is
+    listed but not flagged (less history is not an integrity failure).
+    """
+    d = registry_dir(directory)
+    if not d.is_dir():
+        return PolicyRegistry(
+            directory=str(d),
+            exists=False,
+            notes=[f"no registry directory at {d}; create it or set ${REGISTRY_ENV_VAR}"],
+        )
+
+    entries: list[RegistryEntry] = []
+    builtin_names = {m.value for m in PolicyMode}
+    for path in _registry_files(d):
+        try:
+            named = load_named_policy(path)
+        except Exception as exc:  # noqa: BLE001 - unreadable files must be listed, not crash
+            entries.append(
+                RegistryEntry(
+                    file=path.name,
+                    loadable=False,
+                    consistent=False,
+                    flagged=True,
+                    problems=[f"not a valid named policy: {type(exc).__name__}"],
+                )
+            )
+            continue
+        check = verify_named_policy(named)
+        problems = list(check.problems)
+        flagged = check.has_provenance and not check.consistent
+        if named.name in builtin_names:
+            problems.append(
+                f"name {named.name!r} collides with a built-in policy; "
+                "it can never be resolved by name"
+            )
+            flagged = True
+        entries.append(
+            RegistryEntry(
+                file=path.name,
+                name=named.name,
+                base=named.provenance.base if named.provenance else "",
+                changes=dict(named.provenance.changes) if named.provenance else {},
+                description=named.provenance.description if named.provenance else "",
+                loadable=True,
+                has_provenance=check.has_provenance,
+                consistent=check.consistent,
+                flagged=flagged,
+                problems=problems,
+            )
+        )
+
+    name_counts: dict[str, int] = {}
+    for entry in entries:
+        if entry.loadable:
+            name_counts[entry.name] = name_counts.get(entry.name, 0) + 1
+    duplicates = sorted(name for name, count in name_counts.items() if count > 1)
+    for entry in entries:
+        if entry.name in duplicates:
+            entry.flagged = True
+            entry.problems.append(
+                f"name {entry.name!r} is used by more than one registry file; "
+                "by-name resolution is ambiguous"
+            )
+
+    notes = [
+        "flagged = unreadable, tampered provenance, duplicate name, or built-in collision",
+        "a policy without provenance is listed but not flagged (less history, not tampering)",
+    ]
+    return PolicyRegistry(
+        directory=str(d),
+        entries=entries,
+        n_policies=len(entries),
+        n_flagged=sum(1 for entry in entries if entry.flagged),
+        duplicate_names=duplicates,
+        notes=notes,
+    )
+
+
+def lookup_registered_policy(
+    name: str, *, directory: str | Path | None = None
+) -> NamedPolicy | None:
+    """Find a policy by its *name* in the registry; ``None`` if absent.
+
+    Raises ``ValueError`` when more than one registry file carries the name --
+    by-name resolution must never silently pick one of several.
+    """
+    d = registry_dir(directory)
+    if not d.is_dir():
+        return None
+    matches: list[tuple[Path, NamedPolicy]] = []
+    for path in _registry_files(d):
+        try:
+            named = load_named_policy(path)
+        except Exception:  # noqa: BLE001 - unreadable files cannot match a name
+            continue
+        if named.name == name:
+            matches.append((path, named))
+    if not matches:
+        return None
+    if len(matches) > 1:
+        files = ", ".join(path.name for path, _ in matches)
+        raise ValueError(f"registered policy name {name!r} is ambiguous: defined by {files} in {d}")
+    return matches[0][1]

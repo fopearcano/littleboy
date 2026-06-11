@@ -141,3 +141,32 @@ An adopted profile is a **first-class measurement subject**, and its history is
   runs; the declared history cannot be trusted.* A policy without provenance is
   consistent-by-vacuity and says so. The check never blocks (the profile itself
   is validated separately); it makes the lie visible.
+
+## The policy registry (v0.24)
+
+A project's named policies live in **one place** — a registry directory
+(`./policies` by default, `$LITTLEBOY_POLICY_DIR` or `--registry` to override) —
+listed, verified, and referenced **by name**:
+
+- **`littleboy policies`** scans the directory (deterministically, sorted by
+  filename; the tuner's `*.impact.json` companions are excluded) and lists every
+  policy with its status: `ok`, `no-prov` (less history, not flagged),
+  `FLAGGED` (tampered provenance, a duplicated name, or a name colliding with a
+  built-in), or `UNREADABLE`. Every problem is printed under its entry — a
+  drifted file is visible **before it is ever used**.
+- **`littleboy policies --verify`** exits non-zero when anything is flagged —
+  a one-line CI gate for the whole registry. Missing provenance does not fail
+  the gate; tampering, duplicates, collisions, and unreadable files do.
+- **Resolution by name, ambiguities rejected loudly**: every `--policy`,
+  `--with-policy`, `tune --base`, and `explain-disagreement --against` resolves
+  in a fixed order — **built-in mode → registered name → file path**. A built-in
+  name always wins (a registry entry shadowing one is flagged, never silently
+  used); a reference that is both a registered name and an existing file is an
+  error telling you to disambiguate; a registered policy named like a labeller
+  is rejected for `--against`; duplicate names inside the registry refuse
+  by-name resolution entirely. Tampered policies warn on use exactly as files
+  do.
+
+The registry is still just files: nothing is installed, nothing global mutates,
+and `scan_policy_registry` / `lookup_registered_policy` give the library the
+same capabilities as the CLI.

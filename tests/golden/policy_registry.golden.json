@@ -1,0 +1,71 @@
+{
+  "directory": "<fixture>",
+  "exists": true,
+  "entries": [
+    {
+      "file": "broken.json",
+      "name": "",
+      "base": "",
+      "changes": {},
+      "description": "",
+      "loadable": false,
+      "has_provenance": false,
+      "consistent": false,
+      "flagged": true,
+      "problems": [
+        "not a valid named policy: ValidationError"
+      ]
+    },
+    {
+      "file": "gate025.json",
+      "name": "research_gate_025",
+      "base": "standard",
+      "changes": {
+        "min_data_quality_for_approval": "0.35 -> 0.25"
+      },
+      "description": "data gate lowered after the v0.20 diagnosis",
+      "loadable": true,
+      "has_provenance": true,
+      "consistent": true,
+      "flagged": false,
+      "problems": []
+    },
+    {
+      "file": "noprov.json",
+      "name": "bare_gate",
+      "base": "",
+      "changes": {},
+      "description": "",
+      "loadable": true,
+      "has_provenance": false,
+      "consistent": true,
+      "flagged": false,
+      "problems": [
+        "no provenance declared; nothing to verify"
+      ]
+    },
+    {
+      "file": "tampered.json",
+      "name": "suspicious_gate",
+      "base": "standard",
+      "changes": {
+        "min_data_quality_for_approval": "0.35 -> 0.30"
+      },
+      "description": "",
+      "loadable": true,
+      "has_provenance": true,
+      "consistent": false,
+      "flagged": true,
+      "problems": [
+        "mismatched change for min_data_quality_for_approval: declared '0.35 -> 0.30', actually '0.35 -> 0.25'"
+      ]
+    }
+  ],
+  "n_policies": 4,
+  "n_flagged": 2,
+  "duplicate_names": [],
+  "notes": [
+    "flagged = unreadable, tampered provenance, duplicate name, or built-in collision",
+    "a policy without provenance is listed but not flagged (less history, not tampering)"
+  ]
+}

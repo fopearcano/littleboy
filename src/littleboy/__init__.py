@@ -175,16 +175,20 @@ from littleboy.rules import (
     NamedPolicy,
     PolicyProfile,
     PolicyProvenance,
+    PolicyRegistry,
     ProvenanceCheck,
+    RegistryEntry,
     Rule,
     RuleEngine,
     RuleRegistry,
     default_registry,
     get_policy,
     load_named_policy,
+    lookup_registered_policy,
     profile_changes,
     resolve_policy_ref,
     save_named_policy,
+    scan_policy_registry,
     verify_named_policy,
 )
 from littleboy.temporal import (
@@ -203,7 +207,7 @@ from littleboy.temporal import (
     score_reversibility,
 )
 
-__version__ = "0.23.0"
+__version__ = "0.24.0"
 
 __all__ = [
     "AuditCorpus",
@@ -321,6 +325,8 @@ __all__ = [
     "PolicyProfile",
     "PolicyProvenance",
     "ProvenanceCheck",
+    "PolicyRegistry",
+    "RegistryEntry",
     "Question",
     "QuestionCategory",
     "QuestionPriority",
@@ -362,11 +368,13 @@ __all__ = [
     "get_template",
     "list_templates",
     "load_named_policy",
+    "lookup_registered_policy",
     "profile_changes",
     "project_temporal",
     "recommended_next_questions",
     "resolve_policy_ref",
     "save_named_policy",
+    "scan_policy_registry",
     "verify_named_policy",
     "score_constructive_language",
     "score_cumulative_coercion",

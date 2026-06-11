@@ -11,17 +11,17 @@ and returns a **transparent, explained verdict** with an honest account of its
 own uncertainty. It is a reasoning engine, not a user interface and not a
 language model.
 
-This is **v0.23**, which makes an adopted policy a **first-class measurement
-subject with a verified history**: named policies enter the reliability tables
-and the recommendation ranking as rows **under their own name** (`calibrate
---with-policy my_policy.json`, `recommend-policy --with-policy ...` — a name
-colliding with a built-in is rejected, and the named row's counts are test-pinned
-to the tuner's after-numbers); `diagnose` and `explain-disagreement` carry the
-name in their reports (`DIAGNOSIS: engine[research_gate_025] ...`, and
-`--against` accepts a policy file, so custom profiles can be diffed case by
-case); and `verify_named_policy` **recomputes the declared provenance against
-the named base** — every kind of tampering named specifically and warned loudly
-on load, never silently trusted. (v0.22 made a vetted candidate a first-class
+This is **v0.24**, which gives a project's named policies **one verified home**:
+a registry directory (`./policies`, `$LITTLEBOY_POLICY_DIR`, or `--registry`)
+that `littleboy policies` lists with every entry's provenance status — `ok` /
+`no-prov` / `FLAGGED` (tampered, duplicated, or colliding with a built-in) /
+`UNREADABLE` — so a drifted file is visible **before it is ever used**;
+`littleboy policies --verify` is a one-line CI gate (non-zero exit on any
+flagged entry); and every `--policy`, `--with-policy`, `tune --base`, and
+`explain-disagreement --against` now resolves **by name** in a fixed order
+(built-in mode → registered name → file path) with every ambiguity rejected
+loudly. (v0.23 made named policies first-class measurement subjects with
+verified provenance; v0.22 made a vetted candidate a first-class
 named policy: clock-free provenance, save/load/validate, accepted by every
 `--policy`, `policy_label` on every report; v0.21 added the dry-run tuner:
 every flip, every stakeholder delta, every golden, nothing silent; v0.20 turned
@@ -805,6 +805,35 @@ unchanged. See [`docs/POLICY_PROFILES.md`](docs/POLICY_PROFILES.md).
 Deterministic, typed, additive — the verdict under every built-in policy is
 unchanged. See [`docs/POLICY_PROFILES.md`](docs/POLICY_PROFILES.md).
 
+## LittleBoy v0.24: The policy registry
+
+> A project's policies deserve one home — listed, verified, referenced by name —
+> with every drifted file flagged before it is ever used.
+
+- **`littleboy policies`** (`scan_policy_registry`): scans the registry
+  directory (`./policies` by default; `$LITTLEBOY_POLICY_DIR` or `--registry`
+  override; deterministic, sorted by filename; `*.impact.json` companions
+  excluded) and lists every policy with name, base, change summary, description,
+  and its **provenance-check status**: `ok`, `no-prov` (less history — listed,
+  not flagged), `FLAGGED` (tampered provenance, duplicate name, or a name
+  colliding with a built-in), or `UNREADABLE`. Every problem prints under its
+  entry. **`--verify` exits non-zero on any flagged entry** — a one-line CI gate
+  for the whole registry.
+- **Resolution by name, ambiguities rejected loudly**: every `--policy`,
+  `--with-policy`, `tune --base`, and `explain-disagreement --against` resolves
+  in a fixed order — **built-in mode → registered name → file path**
+  (`resolve_policy_ref` / `lookup_registered_policy` in the library). A built-in
+  name always wins and a registry entry shadowing one is flagged; a reference
+  that is both a registered name and an existing file errors with instructions
+  to disambiguate; duplicate names inside the registry refuse by-name resolution
+  entirely; a registered policy named like a labeller is rejected for
+  `--against`. Tampered registered policies warn on use exactly as files do.
+  A committed fixture registry (`tests/fixtures/policies/`) exercises every
+  status, golden-pinned.
+
+Deterministic, typed, additive — the verdict under every built-in policy is
+unchanged. See [`docs/POLICY_PROFILES.md`](docs/POLICY_PROFILES.md).
+
 ## How evidence is represented
 
 An `EvidenceSet` holds `EvidenceItem`s, each a `claim` plus its `source_type`
@@ -964,7 +993,7 @@ pip install -e ".[dev]"     # pydantic, pytest, typer, ruff
 ## Running the tests
 
 ```bash
-pytest                      # 335 tests
+pytest                      # 350 tests
 ruff check src tests        # lint (optional)
 ```
 
@@ -1013,6 +1042,9 @@ littleboy tune --set min_data_quality_for_approval=0.25 --external --save my_pol
 littleboy evaluate examples/simple_case.json --policy my_policy.json      # use a named custom policy anywhere --policy is accepted
 littleboy calibrate --scope reliability --with-policy my_policy.json     # the named policy as a reliability row (v0.23)
 littleboy recommend-policy --external --with-policy my_policy.json       # ...and in the recommendation ranking
+littleboy policies --registry ./policies                                  # list the registry, provenance-verified (v0.24)
+littleboy policies --verify                                               # CI gate: non-zero exit if anything is flagged
+littleboy evaluate examples/simple_case.json --policy research_gate_025   # reference a registered policy by NAME
 littleboy build-case --minimal --from examples/voi_consent_pivotal.json --strategy lookahead
 littleboy templates                                                       # list scenario templates
 littleboy version
@@ -1193,20 +1225,21 @@ make consequential decisions about real people.
 
 ## Current development status
 
-**v0.23 — calibration under a named policy.** Implemented on top of v0.22.
-Named policies become first-class measurement subjects: `run_reliability` and
-`recommend_policy_for_stakeholder` accept `extra_policies` and add each named
-profile as a row/candidate **under its own name** alongside the four built-ins
-(collisions with built-in names and duplicates rejected; the named row's counts
-test-pinned to the tuner's after-numbers). `diagnose` and `explain-disagreement`
-take `policy_label` and carry the name in their reports; `explain-disagreement
---against` accepts a named-policy file, so custom profiles diff against
-built-ins case by case. `verify_named_policy` recomputes the declared provenance
-from the named base via the canonical `profile_changes` rendering (shared with
-the tuner) and names every kind of tampering — mismatched value, undeclared
-change, declared-but-absent change, unknown base — with a loud CLI warning on
-load and consistent files staying silent. New `--with-policy` on `calibrate` and
-`recommend-policy`; a 335-test suite (all passing). Purely additive — the
+**v0.24 — the policy registry.** Implemented on top of v0.23. Named policies
+get one verified home: `scan_policy_registry` walks the registry directory
+(`./policies`, `$LITTLEBOY_POLICY_DIR`, or an explicit override; deterministic;
+the tuner's `*.impact.json` companions excluded) and reports every file's load
+and provenance status — flagging tampered provenance, duplicate names, names
+colliding with a built-in, and unreadable files, while missing provenance is
+listed but not flagged. `littleboy policies` renders the listing (text/JSON) and
+`--verify` exits non-zero on any flagged entry, a one-line CI gate. Every
+`--policy`, `--with-policy`, `tune --base`, and `explain-disagreement --against`
+resolves by name in a fixed order (built-in → registered name → file path), with
+every ambiguity rejected loudly: built-ins never shadowed, name-vs-file clashes
+erroring with instructions, duplicate registry names refusing resolution,
+policy-vs-labeller clashes rejected for `--against`. A committed fixture
+registry exercises every status, golden-pinned. New `policies` command and
+`LITTLEBOY_POLICY_DIR`; a 350-test suite (all passing). Purely additive — the
 verdict under every built-in policy is unchanged.
 
 Earlier phases delivered the core models; coercion/data-quality/evidence scoring;
@@ -1226,8 +1259,9 @@ single-split fitted-threshold recommender; the v0.16 cross-validated fitting &
 set; the v0.18 case-level disagreement explanations (trace diffs + minimal
 parameter accounts); the v0.19 fact accounts & unified classification; the
 v0.20 corpus-level diagnosis report (fractions, recurring accounts, tuning
-agenda); the v0.21 dry-run tuner; and the v0.22 named custom policies. All
-v0.1–v0.22 inputs remain valid.
+agenda); the v0.21 dry-run tuner; the v0.22 named custom policies; and the
+v0.23 calibration under a named policy (verified provenance). All v0.1–v0.23
+inputs remain valid.
 
 **Deliberately not built:** any web UI, any LLM/API integration, any opaque bias
 detection, any prediction that looks certain, any claim to absolute truth, any
@@ -1241,10 +1275,10 @@ to interrogate, not more dogmatic**.
   path, agreement, reliability, recommendation, inference, explanations,
   diagnosis, and the tuner all run unchanged), and publish the resulting real
   agreement, gain inference, and diagnosis report.
-- A **policy registry file**: let a project keep several named policies in one
-  place (a directory or index), list them (`littleboy policies`), and reference
-  them by name from any command — with the provenance check run across the whole
-  registry so a drifted file is flagged before it is ever used.
+- A **decision log**: append-only records of policy adoptions (who switched the
+  project's working policy to what, with the tuner's impact report attached),
+  so the registry carries not just the policies but the history of choosing
+  between them.
 - Let `intake_hints` declare fully custom unknowns (probe fields, resolutions, costs,
   and probabilities) so domains beyond the built-in fields can drive the planner —
   which would also widen the fact-account vocabulary case by case.
